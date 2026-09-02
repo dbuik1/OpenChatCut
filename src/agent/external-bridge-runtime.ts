@@ -17,6 +17,7 @@ import { ExternalSessionRunLedger, invocationFromApproval } from './external-run
 import { validateExternalInvocation } from './external-tool-schemas';
 import { executeTool } from './tools';
 import { isExternalGlobalReadTool, isExternalRealTool } from './external-tool-policy';
+import { isLocalCodeExecutionTool } from './local-exec-approval';
 import { isProposalStale, type Proposal } from './proposal';
 import { saveProject } from '../persist/projectStore';
 import { saveAutomaticVersion } from '../persist/versionStore';
@@ -167,7 +168,10 @@ export class ExternalBridgeRuntime {
     if (!approved) {
       // auto (YOLO) sessions skip the confirmation card entirely — the
       // client explicitly opted into unapproved real-project execution.
-      if (session.approvalMode === 'auto') {
+      // Local code execution is outside what that opt-in can cover: a client
+      // flag cannot stand in for a person agreeing to run a third-party repo
+      // on their machine, so these tools keep the confirmation card in auto.
+      if (session.approvalMode === 'auto' && !isLocalCodeExecutionTool(name)) {
         const invocation = await run.requested(name, args);
         return run.executeApprovedTool(invocation, args, this.getContext(), signal);
       }

@@ -156,13 +156,19 @@ async function verifyDurableBoundary(): Promise<void> {
 }
 
 async function verifyDirectExecutionBoundary(): Promise<void> {
-  // No approval gate: persistent-local tools execute straight through.
+  // Persistent-local tools execute straight through, except the ones that run
+  // third-party code on this machine: with no confirmation surface attached,
+  // install_skill is refused before any side effect. The confirmation itself
+  // is pinned in local-exec-approval.verify.ts.
   let executions = 0;
-  await executeInstallSkill([], async () => {
+  const log: string[] = [];
+  const refused = await executeInstallSkill(log, async () => {
     executions += 1;
     return { ok: true };
   });
-  assert.equal(executions, 1, 'install_skill executes without a confirmation card');
+  assert.equal(executions, 0, 'install_skill does not execute unconfirmed');
+  assert.equal(refused.success, false);
+  assert.equal(log.at(-1), 'outcome:aborted_before_side_effect');
 }
 
 async function verifyAbortFence(): Promise<void> {

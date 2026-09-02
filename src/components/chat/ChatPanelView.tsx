@@ -7,6 +7,7 @@ import { ChatComposer } from './ChatComposer';
 import { ChatMessage } from './ChatMessage';
 import { ChatRunStatus } from './ChatRunStatus.tsx';
 import { ExternalProposalCard } from './ExternalProposalCard';
+import { LocalExecApprovalCard } from './LocalExecApprovalCard';
 import { ProposalCard } from './ProposalCard';
 import { ToolGroupRow } from './ToolGroupRow';
 import { groupMessages } from './message-groups';
@@ -151,6 +152,7 @@ function AgentRunCards({ controller }: { controller: ChatPanelController }) {
         onPreview={(on) => props.onPreviewState(on ? agent.proposal?.resultState ?? null : null)} />
     )}
     <ExternalProposalCard external={externalProposal} onPreviewState={props.onPreviewState} />
+    <LocalExecApprovalCard />
   </>;
 }
 

@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Security / 安全
+
+- `install_skill` and `run_skill_script` now ask before they run. Between them they clone an arbitrary GitHub repository — `scripts/` included — into `~/.openchatcut/skills/` and execute binaries against it on the local machine, and the tool boundary classified both as ordinary `persistent_local` work with no approval of any kind. Their arguments come from model output, which carries transcript text, scraped pages and skill files, so any of those could ask for an install and get one. Each call now waits for a confirmation naming the exact repository or command, bound to those arguments only; there is no "always allow", and a runtime with no confirmation surface refuses instead of falling open.
+  `install_skill` 与 `run_skill_script` 现在必须先确认。二者会把任意 GitHub 仓库（含 `scripts/`）克隆到 `~/.openchatcut/skills/` 并在本机执行其中的可执行文件，而工具边界此前把它们当作普通的 `persistent_local` 操作，没有任何审批。它们的参数来自模型输出，而模型输出承载着文字稿、抓取到的网页与技能文件的内容——其中任何一处都可以要求安装并如愿以偿。现在每次调用都会等待一次确认，卡片上写明具体仓库或具体命令，且只对这组参数生效；没有「始终允许」，运行环境若没有确认界面则直接拒绝，而不是放行。
+- External MCP sessions started with `approvalMode: "auto"` no longer cover local code execution: auto skips the confirmation card for real-project tools, but a client flag cannot stand in for a person agreeing to run third-party code on their own machine, so these two tools keep the card in every mode. The `begin_edit_session` description said auto "never bypasses real-tool confirmation", which was not true of any real tool; it now describes what auto actually does.
+  以 `approvalMode: "auto"` 开启的外部 MCP 会话不再覆盖本机代码执行：auto 会跳过真实工程操作的确认卡片，但客户端的一个标志不能代替本人同意在自己电脑上运行第三方代码，因此这两个工具在任何模式下都保留卡片。`begin_edit_session` 的描述此前称 auto「绝不绕过真实工具确认」——对任何真实工具都不属实，现已改写为 auto 的真实行为。
+- The skill-script whitelist no longer admits package runners. `npx` and `uvx` fetch a package from a public registry and execute it, so the interpreter guard's "the script must be a file inside the skill directory" rule never applied to them; `uv` and `pip` resolve and install remote packages the same way. All four are rejected, and `npm` is limited to `run`/`run-script`/`start`/`test` — the skill's own scripts — rather than `install`, which runs remote lifecycle scripts.
+  技能脚本白名单不再放行包运行器。`npx` 与 `uvx` 从公共仓库拉取并执行包，因此解释器守卫「脚本必须是技能目录内的文件」这条规则对它们从未生效；`uv` 与 `pip` 同样解析并安装远程包。四者一律拒绝；`npm` 限定为 `run`/`run-script`/`start`/`test`（技能自带脚本），不再允许会执行远程生命周期脚本的 `install`。
+
 ## [0.2.13] - 2026-08-31
 
 ### Fixed / 修复

@@ -10,7 +10,9 @@ export type ToolEffect =
   | 'persistent_local'
   | 'irreversible_external';
 export type ToolRecoveryPolicy = 'pure' | 'idempotent' | 'resume' | 'outcome_unknown';
-/** Execution classification for recovery and offline authorization; no approval gate. */
+/** Execution classification for recovery and offline authorization. The only
+ * approval this classification implies is local code execution: the tools in
+ * LOCAL_CODE_EXECUTION_TOOL_NAMES are confirmed per call at the tool boundary. */
 export interface ToolExecutionPolicy {
   readonly effect: ToolEffect;
   readonly recovery: ToolRecoveryPolicy;

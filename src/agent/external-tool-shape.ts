@@ -24,7 +24,7 @@ const SESSION_ID_PROPERTY = {
 export const EXTERNAL_SESSION_TOOLS: readonly ExternalRegisteredTool[] = [
   {
     name: 'begin_edit_session',
-    description: 'Start an isolated OpenChatCut edit draft. Manual mode waits for proposal review; auto mode applies only the staged proposal at review_edit_session. Real-project tools always require separate confirmation.',
+    description: 'Start an isolated OpenChatCut edit draft. Manual mode waits for proposal review; auto mode applies only the staged proposal at review_edit_session. Real-project tools require separate confirmation in manual mode, and local code execution requires it in every mode.',
     input_schema: {
       type: 'object',
       properties: {
@@ -32,7 +32,7 @@ export const EXTERNAL_SESSION_TOOLS: readonly ExternalRegisteredTool[] = [
         approvalMode: {
           type: 'string',
           enum: ['manual', 'auto'],
-          description: 'manual (default) requires proposal approval in OpenChatCut; auto applies the reviewed draft only and never bypasses real-tool confirmation.',
+          description: 'manual (default) requires proposal approval in OpenChatCut; auto applies the reviewed draft and also runs real-project tools without a confirmation card. Local code execution (install_skill, run_skill_script) is the exception: it always waits for a confirmation, in auto too.',
         },
       },
     },

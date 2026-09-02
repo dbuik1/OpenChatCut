@@ -4,7 +4,7 @@ import type { AgentToolSchema } from '../../tool-schema';
 export const INSTALL_SKILL_TOOL_SCHEMAS: AgentToolSchema[] = [
   {
     name: 'install_skill',
-    description: '从 GitHub 安装一个 skill 仓库到本机技能目录（~/.openchatcut/skills/<slug>/），完整安装 SKILL.md 及其 references/scripts/assets/examples。安装后资源库「技能」面板会自动展示，可用 /skill:<slug> 或面板激活。repo 支持 GitHub URL 或 owner/repo（如 "Jane-xiaoer/paper-collage-ad-codex"）。slug 可选，默认取 SKILL.md 的 name 或仓库名。',
+    description: '从 GitHub 安装一个 skill 仓库到本机技能目录（~/.openchatcut/skills/<slug>/），完整安装 SKILL.md 及其 references/scripts/assets/examples。安装后资源库「技能」面板会自动展示，可用 /skill:<slug> 或面板激活。repo 支持 GitHub URL 或 owner/repo（如 "Jane-xiaoer/paper-collage-ad-codex"）。slug 可选，默认取 SKILL.md 的 name 或仓库名。安装的是第三方代码，每次调用都需要用户在 OpenChatCut 中确认该仓库，没有「始终允许」。',
     input_schema: {
       type: 'object',
       properties: {

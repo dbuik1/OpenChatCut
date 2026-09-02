@@ -27,6 +27,7 @@ import {
   type ToolExecutionPolicy,
 } from '../execution-policy';
 import { digestAgentToolArgs, TOOL_ARTIFACT_THRESHOLD } from '../runtime-ledger';
+import { approveLocalExecution, isLocalCodeExecutionTool } from '../local-exec-approval';
 import {
   artifactPlaceholder,
   attachAgentArtifactRef,
@@ -112,7 +113,25 @@ async function prepareToolBoundary(
       toolCallId: state.toolCallId, toolName: schema.name, args: state.invocationArgs,
     })).argsDigest
     : await digestAgentToolArgs(state.invocationArgs);
+  await requireLocalExecutionApproval(schema.name, execution, state);
   return null;
+}
+
+/**
+ * install_skill and run_skill_script put third-party code on the machine and
+ * run it. The confirmation happens before recordToolStarted, so a denial is an
+ * abort with no side effect, and it binds to these exact arguments: a changed
+ * repo, slug or command is a new confirmation.
+ */
+async function requireLocalExecutionApproval(
+  tool: string,
+  execution: LocalToolExecutionContext,
+  state: ToolBoundaryState,
+): Promise<void> {
+  if (!isLocalCodeExecutionTool(tool)) return;
+  const decision = await approveLocalExecution(tool, state.invocationArgs, execution.signal);
+  if (decision.allowed) return;
+  throw new ToolBoundaryError(decision.message, { kind: 'aborted_before_side_effect' });
 }
 function toolFollowupText(result: unknown): string | null {
   if (!result || typeof result !== 'object' || Array.isArray(result)

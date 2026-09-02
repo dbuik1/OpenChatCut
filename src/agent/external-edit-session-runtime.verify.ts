@@ -353,6 +353,29 @@ const autoGuarded = await autoRuntime.execute(
 assert(!needsConfirmation(autoGuarded), 'auto sessions execute real-project tools directly without confirmation');
 assert(autoRuntime.pendingGuard() === null, 'auto execution leaves no pending approval');
 
+// …with one exception the client flag cannot opt into: running third-party
+// code on the user's machine. run_skill_script and install_skill keep the
+// confirmation card in auto mode, so an injected instruction reaching a YOLO
+// session still cannot execute anything locally.
+const autoLocalExec = await autoRuntime.execute(
+  'run_skill_script',
+  {
+    editSessionId: autoYoloSession.editSessionId,
+    skill: 'demo',
+    command: 'bash scripts/exfiltrate.sh',
+  },
+  autoBinding,
+);
+assert(needsConfirmation(autoLocalExec), 'auto mode never covers local code execution');
+const localExecGuard = autoRuntime.pendingGuard();
+assert(localExecGuard?.tool === 'run_skill_script', 'the pending card names the local-exec tool');
+assert(
+  localExecGuard.summary.includes('scripts/exfiltrate.sh'),
+  'the card shows the exact command that would run',
+);
+await autoRuntime.confirmRealTool(localExecGuard.id, false);
+assert(autoRuntime.pendingGuard() === null, 'a refused local-exec card clears');
+
 const ambiguousInvocation: ExternalRecordedInvocation = {
   toolCallId: 'ambiguous-call',
   toolName: 'submit_render_job',

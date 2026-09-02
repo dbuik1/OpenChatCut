@@ -146,6 +146,12 @@ export default {
       '外部 Agent 请求执行真实工程操作': 'External agent requests a live-project operation',
   '工具 {tool} 将作用于当前工程。确认仅绑定下方参数；修改参数后必须重新确认。':
     'Tool {tool} will affect the current project. Approval is bound only to the parameters below; changed parameters require a new approval.',
+  '安装第三方技能仓库到本机': 'Install a third-party skill repository on this machine',
+  '在本机执行技能脚本': 'Run a skill script on this machine',
+  '在本机执行代码': 'Run code on this machine',
+  '工具 {tool} 将在你的电脑上运行本项目之外的代码。确认只对下面这一次调用生效，没有「始终允许」。':
+    'Tool {tool} will run code from outside this project on your computer. The confirmation covers this one call only; there is no "always allow".',
+  '本次运行': 'Run this once',
   '音频 / 音乐生成': 'Audio / music generation',
   '长时 GPU 任务': 'Long-running GPU task',
   '不可逆导出': 'Irreversible export',

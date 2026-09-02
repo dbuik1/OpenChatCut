@@ -97,4 +97,30 @@ function requestShape(
   console.log('skill-exec interpreter guard: OK');
 }
 
+// ── ③ skill-exec binary and subcommand whitelist ─────────────────────────
+// The interpreter guard only constrains interpreters. A package runner needs
+// no script file at all: `npx <pkg>` and `uvx <pkg>` fetch code from a public
+// registry and execute it in the skill directory, so the guard above passed
+// them through untouched.
+{
+  const { commandGuardError } = await import('./skill-exec.ts');
+  assert.ok(commandGuardError('npx', ['create-anything']), 'npx rejected');
+  assert.ok(commandGuardError('uvx', ['ruff']), 'uvx rejected');
+  assert.ok(commandGuardError('uv', ['run', 'main.py']), 'uv rejected');
+  assert.ok(commandGuardError('pip', ['install', 'requests']), 'pip rejected');
+  assert.ok(commandGuardError('curl', ['https://example.test']), 'unlisted binary rejected');
+
+  assert.ok(commandGuardError('npm', ['install']), 'npm install rejected: it runs remote lifecycle scripts');
+  assert.ok(commandGuardError('npm', ['exec', 'anything']), 'npm exec rejected');
+  assert.ok(commandGuardError('npm', []), 'bare npm rejected');
+  assert.ok(commandGuardError('npm', ['--yes', 'install']), 'flags do not hide the subcommand');
+  assert.equal(commandGuardError('npm', ['run', 'build']), null, 'npm run executes the skill\'s own script');
+  assert.equal(commandGuardError('npm', ['test']), null, 'npm test allowed');
+
+  assert.equal(commandGuardError('node', ['scripts/render.mjs']), null, 'node allowed');
+  assert.equal(commandGuardError('bash', ['scripts/check-deps.sh']), null, 'bash allowed');
+  assert.equal(commandGuardError('ffmpeg', ['-i', 'a.mp4', 'b.mp4']), null, 'ffmpeg allowed');
+  console.log('skill-exec command whitelist: OK');
+}
+
 console.log('\nread-path-auth.verify: ALL PASSED');

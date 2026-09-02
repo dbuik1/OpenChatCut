@@ -1,6 +1,7 @@
 // Skill script execution on the LOCAL machine — the equivalent of omp's
 // "[Skill directory: baseDir] + terminal" for installed skills, but narrowed:
-// whitelisted binaries only, no shell (execFile, so args never hit a shell),
+// whitelisted binaries only, no registry-fetching runners, no shell (execFile,
+// so args never hit a shell),
 // cwd locked to the skill directory, timeout, output cap, no env inheritance
 // beyond PATH/HOME. Runs the deterministic scripts shipped with a skill
 // (render.mjs, check-deps.sh, …) that a cloud sandbox cannot reach.
@@ -16,10 +17,43 @@ const execFileAsync = promisify(execFile);
 
 // Whitelisted binaries — deliberately small. No rm/sudo/curl/anything that
 // would let an arbitrary skill reach outside its directory destructively.
+// Package runners are absent on purpose: npx and uvx fetch a package from a
+// public registry and execute it, which is remote code execution with the
+// skill directory only as a working directory, and no argument check can
+// narrow that back down to the files the user reviewed.
 const ALLOWED_BINARIES = new Set([
-  'bash', 'sh', 'node', 'npm', 'npx', 'python3', 'python', 'uv', 'uvx',
+  'bash', 'sh', 'node', 'npm', 'python3', 'python',
   'ffmpeg', 'ffprobe', 'mkdir', 'cp', 'chmod',
 ]);
+
+const REJECTED_RUNNERS: Record<string, string> = {
+  npx: 'npx fetches and runs a package from the npm registry',
+  uvx: 'uvx fetches and runs a package from PyPI',
+  uv: 'uv resolves and installs remote Python packages',
+  pip: 'pip installs remote Python packages',
+  pip3: 'pip3 installs remote Python packages',
+};
+
+// npm's own subcommands split the same way: `run` executes a script from the
+// skill's package.json, which is the skill's reviewed code, while `install`,
+// `exec` and friends fetch remote packages and run their lifecycle scripts.
+const NPM_ALLOWED_SUBCOMMANDS = new Set(['run', 'run-script', 'start', 'test']);
+
+/** Reject binaries and subcommands that fetch and execute code from a registry. */
+export function commandGuardError(binary: string, args: readonly string[]): string | null {
+  const rejected = REJECTED_RUNNERS[binary];
+  if (rejected) return `command not allowed: "${binary}" — ${rejected}; commit the script into the skill directory and run it directly`;
+  if (!ALLOWED_BINARIES.has(binary)) {
+    return `command not allowed: "${binary}" — whitelist: ${[...ALLOWED_BINARIES].sort().join(', ')}`;
+  }
+  if (binary !== 'npm') return null;
+  const subcommand = args.find((arg) => !arg.startsWith('-')) ?? '';
+  if (!NPM_ALLOWED_SUBCOMMANDS.has(subcommand)) {
+    return `npm subcommand not allowed: "${subcommand || '(none)'}" — allowed: ${
+      [...NPM_ALLOWED_SUBCOMMANDS].sort().join(', ')}`;
+  }
+  return null;
+}
 
 // Interpreters may only run a script FILE that lives inside the skill
 // directory. Inline program text (`bash -c`, `node -e/--eval`, `python -c/-m`)
@@ -114,12 +148,11 @@ async function runInSkillDir(slug: string, body: ExecRequest): Promise<unknown> 
     return { error: `skill "${slug}" is not installed (no SKILL.md in ${dir})` };
   }
   const binary = body.command.split(/\s+/)[0] ?? '';
-  if (!ALLOWED_BINARIES.has(binary)) {
-    return { error: `command not allowed: "${binary}" — whitelist: ${[...ALLOWED_BINARIES].sort().join(', ')}` };
-  }
   const rest = body.command.slice(binary.length).trim();
   const args = rest ? rest.split(/\s+/) : [];
   args.push(...body.args);
+  const commandError = commandGuardError(binary, args);
+  if (commandError) return { error: commandError };
   const guardError = interpreterGuardError(dir, binary, args);
   if (guardError) return { error: guardError };
   const timeout = Math.min(Math.max(body.timeout ?? 60_000, 1_000), MAX_TIMEOUT_MS);
