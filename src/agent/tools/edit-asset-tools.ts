@@ -2,7 +2,7 @@ export { EDIT_ASSET_TOOL_SCHEMAS, EDIT_ASSET_TOOL_NAMES } from './schemas/edit-a
 import type { AgentContext } from '../context';
 import type { MediaAsset, TimelineItem } from '../../editor/types';
 import { isSourceClockMetadata } from '../../editor/timecode';
-import { prepareTemplate } from '../../template-host';
+import { probeTemplate } from '../../template-sandbox';
 
 // edit_asset: Change/delete "library assets" (assets in the media pool, non-timeline clips).
 // - update: rename / change props / change the source code of the code class asset (MG) - changing the code must first go through the MG sandbox.
@@ -47,7 +47,7 @@ async function update(asset: MediaAsset, args: Args, ctx: AgentContext): Promise
   if (code) {
     if (asset.kind !== 'motion-graphic') return { error: `asset "${asset.name}" is ${asset.kind}, not a code (motion-graphic) asset — code cannot be set` };
     try {
-      await prepareTemplate(code); // Sandbox validation and restricted-scope compilation must complete before persistence.
+      await probeTemplate(code); // Untrusted code is evaluated in the opaque-origin sandbox, never here, before persistence.
     } catch (e) {
       return { error: `new code rejected by sandbox: ${e instanceof Error ? e.message : String(e)}`, code };
     }

@@ -2,7 +2,7 @@ import type { AgentContext } from '../context';
 import type { AgentToolSchema } from '../tool-schema';
 import { defaultTrackId, resolveTrackId, trackAlias } from '../../editor/types';
 import type { MediaAsset } from '../../editor/types';
-import { prepareTemplate } from '../../template-host';
+import { probeTemplate } from '../../template-sandbox';
 import { generateAgentText } from '../client';
 import { designStyleHint } from '../systemPrompt';
 import { execCoreDataTool } from './core-data-tools';
@@ -124,7 +124,7 @@ async function createMotionGraphic(args: Args, ctx: AgentContext): Promise<unkno
   }
   if (!code) return { error: 'model returned empty code' };
   try {
-    await prepareTemplate(code);
+    await probeTemplate(code);
   } catch (error) {
     return { error: `generated code rejected by sandbox: ${error instanceof Error ? error.message : String(error)}`, code };
   }

@@ -1,7 +1,7 @@
 export { MG_CODE_TOOL_SCHEMAS, MG_CODE_TOOL_NAMES } from './schemas/mg-code-tools';
 import type { AgentContext } from '../context';
 import type { MediaAsset } from '../../editor/types';
-import { prepareTemplate } from '../../template-host';
+import { probeTemplate } from '../../template-sandbox';
 
 // create_motion_graphic_from_code registers inline MG JSX as a pool asset.
 
@@ -28,7 +28,7 @@ export async function execMgCodeTool(
   if (!(width > 0) || !(height > 0)) return { error: 'width and height must be positive numbers' };
 
   try {
-    await prepareTemplate(code);
+    await probeTemplate(code);
   } catch (e) {
     return {
       error: `code rejected by sandbox: ${e instanceof Error ? e.message : String(e)}`,

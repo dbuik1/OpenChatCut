@@ -16,6 +16,15 @@
 // traversal that slips past the static check. PRODUCTION must additionally run
 // templates in a sandboxed <iframe sandbox="allow-scripts"> (opaque origin) or a
 // QuickJS WASM realm.
+//
+// That opaque-origin iframe exists in template-sandbox.ts and owns every
+// evaluation that happens BEFORE a template is accepted — plugin install
+// probes and the agent's pre-persistence checks. What remains in this module
+// is evaluation of templates already stored in the project, on the render
+// path, where the compiled component must be a React element the Remotion
+// composition can mount (in the browser Player and under headless render
+// alike). Moving that behind the iframe is a rendering change, not a
+// validation change, and is still to do.
 import * as React from 'react';
 import {
   useCurrentFrame, useVideoConfig, interpolate, interpolateColors,
@@ -130,7 +139,7 @@ export function validateTemplate(code: string): void {
 const cache = new Map<string, MgComponent>();
 const pending = new Map<string, Promise<MgComponent>>();
 
-function templateName(code: string): string {
+export function templateName(code: string): string {
   const itemSignature = code.match(
     /const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(\s*\{[^)}]*\bitem\b[^)}]*\}/,
   );
@@ -140,6 +149,10 @@ function templateName(code: string): string {
   return name;
 }
 
+/** Names bound for a template: the injected globals, then everything shadowed away. */
+export const TEMPLATE_GLOBAL_NAMES: readonly string[] = Object.keys(WHITELIST);
+export const TEMPLATE_SHADOW_NAMES: readonly string[] = SHADOW;
+
 function evaluateTemplate(transpiled: string, name: string): MgComponent {
   const names = [...Object.keys(WHITELIST), ...SHADOW];
   const values = [...Object.values(WHITELIST), ...SHADOW.map(() => undefined)];
@@ -147,9 +160,9 @@ function evaluateTemplate(transpiled: string, name: string): MgComponent {
   return factory(...values) as MgComponent;
 }
 
-async function compileUncached(code: string): Promise<MgComponent> {
+/** Validate and transpile without evaluating: JSX in, plain JS out, nothing runs. */
+export async function transpileTemplate(code: string): Promise<string> {
   validateTemplate(code);
-  const name = templateName(code);
   // Compiler boundary: user/plugin JSX is the only path allowed to load Babel.
   const Babel = await import('@babel/standalone');
   const output = Babel.transform(code, {
@@ -157,7 +170,12 @@ async function compileUncached(code: string): Promise<MgComponent> {
     filename: 'template.jsx',
   }).code;
   if (!output) throw new Error('template: babel 无输出');
-  return evaluateTemplate(output, name);
+  return output;
+}
+
+async function compileUncached(code: string): Promise<MgComponent> {
+  const name = templateName(code);
+  return evaluateTemplate(await transpileTemplate(code), name);
 }
 
 /** Validate, compile, and cache one code-backed template before it can render. */
