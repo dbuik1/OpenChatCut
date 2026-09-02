@@ -63,7 +63,9 @@ export function applyTranscriptAction(s: TimelineState, a: Action): TimelineStat
         items: s.items.map((it) => {
           if (it.id !== a.id) return it;
           const del = new Set(it.deletedWordIdx ?? []);
-          if (a.removeFillers) for (const idx of fillerIndices(it.transcript!)) del.add(idx);
+          // extraFillers arrive already normalised (parseExtraFillers at the tool boundary).
+          const extra = a.extraFillers?.length ? new Set(a.extraFillers) : undefined;
+          if (a.removeFillers) for (const idx of fillerIndices(it.transcript!, extra)) del.add(idx);
           const next = {
             ...it,
             deletedWordIdx: [...del],

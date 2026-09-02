@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added / 新增
+
+- `clean_script` takes an optional `extraFillers` list, so a speaker whose verbal tics are "like" or "basically" can be cleaned mechanically. The root cause of the gap was that the filler vocabulary was a module-private `Set` literal with no parameter reaching it from the tool: everyone got the same ten English tokens and five Chinese ones, and any other tic had to be deleted by hand, word by word. The built-in set stays the default and is always active; supplied tokens are additive and normalise exactly as the built-ins do (lowercased, everything but letters and Chinese characters stripped), so `like` matches "Like," in the transcript. Duplicates and empty tokens are ignored, the list is capped at 200, and a multi-word phrase is rejected with an error naming the token rather than silently ignored — the transcript is word-indexed, so a phrase needs a matcher this patch does not add.
+  `clean_script` 新增可选的 `extraFillers` 列表：口头禅是 "like"、"basically" 的讲述者现在也能机械清理。此前缺口的根因是填充词表只是模块内私有的 `Set` 字面量，工具侧没有任何参数能到达它——所有人共用那十个英文词与五个中文词，其余口头禅只能逐词手删。内置词表仍是默认值且始终生效；传入的词是叠加的，并与内置词走同一套归一化（转小写、只保留字母与中文），因此 `like` 能匹配文字稿里的 "Like,"。重复与空词会被忽略，列表上限 200 条；包含空格的多词短语会报错并指名该词，而不是被静默丢弃——文字稿以词为索引，短语需要本次不打算引入的另一种匹配器。
+
 ### Fixed / 修复
 
 - `npm run build` no longer dies on Windows before it starts. `prebuild` runs `sync:whisper-cli`, and that script extracted the `.zip` release asset by spawning `unzip`, which Windows does not ship — so a clean Windows checkout failed with `spawn unzip ENOENT`, `dist/` was never built, and the desktop shell then served a not-found page with no indication why. CI missed it because GitHub's `windows-latest` runners carry `unzip` on PATH from Git Bash. The zip branch now uses bsdtar (`tar`, present since Windows 10 1803 and able to read zip) on win32 and keeps `unzip` everywhere else.

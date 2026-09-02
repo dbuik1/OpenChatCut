@@ -75,7 +75,7 @@ export type Action =
   | { type: 'setItemVariants'; id: string; variants: TranscriptVariant[] }
   | { type: 'toggleWord'; id: string; idx: number }
   | { type: 'deleteWords'; id: string; idxs: number[] }
-  | { type: 'cleanScript'; id: string; silenceFrames?: number; cutPadFrames?: number; removeFillers: boolean; gapCapsMs?: Record<string, number>; replaceGapCaps?: boolean }
+  | { type: 'cleanScript'; id: string; silenceFrames?: number; cutPadFrames?: number; removeFillers: boolean; extraFillers?: readonly string[]; gapCapsMs?: Record<string, number>; replaceGapCaps?: boolean }
   /** Per-gap silence cap. afterWordIndex = word after the gap; maxMs=null clears the override. */
   | { type: 'setGapCap'; id: string; afterWordIndex: number; maxMs: number | null }
   /** Speech-block drag: playback order of source word indices (null clears → chronological). */

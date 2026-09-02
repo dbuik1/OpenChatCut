@@ -340,18 +340,61 @@ export function splitClipTranscript(
   };
 }
 
-// Fixed filler tokens clean_script strips ("mechanical clean" — no LLM).
+// Built-in filler tokens clean_script strips ("mechanical clean" — no LLM).
+// Always active; callers may add their own on top, never replace these.
 const FILLER = new Set(['um', 'umm', 'uh', 'uhh', 'uhm', 'er', 'erm', 'ah', 'hmm', 'mmm', '嗯', '呃', '啊', '唔', '额']);
 
-export function isFiller(text: string): boolean {
-  const t = text.toLowerCase().replace(/[^a-z一-鿿]/g, '');
-  return t.length > 0 && FILLER.has(t);
+/** Upper bound on caller-supplied filler tokens; every word is tested against all of them. */
+export const MAX_EXTRA_FILLERS = 200;
+
+/**
+ * The single normalisation a token passes through before it is compared, applied
+ * to both transcript words and caller-supplied tokens so the two match on the
+ * same terms: lowercase, letters and CJK only. "Like," and "LIKE" both become
+ * "like", so a caller does not have to guess how ASR punctuated the word.
+ */
+export function normalizeFillerToken(text: string): string {
+  return text.toLowerCase().replace(/[^a-z一-鿿]/g, '');
+}
+
+/**
+ * Validate and normalise caller-supplied filler tokens for isFiller/fillerIndices.
+ * Throws on input the caller almost certainly meant differently — a multi-word
+ * phrase or an oversized list — rather than dropping it silently, since a
+ * silently ignored token looks exactly like a token that matched nothing.
+ * Tokens that normalise to nothing, and duplicates, are ignored.
+ */
+export function parseExtraFillers(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error('extraFillers must be an array of single-word strings');
+  if (value.length > MAX_EXTRA_FILLERS) {
+    throw new Error(`extraFillers accepts at most ${MAX_EXTRA_FILLERS} tokens, received ${value.length}`);
+  }
+  const tokens = new Set<string>();
+  for (const raw of value) {
+    if (typeof raw !== 'string') throw new Error(`extraFillers must contain strings; received ${typeof raw}`);
+    const trimmed = raw.trim();
+    // The transcript is word-indexed, so a phrase would need a different
+    // matcher than a per-word set lookup. Name the token instead of dropping it.
+    if (/\s/.test(trimmed)) {
+      throw new Error(`extraFillers does not support multi-word phrases: "${trimmed}". Supply one word per token.`);
+    }
+    const normalized = normalizeFillerToken(trimmed);
+    if (normalized) tokens.add(normalized);
+  }
+  return [...tokens];
+}
+
+/** `extra` holds tokens already through normalizeFillerToken (see parseExtraFillers). */
+export function isFiller(text: string, extra?: ReadonlySet<string>): boolean {
+  const t = normalizeFillerToken(text);
+  return t.length > 0 && (FILLER.has(t) || extra?.has(t) === true);
 }
 
 /** Indices of filler words in a transcript (for clean_script filler removal). */
-export function fillerIndices(words: TranscriptWord[]): number[] {
+export function fillerIndices(words: TranscriptWord[], extra?: ReadonlySet<string>): number[] {
   const idxs: number[] = [];
-  for (let i = 0; i < words.length; i++) if (isFiller(words[i].text)) idxs.push(i);
+  for (let i = 0; i < words.length; i++) if (isFiller(words[i].text, extra)) idxs.push(i);
   return idxs;
 }
 

@@ -59,7 +59,7 @@ export const TRANSCRIPT_TOOL_SCHEMAS: AgentToolSchema[] = [
   },
   {
     name: 'clean_script',
-    description: 'Mechanically clean transcribed clips with fixed filler removal and typed pause rules. only may be "fillers", "silence", or "fillers,silence". silence accepts compress:400, restore:500, normalize:500, range:300-800, plus legacy max:400, min:500, 500, and min:300,max:800. Rules that lengthen a pause never exceed the silence present in the recording. Existing maxPauseSeconds/removeFillers calls remain supported. The whole operation is one undo step.',
+    description: 'Mechanically clean transcribed clips with built-in filler removal and typed pause rules. only may be "fillers", "silence", or "fillers,silence". silence accepts compress:400, restore:500, normalize:500, range:300-800, plus legacy max:400, min:500, 500, and min:300,max:800. Rules that lengthen a pause never exceed the silence present in the recording. Existing maxPauseSeconds/removeFillers calls remain supported. The whole operation is one undo step.',
     input_schema: {
       type: 'object',
       properties: {
@@ -69,7 +69,13 @@ export const TRANSCRIPT_TOOL_SCHEMAS: AgentToolSchema[] = [
         silence: { type: 'string', description: 'Pause rule: compress:400, restore:500, normalize:500, range:300-800, or legacy syntax.' },
         longSilence: { type: 'number', description: 'Long-pause threshold in ms for the default silence rule (pauses at/above it compress to 200ms). Default 3000 when only includes silence and no silence rule is supplied.' },
         maxPauseSeconds: { type: 'number', description: 'Compress pauses longer than this down to it (e.g. 0.5). Omit to leave pauses.' },
-        removeFillers: { type: 'boolean', description: 'Strip filler words (default true).' },
+        removeFillers: { type: 'boolean', description: 'Strip filler words (default true). Covers the built-in set plus anything in extraFillers.' },
+        extraFillers: {
+          type: 'array',
+          items: { type: 'string' },
+          maxItems: 200,
+          description: 'Optional extra filler tokens for this call, on top of the always-active built-in set (um/umm/uh/uhh/uhm/er/erm/ah/hmm/mmm and the Chinese equivalents) — use it for a speaker whose own tics are words like "like" or "basically". Lowercase single words; each is matched whole-word after the same normalisation the built-ins use (lowercased, everything but letters and Chinese characters stripped), so "Like," in the transcript matches the token "like". Duplicates and tokens that normalise to nothing are ignored; at most 200 tokens. Multi-word phrases such as "you know" are rejected with an error naming the token: the transcript is word-indexed, so a phrase needs a different matcher. Ignored when removeFillers is false or only excludes fillers.',
+        },
         cutPadMs: { type: 'number', minimum: 0, maximum: 500, description: 'Breathing room kept around each word cut, split between the two sides (e.g. 150). Borrowed from silence already in the recording, so it never bleeds into a neighbouring word. 0 or omitted cuts exactly on the word boundary.' },
       },
     },

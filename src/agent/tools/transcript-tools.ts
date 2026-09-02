@@ -3,7 +3,7 @@ import type { AgentContext } from '../context';
 import { defaultTrackId, resolveTrackId, trackAlias, type TimelineItem, type TrackId } from '../../editor/types';
 import { transcribePath, TranscriptionError } from '../../transcript/provider';
 import { hasOperationalTranscript, isTranscriptionProviderId } from '../../transcript/types';
-import { fillerIndices } from '../../transcript/edit';
+import { fillerIndices, parseExtraFillers } from '../../transcript/edit';
 import { translateLines } from '../../captions/translate';
 import { createVariant, findVariantByLang, upsertVariant } from '../../transcript/variants';
 import { buildSilenceGapCaps, parseCleanOnly, parseSilenceRule, type SilenceRule } from '../../transcript/clean';
@@ -310,7 +310,9 @@ export async function execTranscriptTool(name: string, args: Args, ctx: AgentCon
       const usesTypedArgs = args.only != null || args.silence != null || args.longSilence != null;
       let selection: { fillers: boolean; silence: boolean };
       let silenceRule: SilenceRule | undefined;
+      let extraFillers: string[];
       try {
+        extraFillers = parseExtraFillers(args.extraFillers);
         selection = usesTypedArgs ? parseCleanOnly(args.only) : { fillers: args.removeFillers !== false, silence: typeof args.maxPauseSeconds === 'number' };
         silenceRule = parseSilenceRule(args.silence);
         if (selection.silence && !silenceRule && usesTypedArgs) {
@@ -329,16 +331,18 @@ export async function execTranscriptTool(name: string, args: Args, ctx: AgentCon
         ? Math.max(0, Math.round((Math.min(500, Math.max(0, args.cutPadMs)) / 1000) * fps))
         : undefined;
       const removeFillers = selection.fillers;
+      const extraFillerSet = extraFillers.length ? new Set(extraFillers) : undefined;
       let fillersRemoved = 0;
       const actions: Action[] = [];
       for (const it of clips) {
-        const fillers = removeFillers ? fillerIndices(it.transcript!) : [];
+        const fillers = removeFillers ? fillerIndices(it.transcript!, extraFillerSet) : [];
         fillersRemoved += fillers.filter((index) => !(it.deletedWordIdx ?? []).includes(index)).length;
         if (selection.silence && silenceRule) {
           actions.push({
             type: 'cleanScript',
             id: it.id,
             removeFillers,
+            extraFillers,
             gapCapsMs: buildSilenceGapCaps(it.transcript!, silenceRule, {
               silenceFrames: it.silenceFrames,
               gapCapsMs: it.gapCapsMs,
@@ -348,10 +352,10 @@ export async function execTranscriptTool(name: string, args: Args, ctx: AgentCon
             cutPadFrames,
           });
         } else if (!usesTypedArgs) {
-          actions.push({ type: 'cleanScript', id: it.id, silenceFrames, removeFillers, cutPadFrames });
+          actions.push({ type: 'cleanScript', id: it.id, silenceFrames, removeFillers, extraFillers, cutPadFrames });
         } else if (cutPadFrames !== undefined) {
           // When only changing the breathing port, keep the existing compression settings of the clip as they are, so they won't be cleared by cleanScript.
-          actions.push({ type: 'cleanScript', id: it.id, removeFillers, cutPadFrames, silenceFrames: it.silenceFrames });
+          actions.push({ type: 'cleanScript', id: it.id, removeFillers, extraFillers, cutPadFrames, silenceFrames: it.silenceFrames });
         } else if (fillers.length) {
           actions.push({ type: 'deleteWords', id: it.id, idxs: fillers });
         }
@@ -365,6 +369,7 @@ export async function execTranscriptTool(name: string, args: Args, ctx: AgentCon
         only: usesTypedArgs ? Object.entries(selection).filter(([, enabled]) => enabled).map(([key]) => key).join(',') : null,
         silenceRule: silenceRule ?? null,
         maxPauseSeconds: (args.maxPauseSeconds as number) ?? null,
+        extraFillers: extraFillers.length ? extraFillers : null,
         fillersRemoved,
       };
     }
