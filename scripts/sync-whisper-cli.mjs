@@ -55,7 +55,15 @@ async function extractArchive(archive, outDir) {
   const { promisify } = await import('node:util');
   const run = promisify(execFile);
   if (archive.endsWith('.zip')) {
-    await run('unzip', ['-q', archive, '-d', outDir]);
+    // Windows ships no `unzip`, so the win32-x64 asset could not be extracted
+    // on a clean machine at all: prebuild died here and `dist/` was never
+    // built. bsdtar is `tar` on Windows 10 1803 and later and reads zip, so
+    // the zip branch splits by platform rather than assuming an unzip binary.
+    if (process.platform === 'win32') {
+      await run('tar', ['-xf', archive, '-C', outDir]);
+    } else {
+      await run('unzip', ['-q', archive, '-d', outDir]);
+    }
   } else {
     await run('tar', ['-xzf', archive, '-C', outDir]);
   }

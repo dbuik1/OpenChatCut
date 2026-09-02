@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed / 修复
+
+- `npm run build` no longer dies on Windows before it starts. `prebuild` runs `sync:whisper-cli`, and that script extracted the `.zip` release asset by spawning `unzip`, which Windows does not ship — so a clean Windows checkout failed with `spawn unzip ENOENT`, `dist/` was never built, and the desktop shell then served a not-found page with no indication why. CI missed it because GitHub's `windows-latest` runners carry `unzip` on PATH from Git Bash. The zip branch now uses bsdtar (`tar`, present since Windows 10 1803 and able to read zip) on win32 and keeps `unzip` everywhere else.
+  Windows 上 `npm run build` 不再在开始前就失败。`prebuild` 会执行 `sync:whisper-cli`，而该脚本通过调用 `unzip` 解压 `.zip` 发布产物——Windows 并不自带该命令，因此干净的 Windows 检出会以 `spawn unzip ENOENT` 失败，`dist/` 从未生成，桌面外壳随后只能返回找不到页面，且没有任何提示。CI 未能发现，是因为 GitHub 的 `windows-latest` 运行器通过 Git Bash 在 PATH 中带有 `unzip`。现在 zip 分支在 win32 上改用 bsdtar（`tar`，自 Windows 10 1803 起随系统提供且可读取 zip），其他平台仍用 `unzip`。
+
 ### Security / 安全
 
 - `install_skill` and `run_skill_script` now ask before they run. Between them they clone an arbitrary GitHub repository — `scripts/` included — into `~/.openchatcut/skills/` and execute binaries against it on the local machine, and the tool boundary classified both as ordinary `persistent_local` work with no approval of any kind. Their arguments come from model output, which carries transcript text, scraped pages and skill files, so any of those could ask for an install and get one. Each call now waits for a confirmation naming the exact repository or command, bound to those arguments only; there is no "always allow", and a runtime with no confirmation surface refuses instead of falling open.
