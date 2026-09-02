@@ -18,7 +18,6 @@ const catalog = [
   schema('read_project'),
   schema('read_timeline'),
   schema('ask_followup_questions'),
-  schema('report_user_friction'),
   schema('edit_item'),
   schema('edit_track'),
   schema('submit_export'),
@@ -39,7 +38,6 @@ assert.deepEqual(neutral.names(), [
   'read_project',
   'read_timeline',
   'ask_followup_questions',
-  'report_user_friction',
 ]);
 
 for (const prompt of [

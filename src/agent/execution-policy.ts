@@ -24,7 +24,7 @@ export type ToolInvocationValidation =
 const READ_TOOLS = new Set([
   'read_agent_artifact', 'ToolSearch', 'track_progress', 'track_export',
   'inspect_color', 'analyze_music', 'inspect_music', 'music_edit_plan', 'music_image_plan', 'probe_media',
-  'analyze_scene_quality', 'report_user_friction', 'get_editor_url',
+  'analyze_scene_quality', 'get_editor_url',
 ]);
 const PERSISTENT_LOCAL_TOOLS = new Set([
   'download_media', 'push_asset', 'import_url_asset', 'import_media',

@@ -41,7 +41,6 @@ import { SEARCH_TOOL_NAMES, SEARCH_TOOL_SCHEMAS } from './tools/schemas/search-t
 import { FOLLOWUP_TOOL_NAMES, FOLLOWUP_TOOL_SCHEMAS } from './tools/schemas/followup-tools';
 import { PROJECT_TOOL_NAMES, PROJECT_TOOL_SCHEMAS } from './tools/schemas/project-tools';
 import { UPLOAD_TOOL_NAMES, UPLOAD_TOOL_SCHEMAS } from './tools/schemas/upload-tools';
-import { FRICTION_TOOL_NAMES, FRICTION_TOOL_SCHEMAS } from './tools/schemas/friction-tools';
 import { READ_PROJECT_TOOL_NAMES, READ_PROJECT_TOOL_SCHEMAS } from './tools/schemas/read-project-tools';
 import { MG_CODE_TOOL_NAMES, MG_CODE_TOOL_SCHEMAS } from './tools/schemas/mg-code-tools';
 import { PLUGIN_SKILL_TOOL_NAMES, PLUGIN_SKILL_TOOL_SCHEMAS } from './tools/schemas/plugin-skill-tools';
@@ -149,8 +148,6 @@ export const TOOL_SCHEMAS: AgentToolSchema[] = [
   ...PROJECT_TOOL_SCHEMAS,
   // Verified import session/finalize receipt chain plus media download.
   ...UPLOAD_TOOL_SCHEMAS,
-  // Silent friction reporting through a localStorage ring buffer; no backend.
-  ...FRICTION_TOOL_SCHEMAS,
   // Project overview.
   ...READ_PROJECT_TOOL_SCHEMAS,
   // Inline JSX → MG asset
@@ -256,7 +253,6 @@ const EXECUTOR_GROUPS: ReadonlyArray<readonly [ReadonlySet<string>, ToolExecutor
   [FOLLOWUP_TOOL_NAMES, async () => (await import('./tools/followup-tools')).execFollowupTool],
   [PROJECT_TOOL_NAMES, async () => (await import('./tools/project-tools')).execProjectTool],
   [UPLOAD_TOOL_NAMES, async () => (await import('./tools/upload-tools')).execUploadTool],
-  [FRICTION_TOOL_NAMES, async () => (await import('./tools/friction-tools')).execFrictionTool],
   [READ_PROJECT_TOOL_NAMES, async () => (await import('./tools/read-project-tools')).execReadProjectTool],
   [MG_CODE_TOOL_NAMES, async () => (await import('./tools/mg-code-tools')).execMgCodeTool],
   [PLUGIN_SKILL_TOOL_NAMES, async () => (await import('./tools/plugin-skill-tools')).execPluginSkillTool],

@@ -10,7 +10,6 @@ const BOOT_TOOL_NAMES: Record<string, true> = {
   read_project: true,
   read_timeline: true,
   ask_followup_questions: true,
-  report_user_friction: true,
   read_agent_artifact: true,
 };
 

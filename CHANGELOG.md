@@ -26,6 +26,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Installing a plugin, or letting the agent write a motion graphic, no longer evaluates that untrusted template in the app's own page. The acceptance check compiled the supplied JSX with Babel and ran it through `new Function` in the renderer, next to the project, its IndexedDB and its credentials, guarded only by a regular-expression blocklist and a shadowed scope — hardening the module's own header describes as "NOT a hard VM boundary". Pre-acceptance evaluation now happens in an `<iframe sandbox="allow-scripts">` on an opaque origin, driven by a versioned postMessage contract, and a runtime with no DOM parses the template without running its body. The blocklist and the shadowed scope stay as defence in depth. Templates already stored in a project are still evaluated in the renderer on the render path; that part is unchanged and still to do.
   安装插件、或让 Agent 生成动态图形时，不再在应用自身页面里执行这段不受信任的模板代码。此前的验收检查用 Babel 编译传入的 JSX，再在渲染进程里 `new Function` 执行——与工程数据、IndexedDB、凭据同处一个环境，唯一的防线是正则黑名单与遮蔽作用域，而该模块自己的注释就写明这「不是硬性 VM 边界」。现在验收前的执行发生在 `<iframe sandbox="allow-scripts">` 的不透明源中，通过带版本号的 postMessage 协议驱动；没有 DOM 的运行环境只解析、不执行模板主体。正则与遮蔽作用域作为纵深防御保留。已存入工程的模板在渲染路径上仍在渲染进程内执行，这部分未变，仍待处理。
 
+### Removed / 移除
+
+- The `report_user_friction` tool is gone, along with its schema, executor, boot activation and the system-prompt line that drove it. Its schema told the assistant to record the user's frustration as "silent product telemetry" and to "never mention it" — a tool the assistant is instructed to hide from the person it is observing should not ship, whatever the payload does. That the payload happened to stay on the machine (a 50-entry `localStorage` ring buffer, no network call) is a separate fact and not the reason: the instruction, not the transport, is the defect, and the transport is one commit away from changing. Nothing else read the ring buffer, so no data path or user-visible surface changes.
+  `report_user_friction` 工具已移除，连同其 schema、执行器、启动期激活以及驱动它的系统提示词条目。该 schema 要求助手把用户的受挫情形记录为「静默产品遥测」并且「永远不要提起它」——一个被明令对被观察者隐瞒的工具不应该出厂，无论其数据落到哪里。数据恰好只留在本机（50 条上限的 `localStorage` 环形缓冲，不发网络请求）是另一回事，并非移除的理由：缺陷在于那条指令而不是传输方式，而传输方式随时可能一次提交就变。此前没有任何代码读取该缓冲区，因此不影响任何数据链路或用户可见界面。
+
 ## [0.2.13] - 2026-08-31
 
 ### Fixed / 修复
