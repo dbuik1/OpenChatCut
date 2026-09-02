@@ -16,7 +16,7 @@ export const VERSION_TOOL_SCHEMAS: AgentToolSchema[] = [{
       },
       name: {
         type: 'string',
-        description: 'save: display name for the checkpoint (e.g. "粗剪完成").',
+        description: 'save: display name for the checkpoint (e.g. "Rough cut done").',
       },
       versionId: {
         type: 'string',

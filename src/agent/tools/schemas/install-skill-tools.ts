@@ -4,12 +4,12 @@ import type { AgentToolSchema } from '../../tool-schema';
 export const INSTALL_SKILL_TOOL_SCHEMAS: AgentToolSchema[] = [
   {
     name: 'install_skill',
-    description: '从 GitHub 安装一个 skill 仓库到本机技能目录（~/.openchatcut/skills/<slug>/），完整安装 SKILL.md 及其 references/scripts/assets/examples。安装后资源库「技能」面板会自动展示，可用 /skill:<slug> 或面板激活。repo 支持 GitHub URL 或 owner/repo（如 "Jane-xiaoer/paper-collage-ad-codex"）。slug 可选，默认取 SKILL.md 的 name 或仓库名。安装的是第三方代码，每次调用都需要用户在 OpenChatCut 中确认该仓库，没有「始终允许」。',
+    description: 'Install a skill repository from GitHub into the local skills directory (~/.openchatcut/skills/<slug>/), installing SKILL.md in full together with its references/scripts/assets/examples. Once installed it shows up automatically in the library\'s Skills panel, and can be activated with /skill:<slug> or from that panel. repo accepts a GitHub URL or owner/repo (e.g. "Jane-xiaoer/paper-collage-ad-codex"). slug is optional and defaults to the name in SKILL.md or the repository name. This installs third-party code: every call needs the user to confirm the repository in OpenChatCut, and there is no "always allow".',
     input_schema: {
       type: 'object',
       properties: {
-        repo: { type: 'string', description: 'GitHub 仓库：完整 URL（https://github.com/owner/repo）或 owner/repo' },
-        slug: { type: 'string', description: '可选：安装目录名（必须 kebab-case），默认取 SKILL.md frontmatter name 或仓库名' },
+        repo: { type: 'string', description: 'GitHub repository: a full URL (https://github.com/owner/repo) or owner/repo.' },
+        slug: { type: 'string', description: 'Optional: the install directory name, which must be kebab-case. Defaults to the SKILL.md frontmatter name or the repository name.' },
       },
       required: ['repo'],
     },

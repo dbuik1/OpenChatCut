@@ -665,7 +665,7 @@
     },
     {
       "name": "manage_transcript",
-      "description": "Correct source transcripts and manage translation variants; most actions leave word timing and clip duration unchanged. Eight actions:\n- fix: correct the source transcript. For a word, pass wordIndex or find with the incorrect source text plus text with the correction; only word.text changes. To rename or merge a speaker, pass from with an existing label such as \"A\" plus to with the new display name; passing another existing label merges them. Only word.speaker changes.\n- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel 「还原全部」). Retimes the clip to the full transcript duration.\n- set_play_order: reorder spoken playback via playOrder word-index array (same as dragging speech blocks in the Transcript panel). Pass playOrder:null or clearPlayOrder:true to restore chronological order. Retimes the clip.\n- retry_transcription: force ASR to rerun for the clip and replace its transcript when transcription is stuck, failed, or needs refreshing.\n- translation_create: translate the full transcript to lang and create or replace a word-level translation variant sharing the source timeline.\n- translation_ensure: idempotently reuse an existing variant for lang or create it otherwise. Prefer this for ordinary translation requests.\n- translation_list: list the source transcript and all translation variants with id/lang/word count.\n- translation_read: read words from a translation variant selected by lang or targetLanguage.\nTranslation variants contain translated text only. To display a language in captions, use edit_captions language_mode.",
+      "description": "Correct source transcripts and manage translation variants; most actions leave word timing and clip duration unchanged. Eight actions:\n- fix: correct the source transcript. For a word, pass wordIndex or find with the incorrect source text plus text with the correction; only word.text changes. To rename or merge a speaker, pass from with an existing label such as \"A\" plus to with the new display name; passing another existing label merges them. Only word.speaker changes.\n- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel \"Restore all\"). Retimes the clip to the full transcript duration.\n- set_play_order: reorder spoken playback via playOrder word-index array (same as dragging speech blocks in the Transcript panel). Pass playOrder:null or clearPlayOrder:true to restore chronological order. Retimes the clip.\n- retry_transcription: force ASR to rerun for the clip and replace its transcript when transcription is stuck, failed, or needs refreshing.\n- translation_create: translate the full transcript to lang and create or replace a word-level translation variant sharing the source timeline.\n- translation_ensure: idempotently reuse an existing variant for lang or create it otherwise. Prefer this for ordinary translation requests.\n- translation_list: list the source transcript and all translation variants with id/lang/word count.\n- translation_read: read words from a translation variant selected by lang or targetLanguage.\nTranslation variants contain translated text only. To display a language in captions, use edit_captions language_mode.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2652,7 +2652,7 @@
     },
     {
       "name": "edit_captions",
-      "description": "Manage the captions/subtitles overlay via a single `action`. Read text first only for display_text (use read_captions); every other action is one direct call.\n- enable / disable: toggle captions data (enable optionally takes a built-in `preset` name).\n- hide_overlay / show_overlay: global captionsHidden flag (toolbar 字幕显示) — hides on-screen caption overlay and text clips without wiping caption data; show_overlay re-enables.\n- template: no arg → list the 21 built-in presets; `templatePreset:\"netflix\"` → apply one (size/position preserved).\n- style: custom look via `json` — {font|fontFamily,sizePx|fontSizeRatio|fontSize,color,weight|fontWeight,fontStyle,textAlign|align,underline,strike,letterSpacing,lineHeight,strokeColor,strokeWidth,highlightColor,highlightBackground,shadow|shadowStrength,background|backgroundColor,backgroundOpacity,borderRadius,textTransform,displayMode,wordsPerPage,pacing}. Layered over the current template; unmapped fields are reported in `ignored`. sizePx is relative to CANVAS height — on 9:16 vertical (1080×1920) social captions want sizePx ≥ 86 (≈4.5% of height); leave size unset to keep the template default. pacing: 'phrase' (default, readable pages + karaoke highlight) — only use 'word' when the user explicitly wants single-word pop.\n- animation: deterministic burn-in motion shared by preview/export; set `motionPreset` to none, fade-up, pop, word-pop, or karaoke-pulse.\n- layout: place the whole block via `json` {preset:\"bottom-center|top-center|center|…3×3\", offsetXRatio, offsetYRatio, scale, rotation, opacity}; transforms may also be nested as `{transforms:{scale,rotation,opacity}}`.\n- display_text: per-word DISPLAY overrides via `json` {overrides:[{wordRef, text, hidden, forcePageBreak}], clearOverrides} — get the opaque wordRef from read_captions. wordIndex remains a legacy fallback; wordRef is stable across regrouping and source reorder. Set clear:true on an entry to clear that word by either selector. Doesn't touch the transcript.\n- source_set / source_add / source_remove / source_list: choose which transcribed track(s)/item(s) the captions read (json {mode:\"timeline\"} for all audible, or {sources:[{trackId|itemId}]}).\n  Multi-source entries accept a 0-based trackOrder. source_update can move an existing source with {sourceId|index, trackOrder}; source_list returns the normalized visual order.\n- language_mode / bilingual: switch caption language — json {mode:\"original|translation|bilingual\", languageCode} (create the translation first with manage_transcript translate).\n- track: legacy single-source trackId or internal 0-based trackOrder (prefer source_set for visible text sources).\n- layout_policy / positions / source_update: arrange, style, hide, and reorder individual source lanes. preset_* manages user-saved caption styles.",
+      "description": "Manage the captions/subtitles overlay via a single `action`. Read text first only for display_text (use read_captions); every other action is one direct call.\n- enable / disable: toggle captions data (enable optionally takes a built-in `preset` name).\n- hide_overlay / show_overlay: global captionsHidden flag (the toolbar \"Captions\" toggle) — hides on-screen caption overlay and text clips without wiping caption data; show_overlay re-enables.\n- template: no arg → list the 21 built-in presets; `templatePreset:\"netflix\"` → apply one (size/position preserved).\n- style: custom look via `json` — {font|fontFamily,sizePx|fontSizeRatio|fontSize,color,weight|fontWeight,fontStyle,textAlign|align,underline,strike,letterSpacing,lineHeight,strokeColor,strokeWidth,highlightColor,highlightBackground,shadow|shadowStrength,background|backgroundColor,backgroundOpacity,borderRadius,textTransform,displayMode,wordsPerPage,pacing}. Layered over the current template; unmapped fields are reported in `ignored`. sizePx is relative to CANVAS height — on 9:16 vertical (1080×1920) social captions want sizePx ≥ 86 (≈4.5% of height); leave size unset to keep the template default. pacing: 'phrase' (default, readable pages + karaoke highlight) — only use 'word' when the user explicitly wants single-word pop.\n- animation: deterministic burn-in motion shared by preview/export; set `motionPreset` to none, fade-up, pop, word-pop, or karaoke-pulse.\n- layout: place the whole block via `json` {preset:\"bottom-center|top-center|center|…3×3\", offsetXRatio, offsetYRatio, scale, rotation, opacity}; transforms may also be nested as `{transforms:{scale,rotation,opacity}}`.\n- display_text: per-word DISPLAY overrides via `json` {overrides:[{wordRef, text, hidden, forcePageBreak}], clearOverrides} — get the opaque wordRef from read_captions. wordIndex remains a legacy fallback; wordRef is stable across regrouping and source reorder. Set clear:true on an entry to clear that word by either selector. Doesn't touch the transcript.\n- source_set / source_add / source_remove / source_list: choose which transcribed track(s)/item(s) the captions read (json {mode:\"timeline\"} for all audible, or {sources:[{trackId|itemId}]}).\n  Multi-source entries accept a 0-based trackOrder. source_update can move an existing source with {sourceId|index, trackOrder}; source_list returns the normalized visual order.\n- language_mode / bilingual: switch caption language — json {mode:\"original|translation|bilingual\", languageCode} (create the translation first with manage_transcript translate).\n- track: legacy single-source trackId or internal 0-based trackOrder (prefer source_set for visible text sources).\n- layout_policy / positions / source_update: arrange, style, hide, and reorder individual source lanes. preset_* manages user-saved caption styles.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3830,7 +3830,7 @@
     },
     {
       "name": "search_fonts",
-      "description": "Search the font catalog the local/headless renderer can load (Google Fonts bundled in-app + locally bundled Chinese foundry faces, source:\"bundled\"). Use when export reports unsupported fonts or when picking fontFamily for motion-graphic items / captions. Returns canonical family names to use verbatim. Substring-matches family AND native-name aliases (case/punctuation-insensitive) — e.g. \"inter\", \"playfair\", \"noto sc\", \"思源黑体\", \"得意黑\", \"抖音美好体\". loadable=false means catalogued only; prefer a loadable alternative or confirmFontFallback on export.",
+      "description": "Search the font catalog the local/headless renderer can load (Google Fonts bundled in-app + locally bundled Chinese foundry faces, source:\"bundled\"). Use when export reports unsupported fonts or when picking fontFamily for motion-graphic items / captions. Returns canonical family names to use verbatim. Substring-matches family AND native-name aliases (case/punctuation-insensitive) — e.g. \"inter\", \"playfair\", \"noto sc\". A Chinese foundry face matches on its native name as well as its romanised one, so Source Han Sans, Deyi Hei and Douyin Meihaoti are all reachable either way. loadable=false means catalogued only; prefer a loadable alternative or confirmFontFallback on export.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3856,7 +3856,7 @@
         "properties": {
           "query": {
             "type": "string",
-            "description": "Content to find, e.g. 背景音乐音量 / 字幕样式 / 黄昏的海边"
+            "description": "Content to find, e.g. background music volume / caption style / seaside at dusk. Chinese queries work too."
           },
           "projectId": {
             "type": "string",
@@ -4424,17 +4424,17 @@
     },
     {
       "name": "install_skill",
-      "description": "从 GitHub 安装一个 skill 仓库到本机技能目录（~/.openchatcut/skills/<slug>/），完整安装 SKILL.md 及其 references/scripts/assets/examples。安装后资源库「技能」面板会自动展示，可用 /skill:<slug> 或面板激活。repo 支持 GitHub URL 或 owner/repo（如 \"Jane-xiaoer/paper-collage-ad-codex\"）。slug 可选，默认取 SKILL.md 的 name 或仓库名。安装的是第三方代码，每次调用都需要用户在 OpenChatCut 中确认该仓库，没有「始终允许」。",
+      "description": "Install a skill repository from GitHub into the local skills directory (~/.openchatcut/skills/<slug>/), installing SKILL.md in full together with its references/scripts/assets/examples. Once installed it shows up automatically in the library's Skills panel, and can be activated with /skill:<slug> or from that panel. repo accepts a GitHub URL or owner/repo (e.g. \"Jane-xiaoer/paper-collage-ad-codex\"). slug is optional and defaults to the name in SKILL.md or the repository name. This installs third-party code: every call needs the user to confirm the repository in OpenChatCut, and there is no \"always allow\".",
       "input_schema": {
         "type": "object",
         "properties": {
           "repo": {
             "type": "string",
-            "description": "GitHub 仓库：完整 URL（https://github.com/owner/repo）或 owner/repo"
+            "description": "GitHub repository: a full URL (https://github.com/owner/repo) or owner/repo."
           },
           "slug": {
             "type": "string",
-            "description": "可选：安装目录名（必须 kebab-case），默认取 SKILL.md frontmatter name 或仓库名"
+            "description": "Optional: the install directory name, which must be kebab-case. Defaults to the SKILL.md frontmatter name or the repository name."
           }
         },
         "required": [
@@ -4444,21 +4444,21 @@
     },
     {
       "name": "run_skill_script",
-      "description": "在本机执行已安装技能目录内的脚本（白名单命令：bash/sh/node/npm/python3/python/ffmpeg/ffprobe/mkdir/cp/chmod；npm 仅限 run/run-script/start/test；npx、uv、uvx、pip 一律拒绝），工作目录锁定在技能目录。每次调用都需要用户在 OpenChatCut 中确认本次命令，没有「始终允许」。用于运行技能自带的确定性脚本（如 render.mjs、check-deps.sh），云沙箱无法访问本机技能文件。超时默认 60s、上限 120s；输出最多 512KB。",
+      "description": "Run a script from an installed skill directory on this machine (allowlisted commands: bash/sh/node/npm/python3/python/ffmpeg/ffprobe/mkdir/cp/chmod; npm is limited to run/run-script/start/test; npx, uv, uvx and pip are always rejected), with the working directory locked to that skill directory. Every call needs the user to confirm this command in OpenChatCut, and there is no \"always allow\". Use it for the deterministic scripts a skill ships with, such as render.mjs or check-deps.sh; the cloud sandbox cannot reach local skill files. The timeout defaults to 60s and is capped at 120s; output is capped at 512KB.",
       "input_schema": {
         "type": "object",
         "properties": {
           "skill": {
             "type": "string",
-            "description": "技能 slug（load_skill 返回的 skill 字段）"
+            "description": "Skill slug (the skill field returned by load_skill)."
           },
           "command": {
             "type": "string",
-            "description": "命令（首个词必须是白名单内可执行文件），如 bash scripts/check-deps.sh 或 node scripts/render.mjs"
+            "description": "Command to run; its first word must be an allowlisted executable — e.g. bash scripts/check-deps.sh or node scripts/render.mjs."
           },
           "timeout": {
             "type": "number",
-            "description": "可选：超时毫秒，默认 60000，上限 120000"
+            "description": "Optional: timeout in milliseconds. Defaults to 60000, capped at 120000."
           }
         },
         "required": [
@@ -4666,7 +4666,7 @@
           },
           "name": {
             "type": "string",
-            "description": "save: display name for the checkpoint (e.g. \"粗剪完成\")."
+            "description": "save: display name for the checkpoint (e.g. \"Rough cut done\")."
           },
           "versionId": {
             "type": "string",
@@ -5743,7 +5743,7 @@
     },
     {
       "name": "search_fonts",
-      "description": "Search the font catalog the local/headless renderer can load (Google Fonts bundled in-app + locally bundled Chinese foundry faces, source:\"bundled\"). Use when export reports unsupported fonts or when picking fontFamily for motion-graphic items / captions. Returns canonical family names to use verbatim. Substring-matches family AND native-name aliases (case/punctuation-insensitive) — e.g. \"inter\", \"playfair\", \"noto sc\", \"思源黑体\", \"得意黑\", \"抖音美好体\". loadable=false means catalogued only; prefer a loadable alternative or confirmFontFallback on export.",
+      "description": "Search the font catalog the local/headless renderer can load (Google Fonts bundled in-app + locally bundled Chinese foundry faces, source:\"bundled\"). Use when export reports unsupported fonts or when picking fontFamily for motion-graphic items / captions. Returns canonical family names to use verbatim. Substring-matches family AND native-name aliases (case/punctuation-insensitive) — e.g. \"inter\", \"playfair\", \"noto sc\". A Chinese foundry face matches on its native name as well as its romanised one, so Source Han Sans, Deyi Hei and Douyin Meihaoti are all reachable either way. loadable=false means catalogued only; prefer a loadable alternative or confirmFontFallback on export.",
       "input_schema": {
         "type": "object",
         "properties": {

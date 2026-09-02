@@ -121,7 +121,7 @@ export const TRANSCRIPT_TOOL_SCHEMAS: AgentToolSchema[] = [
     name: 'manage_transcript',
     description: 'Correct source transcripts and manage translation variants; most actions leave word timing and clip duration unchanged. Eight actions:\n'
       + '- fix: correct the source transcript. For a word, pass wordIndex or find with the incorrect source text plus text with the correction; only word.text changes. To rename or merge a speaker, pass from with an existing label such as "A" plus to with the new display name; passing another existing label merges them. Only word.speaker changes.\n'
-      + '- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel 「还原全部」). Retimes the clip to the full transcript duration.\n'
+      + '- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel "Restore all"). Retimes the clip to the full transcript duration.\n'
       + '- set_play_order: reorder spoken playback via playOrder word-index array (same as dragging speech blocks in the Transcript panel). Pass playOrder:null or clearPlayOrder:true to restore chronological order. Retimes the clip.\n'
       + '- retry_transcription: force ASR to rerun for the clip and replace its transcript when transcription is stuck, failed, or needs refreshing.\n'
       + '- translation_create: translate the full transcript to lang and create or replace a word-level translation variant sharing the source timeline.\n'

@@ -14,7 +14,7 @@ export const SEARCH_TOOL_SCHEMAS: AgentToolSchema[] = [
     input_schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Content to find, e.g. 背景音乐音量 / 字幕样式 / 黄昏的海边' },
+        query: { type: 'string', description: 'Content to find, e.g. background music volume / caption style / seaside at dusk. Chinese queries work too.' },
         projectId: {
           type: 'string',
           description: 'Optional project id to scope the search; omit to search every project.',
