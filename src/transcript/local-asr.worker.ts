@@ -7,10 +7,11 @@ import type {
   AsrChunk, AsrResult, LocalAsrWorkerRequest, LocalAsrWorkerResponse,
 } from './local-asr-types';
 import { localAsrLoadError, localAsrModelHosts } from './local-asr-model-source';
-import { ASR_INFERENCE_CONTRACT } from '../../shared/asr-inference-contract';
+import {
+  ASR_INFERENCE_CONTRACT, ASR_MAX_AUDIO_SAMPLES, ASR_MAX_AUDIO_SECONDS, formatAsrDuration,
+} from '../../shared/asr-inference-contract';
 
-const MAX_AUDIO_SAMPLES = ASR_INFERENCE_CONTRACT.maxAudioSeconds
-  * ASR_INFERENCE_CONTRACT.sampleRate;
+const MAX_AUDIO_SAMPLES = ASR_MAX_AUDIO_SAMPLES;
 /**
  * The proxy is the only model source. It enforces the pinned model/revision/file
  * tuple and verifies size and SHA-256 before serving bytes.
@@ -117,8 +118,13 @@ async function transcribe(
   if (!asr) throw new Error('Local ASR model is not loaded');
   if (!(request.samples instanceof Float32Array)) throw new Error('Invalid audio samples');
   const n = request.samples.length;
-  if (n === 0 || n > MAX_AUDIO_SAMPLES) {
-    throw new Error(`Audio length out of range (${Math.round(n / ASR_INFERENCE_CONTRACT.sampleRate)}s; max ${ASR_INFERENCE_CONTRACT.maxAudioSeconds}s)`);
+  if (n === 0) throw new Error('No audio to transcribe');
+  if (n > MAX_AUDIO_SAMPLES) {
+    throw new Error(
+      `Audio is ${formatAsrDuration(n / ASR_INFERENCE_CONTRACT.sampleRate)} long; `
+      + `transcription holds the whole recording in memory and tops out around `
+      + `${formatAsrDuration(ASR_MAX_AUDIO_SECONDS)}. Transcribe it in parts.`,
+    );
   }
   const output = await asr(request.samples, {
     return_timestamps: 'word',

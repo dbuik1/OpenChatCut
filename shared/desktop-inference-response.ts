@@ -1,4 +1,4 @@
-import { ASR_INFERENCE_CONTRACT } from './asr-inference-contract.ts';
+import { ASR_INFERENCE_CONTRACT, ASR_MAX_AUDIO_SECONDS } from './asr-inference-contract.ts';
 import {
   CLAP_INFERENCE_CONTRACT,
   RHYTHM_INFERENCE_CONTRACT,
@@ -21,7 +21,7 @@ const REQUEST_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const MAX_ASR_RESPONSE_TEXT = 4 * 1024 * 1024;
 const MAX_ASR_RESPONSE_CHUNKS = 200_000;
 const MAX_ASR_CHUNK_TEXT = 4_096;
-const MAX_ASR_OUTPUT_MS = ASR_INFERENCE_CONTRACT.maxAudioSeconds * 1_000;
+const MAX_ASR_OUTPUT_MS = ASR_MAX_AUDIO_SECONDS * 1_000;
 const MAX_RHYTHM_OUTPUT_FRAMES = Math.floor(
   RHYTHM_INFERENCE_CONTRACT.sampleRate
     * RHYTHM_INFERENCE_CONTRACT.nativeMaxDurationSeconds

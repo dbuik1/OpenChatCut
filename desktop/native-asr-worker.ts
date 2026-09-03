@@ -32,7 +32,21 @@ import {
 
 const SAMPLE_RATE = ASR_INFERENCE_CONTRACT.sampleRate;
 const STDERR_LIMIT = 8_000;
-const WHISPER_CLI_TIMEOUT_MS = 45 * 60 * 1000;
+// The CLI fallback has to finish an arbitrarily long recording, so a fixed
+// wall-clock ceiling would abort a legitimate multi-hour transcription rather
+// than catch a hang. Budget in multiples of the audio's own duration instead:
+// whisper.cpp on CPU stays well inside 10x realtime even on the medium model,
+// so anything past that is stuck, not slow. The floor covers short clips, where
+// model load and first-window latency dominate.
+const WHISPER_CLI_REALTIME_BUDGET = 10;
+const WHISPER_CLI_TIMEOUT_FLOOR_MS = 30 * 60 * 1000;
+
+function whisperCliTimeoutMs(audioSeconds: number): number {
+  return Math.max(
+    WHISPER_CLI_TIMEOUT_FLOOR_MS,
+    Math.ceil(audioSeconds * WHISPER_CLI_REALTIME_BUDGET) * 1000,
+  );
+}
 
 interface NativeWorkerData {
   readonly cacheDir: string;
@@ -142,8 +156,10 @@ function runWhisperCli(
   wavPath: string,
   language: string,
   useGpu: boolean,
+  audioSeconds: number,
   signal?: AbortSignal,
 ): Promise<{ jsonPath: string; stderr: string }> {
+  const timeoutMs = whisperCliTimeoutMs(audioSeconds);
   return new Promise((resolve, reject) => {
     const args = [
       '-m', ggmlPath,
@@ -167,8 +183,11 @@ function runWhisperCli(
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
-      reject(new Error('whisper-cli timed out.'));
-    }, WHISPER_CLI_TIMEOUT_MS);
+      reject(new Error(
+        `whisper-cli timed out after ${Math.round(timeoutMs / 60_000)} min on `
+        + `${Math.round(audioSeconds / 60)} min of audio.`,
+      ));
+    }, timeoutMs);
     const onAbort = (): void => {
       if (settled) return;
       settled = true;
@@ -293,6 +312,7 @@ async function transcribeWithEngine(
   signal?: AbortSignal,
 ): Promise<DesktopAsrResponse> {
   const samples = await extractPcm(request);
+  const audioSeconds = samples.length / SAMPLE_RATE;
   const dir = await mkdtemp(join(tmpdir(), 'occ-asr-'));
   const wavPath = join(dir, 'input.wav');
   try {
@@ -314,13 +334,13 @@ async function transcribeWithEngine(
       let backend: DesktopAsrBackend = engine.backend;
       try {
         const { jsonPath } = await runWhisperCli(
-          engine.ggmlPath, wavPath, whisperLanguage(request.language), true, signal,
+          engine.ggmlPath, wavPath, whisperLanguage(request.language), true, audioSeconds, signal,
         );
         json = JSON.parse(await readFile(jsonPath, 'utf8')) as WhisperJson;
       } catch (gpuError) {
         if (engine.backend === 'native-cpu') throw gpuError;
         const { jsonPath } = await runWhisperCli(
-          engine.ggmlPath, wavPath, whisperLanguage(request.language), false, signal,
+          engine.ggmlPath, wavPath, whisperLanguage(request.language), false, audioSeconds, signal,
         );
         json = JSON.parse(await readFile(jsonPath, 'utf8')) as WhisperJson;
         backend = 'native-cpu';

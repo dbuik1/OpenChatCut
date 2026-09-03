@@ -10,7 +10,9 @@ import {
   type AssemblyAiCheckpointWriter, type AssemblyAiResumeCheckpoint, type TranscribeOptions,
 } from './assemblyai';
 import { downsampleMono, hasTranscribableSignal } from './client-asr-extract';
-import { ASR_INFERENCE_CONTRACT } from '../../shared/asr-inference-contract';
+import {
+  ASR_INFERENCE_CONTRACT, ASR_MAX_AUDIO_SAMPLES, ASR_MAX_AUDIO_SECONDS, formatAsrDuration,
+} from '../../shared/asr-inference-contract';
 import { tryDesktopNativeAsr, warmUpDesktopNativeAsr } from './desktop-native-asr';
 import { desktopNativeInferenceEnabled } from './desktop-inference-preference';
 
@@ -194,10 +196,12 @@ async function decodeSourceToSamples(path: string): Promise<Float32Array> {
     const arrayBuffer = await response.arrayBuffer();
     const decoded = await context.decodeAudioData(arrayBuffer);
     const mono = downsampleMono(decoded, TARGET_SR);
-    if (mono.length > ASR_INFERENCE_CONTRACT.maxAudioSeconds * TARGET_SR) {
+    if (mono.length > ASR_MAX_AUDIO_SAMPLES) {
       throw new TranscriptionError(
         'service-unavailable',
-        `audio exceeds ${ASR_INFERENCE_CONTRACT.maxAudioSeconds}s local ASR limit`,
+        `audio is ${formatAsrDuration(mono.length / TARGET_SR)} long; transcription holds the `
+        + `whole recording in memory and tops out around `
+        + `${formatAsrDuration(ASR_MAX_AUDIO_SECONDS)}. Transcribe it in parts.`,
       );
     }
     return mono;
