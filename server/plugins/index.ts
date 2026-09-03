@@ -16,6 +16,7 @@ import { uploadPlugin } from "./upload.ts";
 import { mobileUploadPlugin } from "./mobile-upload.ts";
 import { uploadMultipartPlugin } from "./upload-multipart.ts";
 import { extractAudioPlugin } from "./extract-audio.ts";
+import { measureLoudnessPlugin } from "./measure-loudness.ts";
 import { hfProxyPlugin } from "./hf-proxy.ts";
 import { asrModelsPlugin } from "./asr-models.ts";
 import { modelPacksPlugin } from "./model-packs.ts";
@@ -83,6 +84,7 @@ export function serverPlugins(options: { projectStoreHttp?: boolean } = {}): Plu
     uploadPlugin(),
     mobileUploadPlugin(),
     extractAudioPlugin(),
+    measureLoudnessPlugin(),
     hfProxyPlugin(),
     asrModelsPlugin(),
     modelPacksPlugin(),

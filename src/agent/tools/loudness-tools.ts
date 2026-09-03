@@ -1,20 +1,29 @@
 export { LOUDNESS_TOOL_SCHEMAS, LOUDNESS_TOOL_NAMES } from './schemas/loudness-tools';
 import type { AgentContext } from '../context';
-import { analyzeClipLoudness, gainForTarget } from '../../audio/loudness';
+import { clipLoudnessRange, gainForTarget, measureClipLoudness } from '../../audio/loudness';
 
 // normalize_loudness - Normalize loudness (target default -14 LUFS, streaming platform standard).
 // The naming style is the same as isolate_voice/edit_captions(verb_noun).
 //
-// Pure offline WebAudio analysis (src/audio/loudness.ts), no new store actions - direct gain
-// Reuse the existing `setItemVolume` command (loudness normalization in this model is "calculating the correct volume").
+// Measured by the server's ffmpeg loudnorm route over each clip's trimmed range
+// (src/audio/loudness.ts). No new store actions - the resulting gain reuses the
+// existing `setItemVolume` command, since normalization here is "calculating the
+// correct volume".
 
 type Args = Record<string, unknown>;
 
 const DEFAULT_TARGET_LUFS = -14;
 
-/** Target audio clip collection: given the itemId, only find that one (prefix matching), otherwise all audio clips on the timeline. */
+/**
+ * Clips whose audio can be normalized: the one named by itemId (prefix
+ * matching), otherwise every clip on the timeline that carries audio.
+ *
+ * Video clips count. Commentary and dialogue usually live on the video clip's
+ * own track rather than a separate audio clip, and excluding them made the tool
+ * silently do nothing on the footage it was most needed for.
+ */
 function findAudioItems(ctx: AgentContext, itemId: unknown) {
-  const audioItems = ctx.getState().items.filter((it) => it.kind === 'audio');
+  const audioItems = ctx.getState().items.filter((it) => it.kind === 'audio' || it.kind === 'video');
   const q = itemId === undefined || itemId === null ? '' : String(itemId);
   if (!q) return audioItems;
   const match = audioItems.find((it) => it.id === q || it.id.startsWith(q));
@@ -28,25 +37,27 @@ export async function execLoudnessTool(name: string, args: Args, ctx: AgentConte
   const items = findAudioItems(ctx, args.itemId);
   if (items.length === 0) {
     return args.itemId
-      ? { error: `no audio clip ${args.itemId}` }
-      : { ok: true, normalized: [], target, note: 'timeline 上没有音频 clip' };
+      ? { error: `no clip with audio ${args.itemId}` }
+      : { ok: true, normalized: [], target, note: 'timeline 上没有带音频的片段' };
   }
 
   const normalized: { itemId: string; measuredLufs: number; gain: number }[] = [];
   const skipped: { itemId: string; note: string }[] = [];
 
+  const fps = ctx.getState().fps;
   for (const item of items) {
-    if (!item.src) {
-      skipped.push({ itemId: item.id, note: 'no src' }); // Passive source cannot be analyzed, skipping will not throw an error
+    const range = clipLoudnessRange(item, fps);
+    if (!range) {
+      skipped.push({ itemId: item.id, note: 'no src' }); // A clip with no source cannot be measured; skipping is not an error
       continue;
     }
     try {
-      const measuredLufs = await analyzeClipLoudness(item.src);
-      const gain = gainForTarget(measuredLufs, target);
+      const { integratedLufs } = await measureClipLoudness(range);
+      const gain = gainForTarget(integratedLufs, target);
       ctx.commands.setItemVolume(item.id, gain); // Reuse existing commands without adding reducer actions
-      normalized.push({ itemId: item.id, measuredLufs, gain });
+      normalized.push({ itemId: item.id, measuredLufs: integratedLufs, gain });
     } catch (e) {
-      skipped.push({ itemId: item.id, note: `解码失败: ${e instanceof Error ? e.message : String(e)}` });
+      skipped.push({ itemId: item.id, note: `响度测量失败: ${e instanceof Error ? e.message : String(e)}` });
     }
   }
 

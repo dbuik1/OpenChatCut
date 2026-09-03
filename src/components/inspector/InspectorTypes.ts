@@ -66,7 +66,8 @@ export interface InspectorPanelProps {
   onItemSpeedChange?: (rate: number) => void;
   slipPlan?: SlipPlan | null;
   onItemSlip?: (deltaInFrames: number) => SlipResult;
-  onNormalizeLoudness?: () => void | Promise<void>;
+  /** Measure the selection and set each clip's volume to hit targetLufs; resolves with the number changed. */
+  onNormalizeLoudness?: (targetLufs: number) => number | Promise<number>;
   onIsolateVoice?: (action: 'apply' | 'clear', strength?: number) => void | Promise<void>;
   getPlayhead: () => number;
   onSetReframeKeyframe: (frame: number, focalPointX: number, focalPointY: number, magnification: number) => void;

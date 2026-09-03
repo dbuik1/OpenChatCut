@@ -1,14 +1,19 @@
 // Loudness normalization analysis core. The naming style is the same as isolate_voice(verb_noun).
 //
-// Split into two halves: pure function (can run check under node, no DOM dependencies) + browser-specific (fetch+WebAudio decoding).
+// Split into two halves: pure functions that run under node, and the clip
+// measurement, which asks the server's ffmpeg loudnorm route rather than
+// decoding media in the renderer.
+import type { TimelineItem } from '../editor/types';
+import { sourceWindowForTimelineRange } from '../editor/sourceLimit';
 
 // ── Pure function (node-testable) ────────────────────────────────────────────
 
-// ponytail: simplified version of BS.1770 - approximate integrated loudness using 400ms block mean square energy + absolute silence threshold,
-// Omits true K-weighting pre-filtering (overhead + high pass) and relative thresholding (10dB lower than unthresholded loudness)
-// blocks should also be culled). For steady/quasi-steady assets (speech, music) the error is usually within a few LUFS, which is sufficient
-// Rough judgment on "whether to increase gain/how much to increase"; assets containing large sections of silence + sudden loudness will deviate more.
-// Upgrade path: Connect K-weighting biquad filter + relative threshold, align with ITU-R BS.1770-4 full process.
+// A simplified BS.1770: integrated loudness approximated from 400ms block mean
+// square energy plus the absolute silence gate. It omits K-weighting pre-filtering
+// and relative thresholding, so for steady material (speech, music) it lands within
+// a few LUFS and material with long silences plus sudden peaks deviates further.
+// The clip path measures through ffmpeg's loudnorm, which implements the full
+// process; this stays as the sample-level measurement usable without a server.
 export function integratedLoudnessFromSamples(samples: Float32Array, sampleRate: number): number {
   if (samples.length === 0 || sampleRate <= 0) return -70; // Empty/illegal input → Silence lower limit, do not return NaN
   const blockSize = Math.max(1, Math.round(sampleRate * 0.4)); // BS.1770 gating block = 400ms
@@ -41,24 +46,70 @@ export function gainForTarget(currentLufs: number, targetLufs: number): number {
 
 // ── Browser only (fetch + WebAudio decoding) ─────────────────────────────────
 
-function mixToMono(buffer: AudioBuffer): Float32Array {
-  const { numberOfChannels, length } = buffer;
-  const out = new Float32Array(length);
-  for (let ch = 0; ch < numberOfChannels; ch++) {
-    const data = buffer.getChannelData(ch);
-    for (let i = 0; i < length; i++) out[i] += data[i] / numberOfChannels;
-  }
-  return out;
+/** Loudness of one clip's trimmed range, plus the range that was measured. */
+export interface ClipLoudness {
+  integratedLufs: number;
+  truePeakDb: number;
+  loudnessRange: number;
+  startSeconds: number;
+  durationSeconds: number;
 }
 
-/** Pull audio source→OfflineAudioContext offline decoding (no sound, not restricted by automatic playback policy)→mix mono
- * →Measure integrated loudness. Browser-specific; it should not be adjusted in the node environment (OfflineAudioContext does not exist). */
-export async function analyzeClipLoudness(src: string): Promise<number> {
-  const res = await fetch(src);
-  if (!res.ok) throw new Error(`加载音频失败: ${src} (HTTP ${res.status})`);
-  const arrayBuffer = await res.arrayBuffer();
-  // The length is just a placeholder; the actual sampling rate/number of channels is subject to the decoding result of decodeAudioData.
-  const ctx = new OfflineAudioContext(1, 1, 44100);
-  const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-  return integratedLoudnessFromSamples(mixToMono(audioBuffer), audioBuffer.sampleRate);
+export interface ClipLoudnessRange {
+  src: string;
+  startSeconds: number;
+  durationSeconds: number;
+}
+
+/**
+ * The source-media window a clip actually plays, in seconds.
+ *
+ * Measuring the whole file gives a short excerpt of a long recording the whole
+ * recording's loudness, so the gain lands on the wrong clip. Voice isolation
+ * replaces the audio that plays, so its output is what gets measured when it
+ * is present.
+ */
+export function clipLoudnessRange(
+  item: Pick<TimelineItem, 'src' | 'denoisedSrc' | 'srcInFrame' | 'playbackRate' | 'durationInFrames'>,
+  fps: number,
+): ClipLoudnessRange | null {
+  const src = item.denoisedSrc || item.src;
+  if (!src || fps <= 0) return null;
+  const window = sourceWindowForTimelineRange(item, 0, item.durationInFrames);
+  return {
+    src,
+    startSeconds: window.startFrame / fps,
+    durationSeconds: Math.max(0, window.endFrame - window.startFrame) / fps,
+  };
+}
+
+/**
+ * Measure a clip's trimmed range through the server's ffmpeg loudnorm route.
+ *
+ * The measurement is deliberately not done here. Decoding in the renderer meant
+ * pulling the whole container into an AudioBuffer, which is why loudness work
+ * used to be restricted to standalone audio clips — a video clip would have
+ * decoded gigabytes in the tab. ffmpeg streams the decode, so a video clip's
+ * audio costs the same as an audio clip's, and it runs the full BS.1770 gating
+ * rather than the approximation in integratedLoudnessFromSamples.
+ */
+export async function measureClipLoudness(range: ClipLoudnessRange): Promise<ClipLoudness> {
+  const res = await fetch('/api/measure-loudness', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(range),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | (Partial<ClipLoudness> & { ok?: boolean; error?: string })
+    | null;
+  if (!res.ok || !body?.ok || typeof body.integratedLufs !== 'number') {
+    throw new Error(body?.error ?? `loudness measurement failed (HTTP ${res.status})`);
+  }
+  return {
+    integratedLufs: body.integratedLufs,
+    truePeakDb: body.truePeakDb ?? 0,
+    loudnessRange: body.loudnessRange ?? 0,
+    startSeconds: range.startSeconds,
+    durationSeconds: range.durationSeconds,
+  };
 }

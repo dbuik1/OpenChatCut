@@ -201,7 +201,7 @@ function AudioTab({ panel, item, playheadLocal }: InspectorContentProps) {
   return (
     <>
       <SectionLabel>{t('音量')}</SectionLabel>
-      <VolumeControl item={item} mixed={isMixed(panel, (entry) => entry.volume ?? 1)} onChange={panel.onItemVolumeChange} onNormalize={panel.selectedItems.every((entry) => entry.kind === 'audio') ? panel.onNormalizeLoudness : undefined} onReset={panel.onResetItemKeyframes} kf={{
+      <VolumeControl item={item} mixed={isMixed(panel, (entry) => entry.volume ?? 1)} onChange={panel.onItemVolumeChange} onNormalize={panel.selectedItems.every((entry) => entry.kind === 'audio' || entry.kind === 'video') ? panel.onNormalizeLoudness : undefined} onReset={panel.onResetItemKeyframes} kf={{
         ...playheadLocal,
         set: panel.onSetItemKeyframe,
         remove: panel.onRemoveItemKeyframe,

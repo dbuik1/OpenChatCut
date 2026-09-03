@@ -263,7 +263,8 @@ interface VolumeControlProps {
   item: TimelineItem;
   mixed?: boolean;
   onChange: (value: number) => void;
-  onNormalize?: () => void | Promise<void>;
+  /** Measure and normalize the selection to a target, resolving with the number of clips changed. */
+  onNormalize?: (targetLufs: number) => number | Promise<number>;
   onReset: (props: readonly KeyframeProp[]) => void;
   kf: KfApi;
 }
@@ -271,6 +272,17 @@ interface VolumeControlProps {
 // audio + video clips carry a playback volume; image/MG do not. With volume
 // keyframes present the slider shows the playhead-sampled value and edits punch
 // a keyframe there (same override rule as TransformControl rows).
+// Delivery targets, not arbitrary numbers: -14 is what YouTube and Spotify
+// normalize to, -16 the common podcast target, -23 the EBU R128 broadcast
+// requirement. Anything else is reached through the agent tool's target
+// parameter rather than by widening this control.
+const LOUDNESS_TARGETS = [
+  { lufs: -14, label: '-14 流媒体' },
+  { lufs: -16, label: '-16 播客' },
+  { lufs: -23, label: '-23 广播' },
+] as const;
+const DEFAULT_LOUDNESS_TARGET = -14;
+
 export function VolumeControl({
   item, mixed, onChange, onNormalize, onReset, kf,
 }: VolumeControlProps) {
@@ -278,6 +290,8 @@ export function VolumeControl({
   const kfs = item.keyframes?.volume;
   const vol = kfs?.length ? sampleKeyframes(kfs, kf.localFrame) : item.volume ?? 1;
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState(DEFAULT_LOUDNESS_TARGET);
+  const [done, setDone] = useState<number | null>(null);
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -298,20 +312,41 @@ export function VolumeControl({
           onSet={(frame, next, easing) => kf.set('volume', frame, next, easing)}
           onRemove={(frame) => kf.remove('volume', frame)} onSeekLocal={kf.seekLocal} />
       </div>
-      {item.kind === 'audio' && onNormalize && (
-        <button
-          type="button"
-          className="cc-insp-btn"
-          disabled={busy || !item.src}
-          title={t('分析并归一到 -14 LUFS')}
-          style={{ marginTop: 6, width: '100%', fontSize: 11 }}
-          onClick={() => {
-            setBusy(true);
-            void Promise.resolve(onNormalize()).finally(() => setBusy(false));
-          }}
-        >
-          {busy ? t('分析中…') : t('响度归一 (-14 LUFS)')}
-        </button>
+      {(item.kind === 'audio' || item.kind === 'video') && onNormalize && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+          <button
+            type="button"
+            className="cc-insp-btn"
+            disabled={busy || !item.src}
+            title={t('测量并归一到 {target} LUFS', { target })}
+            style={{ flex: 1, minWidth: 0, fontSize: 11 }}
+            onClick={() => {
+              setBusy(true);
+              setDone(null);
+              void Promise.resolve(onNormalize(target))
+                .then((count) => setDone(count))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy
+              ? t('测量中…')
+              : done !== null
+                ? t('已归一 {n} 个片段，音量见上方', { n: done })
+                : t('响度归一 ({target} LUFS)', { target })}
+          </button>
+          <select
+            aria-label={t('响度目标')}
+            title={t('响度目标')}
+            value={target}
+            disabled={busy}
+            onChange={(event) => { setTarget(Number(event.target.value)); setDone(null); }}
+            style={{ fontSize: 11 }}
+          >
+            {LOUDNESS_TARGETS.map((preset) => (
+              <option key={preset.lufs} value={preset.lufs}>{t(preset.label)}</option>
+            ))}
+          </select>
+        </div>
       )}
     </div>
   );
