@@ -27,11 +27,16 @@ function targetItems(ctx: AgentContext, itemId: unknown): SilenceTargetItem[] | 
 
 export async function execSilenceTool(name: string, args: Args, ctx: AgentContext): Promise<unknown> {
   if (name !== 'remove_silence') return { error: `unknown tool ${name}` };
+  // Silence removal is destructive and ripple-closes gaps, so it runs only on
+  // voice-activity evidence: level alone would cut music beds, room tone and
+  // quiet speech as dead air. Without that evidence the only safe answer is to
+  // refuse, never to report an edit that did not happen.
   if (!vadSilenceRemovalEnabled()) {
     return {
-      ok: true,
-      edited: [],
-      note: 'VAD 静音删除功能未启用；为避免把音乐、噪声或低声讲话当静音，未执行删除。',
+      error: 'remove_silence is turned off in this build, so nothing was changed. '
+        + 'Removing dead air needs voice-activity detection to tell a pause from music, '
+        + 'room tone or quiet speech, and that detection is not compiled into this build. '
+        + 'To tighten pacing on a transcribed clip, use clean_script instead.',
     };
   }
   const params = {
