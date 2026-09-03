@@ -1,5 +1,5 @@
 // Runnable check: `npx tsx src/agent/skills/plugin-skills.check.ts`（转正为 .verify.ts 后挂 verify:skills）。
-// Verifies the 26 bundled skills are present + verbatim + parse cleanly. Reads the
+// Verifies the bundled skills are present + verbatim + parse cleanly. Reads the
 // SKILL.md files from disk (not via plugin-skills.ts, which uses Vite `?raw` and can't
 // load under tsx) and exercises the pure frontmatter parser on all three source shapes.
 import assert from 'node:assert/strict';
@@ -11,7 +11,8 @@ import { parseSkillFrontmatter } from './skill-frontmatter';
 const SKILLS_DIR = dirname(fileURLToPath(import.meta.url));  // check 与技能内容同目录
 const EXPECTED = [
   'ai-cinematic-short-film', 'asset-import', 'create-motion-graphics', 'explainer-video',
-  'export', 'image-gen', 'known-errors', 'livestream-to-clips', 'long-video-to-shorts',
+  'export', 'gameplay-peaks', 'image-gen', 'known-errors', 'learn-my-fillers',
+  'livestream-to-clips', 'long-video-to-shorts',
   'motion-graphic-placement',
   'multi-clips-to-reels', 'music', 'music-intelligence', 'news-rough-cut',
   'openchatcut-plugin-basics', 'product-ad-video-script',
@@ -22,7 +23,7 @@ const EXPECTED = [
 
 // Every expected skill dir is present, and no extras.
 const slugs = readdirSync(SKILLS_DIR).filter((d) => statSync(join(SKILLS_DIR, d)).isDirectory()).sort();
-assert.deepStrictEqual(slugs, [...EXPECTED].sort(), '26 个内置技能全部在册,无多无少');
+assert.deepStrictEqual(slugs, [...EXPECTED].sort(), '内置技能全部在册,无多无少');
 
 // Each SKILL.md parses to name(=slug) + non-empty description + substantive verbatim body.
 for (const slug of slugs) {
@@ -43,6 +44,14 @@ assert.strictEqual(quoted.description, 'Use for Y, Z.', '双引号 description �
 const block = parseSkillFrontmatter('---\nname: c\ndescription: |\n  Line one\n  line two.\nuser-invocable: true\n---\nBODY');
 assert.strictEqual(block.description, 'Line one line two.', '`|` 块 description 拼接并在下个 key 处停止');
 assert.strictEqual(block.body, 'BODY', '块 description 不吞掉正文');
+
+// A scripts-bearing skill keeps its scripts/ on disk: server/bundled-skills.ts
+// materialises exactly those, and an empty scripts/ would ship a skill whose
+// SKILL.md tells the agent to run a file that is not there.
+for (const slug of ['gameplay-peaks', 'learn-my-fillers']) {
+  const scripts = readdirSync(join(SKILLS_DIR, slug, 'scripts'));
+  assert.ok(scripts.length > 0, `${slug}: scripts/ 随技能一起进包`);
+}
 
 // A known skill loads a real support file (voice/references/voices.md exists on disk).
 const voiceRef = readFileSync(join(SKILLS_DIR, 'voice', 'references', 'voices.md'), 'utf8');
