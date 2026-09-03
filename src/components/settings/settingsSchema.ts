@@ -248,7 +248,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       { key: 'display', title: '显示', hint: '界面缩放与显示相关设置。',
         vendors: [
           { key: 'display/scale', vendor: 'localasr', title: '界面缩放',
-            note: '调整整个编辑器的缩放比例（80%–250%）。桌面版保存后立即生效，也可用 Ctrl/Cmd + +/- 快速调整、Ctrl/Cmd + 0 复位。浏览器版请使用浏览器自带缩放。',
+            note: '调整整个编辑器的缩放比例（80%–500%）。桌面版保存后立即生效，也可用 Ctrl/Cmd + +/- 快速调整、Ctrl/Cmd + 0 复位。浏览器版请使用浏览器自带缩放。',
             fields: [
               { name: 'UI_SCALE', label: '界面缩放', kind: 'select', defaultLabel: '100%',
                 options: [
@@ -261,6 +261,9 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
                   { value: '1.75', label: '175%' },
                   { value: '2', label: '200%' },
                   { value: '2.5', label: '250%' },
+                  { value: '3', label: '300%' },
+                  { value: '4', label: '400%' },
+                  { value: '5', label: '500%' },
                 ] },
             ] },
         ] },
