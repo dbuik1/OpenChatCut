@@ -4,7 +4,7 @@ const ZOOM_STEP = 0.05;
 
 /**
  * Desktop zoom accelerators (issue #85): Cmd/Ctrl + Plus/Minus steps the
- * saved UI scale by 5% (clamped 80%–150% in the main process), Cmd/Ctrl + 0
+ * saved UI scale by 5% (clamped 80%–500% in the main process), Cmd/Ctrl + 0
  * resets to 100%. Ignored while typing and when no desktop bridge exists —
  * browsers keep their own zoom shortcuts.
  */
