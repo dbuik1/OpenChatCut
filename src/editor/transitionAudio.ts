@@ -78,3 +78,42 @@ export function shareableVisualItem(input: {
 export function equalPowerGain(position: number): number {
   return Math.sqrt(Math.min(1, Math.max(0, position)));
 }
+
+/** Attack completes by the time the anchor starts, so nothing is ducked late. */
+const DUCK_ATTACK_SECONDS = 0.08;
+/** Release is slower than attack: a fast recovery pumps between close anchors. */
+const DUCK_RELEASE_SECONDS = 0.4;
+
+export type DuckRange = readonly [from: number, to: number];
+
+/**
+ * How far a follower track is ducked at a frame, from 0 (untouched) to 1 (full
+ * depth), given the frames an anchor occupies.
+ *
+ * Stepping straight to full depth at an anchor boundary is an instantaneous
+ * gain change, which is audible as a click and, between clips, as pumping. The
+ * ramp down finishes as the anchor begins rather than starting there, so the
+ * anchor's first word is never heard over an un-ducked bed. Overlapping anchors
+ * take the deepest envelope, so a gap between two of them cannot briefly
+ * un-duck the bed.
+ */
+export function duckEnvelopeAt(frame: number, ranges: readonly DuckRange[], fps: number): number {
+  if (!ranges.length || fps <= 0) return 0;
+  const attack = Math.max(1, Math.round(fps * DUCK_ATTACK_SECONDS));
+  const release = Math.max(1, Math.round(fps * DUCK_RELEASE_SECONDS));
+  let envelope = 0;
+  for (const [from, to] of ranges) {
+    if (frame >= from && frame < to) return 1;
+    if (frame < from) {
+      if (frame > from - attack) envelope = Math.max(envelope, (frame - (from - attack)) / attack);
+      continue;
+    }
+    if (frame < to + release) envelope = Math.max(envelope, 1 - (frame - to) / release);
+  }
+  return Math.min(1, Math.max(0, envelope));
+}
+
+/** Linear gain for a duck depth in dB at a given envelope position. */
+export function duckGainFor(depthDb: number, envelope: number): number {
+  return 10 ** ((depthDb * envelope) / 20);
+}

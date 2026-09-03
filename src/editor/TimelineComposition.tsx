@@ -20,7 +20,7 @@ import { GlTransitionVisibility } from './GlTransitionVisibility';
 import { updateReadyGlWindows } from './glTransitionVisibilityState';
 import { AudioClip, BackgroundFillLayer, ContinuousVideoAudio, MediaFill, SharedVideoVisualGroup, VisualClipSurface } from './TimelineMediaLayer';
 import { firstGlEffect } from '../gl/clipEffects';
-import { continuousVideoAudioGroups, shareableVisualItem } from './transitionAudio';
+import { continuousVideoAudioGroups, duckEnvelopeAt, duckGainFor, shareableVisualItem } from './transitionAudio';
 import { ItemLayer, SolidLayer, TextLayer, WatermarkLayer } from './TimelineGraphicLayers';
 
 const GRID = 'repeating-conic-gradient(#242424 0% 25%, #1c1c1c 0% 50%) 50% / 40px 40px';
@@ -144,8 +144,10 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
     .map((item) => [item.startFrame, item.startFrame + item.durationInFrames] as const);
   const duckGain = (track: TimelineItem['track'], frame: number): number => {
     const config = state.tracks?.[track];
-    if (config?.role !== 'follower' || !anchorRanges.some(([from, to]) => frame >= from && frame < to)) return 1;
-    return 10 ** ((config.audioRouting?.duckDepthDb ?? -12) / 20);
+    if (config?.role !== 'follower') return 1;
+    const envelope = duckEnvelopeAt(frame, anchorRanges, state.fps);
+    if (envelope === 0) return 1;
+    return duckGainFor(config.audioRouting?.duckDepthDb ?? -12, envelope);
   };
   const fit: AspectFit = state.fit ?? 'contain';
   // Preview mounts each clip 1s in advance (freezes first frame + transparency): video elements seek/decode in advance, GL compiles in advance,
