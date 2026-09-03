@@ -9,26 +9,17 @@ uniform float u_intensity;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-vec3 linearToBt709(vec3 lin) {
-  lin = max(lin, vec3(0.0));
-  vec3 lo = lin * 4.5;
-  vec3 hi = 1.099 * pow(lin, vec3(0.45)) - 0.099;
-  return mix(lo, hi, step(0.018, lin));
-}
-
-vec3 bt709ToLinear(vec3 encoded) {
-  encoded = clamp(encoded, vec3(0.0), vec3(1.0));
-  vec3 lo = encoded / 4.5;
-  vec3 hi = pow((encoded + 0.099) / 1.099, vec3(1.0 / 0.45));
-  return mix(lo, hi, step(0.081, encoded));
-}
-
 void main() {
   vec4 src = texture(u_input, v_texCoord);
-  vec3 encoded = linearToBt709(src.rgb);
-  vec3 graded = texture(
-    u_lut,
-    clamp(encoded, vec3(0.0), vec3(1.0))
-  ).rgb;
-  fragColor = vec4(bt709ToLinear(mix(encoded, graded, u_intensity)), src.a);
+  // Media is uploaded as raw bytes with UNPACK_COLORSPACE_CONVERSION_WEBGL set
+  // to NONE into an RGBA8 texture, and written back to an RGBA8 framebuffer, so
+  // the sampled value carries whatever transfer function the source file was
+  // encoded with. A .cube LUT is authored against exactly that encoding — the
+  // bundled ones convert S-Log3 and Canon Log 3 straight to Rec.709 — so the
+  // lookup coordinate is the sampled value itself. Applying a transfer function
+  // on the way in would index the LUT at a luminance the footage never had, and
+  // one on the way out would undo the LUT's own output encoding.
+  vec3 encoded = clamp(src.rgb, vec3(0.0), vec3(1.0));
+  vec3 graded = texture(u_lut, encoded).rgb;
+  fragColor = vec4(mix(encoded, graded, u_intensity), src.a);
 }

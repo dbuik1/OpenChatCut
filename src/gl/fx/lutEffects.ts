@@ -26,7 +26,7 @@ export const LUT_EFFECTS: Record<string, FxDef> = {
   'builtin:slog3-s709': {
     id: 'builtin:slog3-s709',
     name: 'Sony S-Log3 → s709',
-    desc: 'Sony S-Log3 / S-Gamut3.Cine → Rec.709。.cube 三维查找表（Sony_Slog3_s709.cube, 33³）+ 通用 lut.frag（sampler3D，BT.709 编解码包夹）',
+    desc: 'Sony S-Log3 / S-Gamut3.Cine → Rec.709。.cube 三维查找表（Sony_Slog3_s709.cube, 33³）+ 通用 lut.frag',
     frag: lutFrag,
     cube: '/luts/Sony_Slog3_s709.cube',
     props: [{ key: 'intensity', label: '强度', default: 1, min: 0, max: 1, step: 0.01 }],

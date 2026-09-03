@@ -908,7 +908,7 @@ export const RU: Record<string, string> = {
   '柯达金 Gold': 'Kodak Gold',
   '拍立得 / 一次性': 'Полароид / одноразовая',
   'CineStill 夜景': 'CineStill ночной',
-  'Sony S-Log3 / S-Gamut3.Cine → Rec.709。.cube 三维查找表（Sony_Slog3_s709.cube, 33³）+ 通用 lut.frag（sampler3D，BT.709 编解码包夹）': 'Sony S-Log3 / S-Gamut3.Cine → Rec.709. 3D LUT .cube (Sony_Slog3_s709.cube, 33³) + универсальный lut.frag (sampler3D, обёртка кодека BT.709)',
+  'Sony S-Log3 / S-Gamut3.Cine → Rec.709。.cube 三维查找表（Sony_Slog3_s709.cube, 33³）+ 通用 lut.frag': 'Sony S-Log3 / S-Gamut3.Cine → Rec.709. 3D LUT .cube (Sony_Slog3_s709.cube, 33³) + универсальный lut.frag',
   'Canon Cinema Gamut / Canon Log 3 → Canon 709。.cube 三维查找表（CinemaGamut_CanonLog3-to-Canon709_33_Ver.1.0.cube, 33³）+ 通用 lut.frag': 'Canon Cinema Gamut / Canon Log 3 → Canon 709. 3D LUT .cube (CinemaGamut_CanonLog3-to-Canon709_33_Ver.1.0.cube, 33³) + универсальный lut.frag',
   '阴影偏青、高光偏橙的好莱坞调色。': 'Голливудская гамма: тени в циан, света в оранж.',
   '高对比黑白 + 轻微动态颗粒。': 'Контрастный ч/б + лёгкое динамичное зерно.',
