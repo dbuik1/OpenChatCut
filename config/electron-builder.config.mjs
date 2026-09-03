@@ -74,7 +74,7 @@ export default {
   compression: 'maximum',
   publish: [{
     provider: 'github',
-    owner: '0xsline',
+    owner: 'dbuik1',
     repo: 'OpenChatCut',
     channel: updateChannel,
   }],
