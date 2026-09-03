@@ -179,6 +179,13 @@ export function ClipContextMenu({ item, transitions, x, y, playhead, commands, t
   const inside = playhead > item.startFrame && playhead < item.startFrame + item.durationInFrames;
   const isVisual = item.kind !== 'audio';
   const isDom = item.kind === 'motion-graphic' || item.kind === 'text'; // DOM clips → alpha MG export
+  // Baking renders the clip through a one-item sub-timeline that carries no project,
+  // so a nested-sequence clip has nothing to resolve its referenced timeline against
+  // and the render aborts. Flatten the sequence into its own timeline first.
+  const canBakeToVideo = item.kind !== 'audio' && item.kind !== 'sequence';
+  const bakeHint = item.kind === 'sequence'
+    ? t('嵌套序列不能直接转为视频，请先在该序列时间线中导出，再把成片放回本时间线')
+    : undefined;
   const canSpeed = item.kind === 'video' || item.kind === 'audio' || item.kind === 'sequence';
   const canRelink = !timeline.tracks?.[item.track]?.locked && !!item.src && ['video', 'audio', 'image', 'gif', 'svg'].includes(item.kind);
   const rate = item.playbackRate ?? 1;
@@ -290,7 +297,7 @@ export function ClipContextMenu({ item, transitions, x, y, playhead, commands, t
       <Item label={t('重新链接文件')} icon="folder" disabled={!canRelink} onClick={run(() => onRelinkFile(item))} />
       <Sep />
       <Item label={t('导出 MG 动画')} icon="download" disabled={!isDom} onClick={run(() => onExportMg(item))} />
-      <Item label={t('转为视频')} icon="film" disabled={item.kind === 'audio'} onClick={run(() => onConvertToVideo(item))} />
+      <Item label={t('转为视频')} icon="film" disabled={!canBakeToVideo} title={bakeHint} onClick={run(() => onConvertToVideo(item))} />
       <Sep />
       <Item
         label={batchN > 1 ? t('删除（{n}）', { n: batchN }) : t('删除')}
@@ -325,11 +332,13 @@ function Sep() {
   return <div style={{ height: 0.5, background: theme.border, margin: '5px 6px' }} />;
 }
 
-function Item({ label, icon, shortcut, disabled, danger, pro, chevron, onClick }: {
-  label: string; icon: IconName; shortcut?: string; disabled?: boolean; danger?: boolean; pro?: boolean; chevron?: boolean; onClick?: () => void;
+function Item({ label, icon, shortcut, disabled, danger, pro, chevron, title, onClick }: {
+  label: string; icon: IconName; shortcut?: string; disabled?: boolean; danger?: boolean; pro?: boolean; chevron?: boolean; title?: string; onClick?: () => void;
 }) {
-  return (
-    <button disabled={disabled} onClick={onClick}
+  // A disabled button receives no pointer events, so the reason it is disabled has to
+  // hang off a wrapper that still does.
+  const row = (
+    <button disabled={disabled} onClick={onClick} title={disabled ? undefined : title}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none',
         borderRadius: 6, padding: '7px 9px', fontSize: 12.5, cursor: disabled ? 'default' : 'pointer',
@@ -344,4 +353,5 @@ function Item({ label, icon, shortcut, disabled, danger, pro, chevron, onClick }
       {shortcut && <span style={{ color: theme.textDim, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{shortcut}</span>}
     </button>
   );
+  return title ? <span title={title} style={{ display: 'block' }}>{row}</span> : row;
 }

@@ -183,6 +183,8 @@ export default {
   '变速（{rate}×）': 'Speed ({rate}×)',
   '导出 MG 动画': 'Export MG animation',
   '转为视频': 'Convert to video',
+  '嵌套序列不能直接转为视频，请先在该序列时间线中导出，再把成片放回本时间线':
+    'Nested sequences can\'t be baked directly. Export the sequence from its own timeline first, then bring the finished video back into this one.',
   '删除': 'Delete',
   '删除（{n}）': 'Delete ({n})',
   '波纹删除（合缝）': 'Ripple delete (close gap)',
