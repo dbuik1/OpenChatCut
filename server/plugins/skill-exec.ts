@@ -12,6 +12,7 @@ import { promisify } from 'node:util';
 import { access } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { skillDirFor, skillFilesRoot } from '../skills-files.ts';
+import { ensureBundledSkillsMaterialised } from '../bundled-skills.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -139,6 +140,9 @@ function truncateOutput(text: string): string {
 
 /** Run one whitelisted binary inside the skill directory. */
 async function runInSkillDir(slug: string, body: ExecRequest): Promise<unknown> {
+  // Startup materialisation is asynchronous; awaiting the same memoised run
+  // keeps an early exec from reporting a bundled skill as not installed.
+  await ensureBundledSkillsMaterialised();
   const root = skillFilesRoot();
   const dir = skillDirFor(root, slug);
   if (!dir) return { error: `invalid skill slug "${slug}"` };

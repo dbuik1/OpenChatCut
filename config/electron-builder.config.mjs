@@ -96,6 +96,10 @@ export default {
     // uploadsMiddleware serves /media/uploads directly from the asset directory (userData in packaged builds),
     // so resources/dist never needs those files.
     { from: 'dist', to: 'dist', filter: ['**/*', '!media/uploads/**'] },
+    // Bundled agent skills as loose files: the renderer reads them out of its
+    // own bundle, but a skill shipping scripts/ has to be materialised onto
+    // disk before run_skill_script can execute it (server/bundled-skills.ts).
+    { from: 'src/agent/skills', to: 'bundled-skills', filter: ['**/*', '!*.ts'] },
     { from: 'desktop-dist/remotion-bundle', to: 'remotion-bundle' },
     { from: 'desktop-dist/chrome-headless-shell', to: 'chrome-headless-shell' },
   ],

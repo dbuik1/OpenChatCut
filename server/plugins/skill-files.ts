@@ -6,6 +6,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
 
+import { ensureBundledSkillsMaterialised } from '../bundled-skills.ts';
 import {
   discoverSkillFiles,
   readSkillDirFiles,
@@ -110,6 +111,11 @@ export function skillFilesPlugin(): Plugin {
   return {
     name: 'openchatcut-skill-files',
     configureServer(server) {
+      // Bundled skills that ship scripts/ are copied into the skills root here
+      // rather than in desktop/main.ts: this hook runs for the Vite dev server
+      // and for the packaged Electron embedded server alike, which is one code
+      // path instead of two, and it is the same layer that serves the skills.
+      void ensureBundledSkillsMaterialised((message) => server.config.logger.info(message));
       server.middlewares.use('/api/skills', (req, res, next) => {
         // /api/skills/install and /api/skills/<slug>/exec are owned by their own plugins.
         if (req.url?.startsWith('/install')) { next(); return; }
