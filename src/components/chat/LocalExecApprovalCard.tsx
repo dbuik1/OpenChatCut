@@ -44,9 +44,6 @@ export function LocalExecApprovalCard() {
         {t('工具 {tool} 将在你的电脑上运行本项目之外的代码。确认只对下面这一次调用生效，没有「始终允许」。', {
           tool: pending.tool,
         })}
-        <div style={{ marginTop: 5, color: theme.textDim, overflowWrap: 'anywhere' }}>
-          {pending.summary}
-        </div>
         <ApprovalDetails details={pending.details} argsDigest={pending.argsDigest} />
       </div>
       <div style={{ display: 'flex', gap: 8 }}>

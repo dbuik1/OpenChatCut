@@ -4,7 +4,7 @@ import { getKey } from '../server/keystore.ts';
 export const DESKTOP_MIN_SCALE = 2 / 3;
 /** User-set UI scale bounds (issue #85). 1 = the pre-feature behavior. */
 export const DESKTOP_UI_SCALE_MIN = 0.8;
-export const DESKTOP_UI_SCALE_MAX = 1.5;
+export const DESKTOP_UI_SCALE_MAX = 2.5;
 export const DESKTOP_UI_SCALE_KEY = 'UI_SCALE';
 
 /** Parse the saved UI scale, clamping to the supported range. */

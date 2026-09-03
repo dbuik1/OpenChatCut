@@ -162,8 +162,8 @@ export default {
   '界面': 'Interface',
   '界面缩放与显示相关设置。': 'Interface scale and display settings.',
   '界面缩放': 'Interface scale',
-  '调整整个编辑器的缩放比例（80%–150%）。桌面版保存后立即生效，也可用 Ctrl/Cmd + +/- 快速调整、Ctrl/Cmd + 0 复位。浏览器版请使用浏览器自带缩放。':
-    'Adjust the entire editor scale (80%–150%). Desktop changes apply immediately after saving; Ctrl/Cmd + +/- adjusts quickly, and Ctrl/Cmd + 0 resets. In the browser, use the browser zoom controls.',
+  '调整整个编辑器的缩放比例（80%–250%）。桌面版保存后立即生效，也可用 Ctrl/Cmd + +/- 快速调整、Ctrl/Cmd + 0 复位。浏览器版请使用浏览器自带缩放。':
+    'Adjust the entire editor scale (80%–250%). Desktop changes apply immediately after saving; Ctrl/Cmd + +/- adjusts quickly, and Ctrl/Cmd + 0 resets. In the browser, use the browser zoom controls.',
   '本地模型': 'Local models',
   '本地转写、节拍与音乐分析、画面语义搜索。模型按需安装，数据不出本机。':
     'Local transcription, beat/music analysis, and visual semantic search. Models are installed on demand and data stays on this machine.',

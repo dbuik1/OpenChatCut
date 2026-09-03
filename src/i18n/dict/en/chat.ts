@@ -130,6 +130,7 @@ export default {
   '路径': 'Path',
   '输出名称': 'Output name',
   '仓库': 'Repository',
+  '轨道': 'Track',
   '安装目录': 'Install directory',
   '技能': 'Skill',
   '资源 ID': 'Asset ID',

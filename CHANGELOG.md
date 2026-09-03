@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed / 变更
+
+- Interface scale now reaches 250%. The ceiling was 150%, which is not enough magnification for a low-vision user, and the desktop clamp silently discarded anything above it — so there was no way to go further even by editing the stored value. 175%, 200% and 250% join the list.
+  界面缩放上限提高到 250%。此前上限为 150%，对低视力用户而言放大倍数不足，而桌面端的钳制会静默丢弃超出部分——即便直接修改保存值也无法再放大。现新增 175%、200%、250% 三档。
+
+### Fixed / 修复
+
+- The local-execution confirmation card no longer prints an untranslated argument summary above its own details block. The summary string is composed from raw label keys, so an English interface showed `install_skill · 仓库=octocat/Hello-World` directly beneath a correctly translated Repository row saying the same thing. The duplicate line is removed rather than translated: the details block below it already carries every argument, each label passed through the dictionary.
+  本机执行确认卡片不再在详情区上方显示未翻译的参数摘要。摘要字符串由原始标签键拼接而成，因此英文界面会在已正确翻译的 Repository 行正上方直接显示 `install_skill · 仓库=octocat/Hello-World`。此处选择删除重复行而非翻译它：下方详情区已列出全部参数，且每个标签都经过词典翻译。
+- `轨道` had no English translation, so approval cards for track-scoped tools showed the Chinese label where every other label was translated.
+  `轨道` 缺少英文翻译，导致涉及轨道的工具在审批卡片上显示中文标签，而其他标签均已翻译。
+
 ### Added / 新增
 
 - `clean_script` takes an optional `extraFillers` list, so a speaker whose verbal tics are "like" or "basically" can be cleaned mechanically. The root cause of the gap was that the filler vocabulary was a module-private `Set` literal with no parameter reaching it from the tool: everyone got the same ten English tokens and five Chinese ones, and any other tic had to be deleted by hand, word by word. The built-in set stays the default and is always active; supplied tokens are additive and normalise exactly as the built-ins do (lowercased, everything but letters and Chinese characters stripped), so `like` matches "Like," in the transcript. Duplicates and empty tokens are ignored, the list is capped at 200, and a multi-word phrase is rejected with an error naming the token rather than silently ignored — the transcript is word-indexed, so a phrase needs a matcher this patch does not add.
