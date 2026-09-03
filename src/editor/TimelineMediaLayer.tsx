@@ -19,6 +19,7 @@ import { clipFadeFactor, clipOpacityAt } from './clipFade';
 import { volumeAtFrame } from './keyframes';
 import { sourceFrameAt } from './sourceLimit';
 import type { AspectFit, TimelineItem, TransitionItem } from './types';
+import { equalPowerGain } from './transitionAudio';
 import { isAudioTransition } from './types';
 import { clampVisualBorderRadius, objectFitInsideVisualFrame, visibleVisualFrameRect } from './visualFrameGeometry';
 
@@ -99,10 +100,10 @@ function audioCrossfadeMultiplier(item: TimelineItem, localFrame: number, transi
     if (transition.enabled === false || !isAudioTransition(transition.type)) continue;
     const duration = Math.max(1, transition.durationInFrames);
     if (transition.outgoingItemId === item.id && localFrame >= item.durationInFrames - duration) {
-      multiplier *= 1 - Math.min(1, Math.max(0, (localFrame - item.durationInFrames + duration) / duration));
+      multiplier *= equalPowerGain(1 - (localFrame - item.durationInFrames + duration) / duration);
     }
     if (transition.incomingItemId === item.id && localFrame < duration) {
-      multiplier *= Math.min(1, Math.max(0, localFrame / duration));
+      multiplier *= equalPowerGain(localFrame / duration);
     }
   }
   return multiplier;

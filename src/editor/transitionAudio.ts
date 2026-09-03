@@ -65,3 +65,16 @@ export function shareableVisualItem(input: {
     && !item.keyframes
     && !item.filters;
 }
+
+/**
+ * Equal-power crossfade gain for a position in [0,1] through the transition.
+ *
+ * Two clips crossfading are uncorrelated signals, so their powers add while
+ * their amplitudes do not. Ramping amplitude linearly puts both sides at 0.5 in
+ * the middle, which sums to half the power of either side alone — an audible
+ * dip at the centre of every audio transition. Taking the square root holds the
+ * summed power constant across the whole ramp.
+ */
+export function equalPowerGain(position: number): number {
+  return Math.sqrt(Math.min(1, Math.max(0, position)));
+}
