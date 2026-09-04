@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { duckEnvelopeAt, duckGainFor, equalPowerGain } from './transitionAudio';
+import { anchorDuckRanges, duckEnvelopeAt, duckGainFor, equalPowerGain } from './transitionAudio';
 
 // The property that matters: across the whole ramp the two sides of a crossfade
 // sum to constant power. A linear ramp fails this at the midpoint, where both
@@ -78,5 +78,45 @@ assert.equal(duckEnvelopeAt(150, anchor, 0), 0);
 assert.equal(duckGainFor(-12, 0), 1);
 assert.ok(Math.abs(duckGainFor(-12, 1) - 10 ** (-12 / 20)) < 1e-12);
 assert.ok(Math.abs(duckGainFor(-12, 0.5) - 10 ** (-6 / 20)) < 1e-12);
+
+// ── Anchor ranges follow speech, not clip extent ────────────────────────────
+
+const clip = { kind: 'video', startFrame: 100, durationInFrames: 300, srcInFrame: 0 } as const;
+const word = (start: number, end: number, text: string) => ({ text, start, end });
+const wholeClip = [[100, 400]];
+
+// A clip whose word timings are unavailable ducks its whole extent: an anchor
+// with no transcript is not an anchor that never speaks, and not ducking it at
+// all is a worse failure than ducking it through its pauses.
+assert.deepEqual(anchorDuckRanges({ ...clip }, FPS), wholeClip);
+assert.deepEqual(anchorDuckRanges({ ...clip, transcriptStale: true, transcript: [word(0, 500, 'a')] }, FPS), wholeClip);
+assert.deepEqual(anchorDuckRanges({ ...clip, transcript: [word(0, 500, 'a')] }, 0), wholeClip);
+
+// A pause the bed can climb out of becomes a gap between ranges, so a talking
+// head that is 40% silence no longer buries the music for its whole length.
+const withPause = anchorDuckRanges(
+  { ...clip, transcript: [word(0, 500, 'a'), word(500, 1000, 'b'), word(5000, 5500, 'c')] },
+  FPS,
+);
+assert.deepEqual(withPause, [[100, 130], [250, 265]]);
+assert.equal(duckEnvelopeAt(190, withPause, FPS), 0, 'the bed comes back up mid-pause');
+
+// A gap shorter than attack + release is not a gap: the envelope could not
+// recover through it, and splitting there would only pump. Merging also keeps
+// the range count proportional to real pauses rather than to word count, which
+// matters because this list is walked once per audio frame.
+assert.deepEqual(
+  anchorDuckRanges({ ...clip, transcript: [word(0, 500, 'a'), word(800, 1300, 'b')] }, FPS),
+  [[100, 139]],
+);
+
+// Deleted words are not spoken, so the bed is untouched where they were.
+assert.deepEqual(
+  anchorDuckRanges(
+    { ...clip, transcript: [word(0, 500, 'a'), word(500, 1000, 'b'), word(5000, 5500, 'c')], deletedWordIdx: [2] },
+    FPS,
+  ),
+  [[100, 130]],
+);
 
 console.log('transitionAudio.verify: crossfade holds constant power, ducking ramps in and out');

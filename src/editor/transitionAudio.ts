@@ -1,6 +1,8 @@
 import { isAudioTransition } from './types';
 import type { TimelineItem, TransitionItem } from './types';
 import { sourceFrameAt } from './sourceLimit';
+import { itemEditOpts, itemWindow, keptSegments } from '../transcript/edit';
+import { hasOperationalTranscript, msToFrame, type TranscriptCarrier } from '../transcript/types';
 
 const FRAME_EPSILON = 0.01;
 
@@ -116,4 +118,68 @@ export function duckEnvelopeAt(frame: number, ranges: readonly DuckRange[], fps:
 /** Linear gain for a duck depth in dB at a given envelope position. */
 export function duckGainFor(depthDb: number, envelope: number): number {
   return 10 ** ((depthDb * envelope) / 20);
+}
+
+/**
+ * The frames an anchor clip is actually speaking, as duck ranges.
+ *
+ * Ducking the whole clip holds the bed down through every pause, so a clip
+ * that is 40% silence still buries the music for its entire length. Word
+ * timings put the bed back up in the gaps.
+ *
+ * Two constraints shape this. Ranges closer together than the envelope can
+ * recover through are merged, because a gap the bed cannot climb out of is not
+ * a gap — that also keeps the range count proportional to real pauses rather
+ * than to word count, which matters when this is evaluated once per audio
+ * frame. And a clip whose transcript is missing or stale falls back to its
+ * whole extent: an anchor with no word timings is not an anchor that never
+ * speaks, and silently declining to duck it would be worse than ducking it
+ * too much.
+ */
+export function anchorDuckRanges(
+  item: Pick<TimelineItem, 'startFrame' | 'durationInFrames' | 'deletedWordIdx'>
+    & TranscriptCarrier
+    & Parameters<typeof itemEditOpts>[0]
+    & Parameters<typeof itemWindow>[0],
+  fps: number,
+): DuckRange[] {
+  const wholeClip: DuckRange[] = [[item.startFrame, item.startFrame + item.durationInFrames]];
+  if (fps <= 0 || !hasOperationalTranscript(item)) return wholeClip;
+
+  const segments = keptSegments(
+    item.transcript,
+    new Set(item.deletedWordIdx ?? []),
+    fps,
+    item.startFrame,
+    { ...itemEditOpts(item), window: itemWindow(item) },
+  );
+  if (!segments.length) return wholeClip;
+
+  const spoken: DuckRange[] = [];
+  for (const word of item.transcript) {
+    const srcStart = msToFrame(word.start, fps);
+    const srcEnd = Math.max(srcStart, msToFrame(word.end, fps));
+    const segment = segments.find((candidate) => (
+      srcStart >= candidate.srcStartFrame && srcStart < candidate.srcEndFrame
+    ));
+    if (!segment) continue; // deleted, reordered out, or outside the clip's window
+    const srcSpan = segment.srcEndFrame - segment.srcStartFrame;
+    // A retimed clip plays its source span over a different number of timeline
+    // frames, so word positions have to be projected, not offset.
+    const scale = srcSpan > 0 ? segment.durFrames / srcSpan : 1;
+    const from = segment.fromFrame + (srcStart - segment.srcStartFrame) * scale;
+    const to = segment.fromFrame + (Math.min(srcEnd, segment.srcEndFrame) - segment.srcStartFrame) * scale;
+    spoken.push([Math.round(from), Math.max(Math.round(from) + 1, Math.round(to))]);
+  }
+  if (!spoken.length) return wholeClip;
+
+  spoken.sort((a, b) => a[0] - b[0]);
+  const recovery = Math.max(1, Math.round(fps * (DUCK_ATTACK_SECONDS + DUCK_RELEASE_SECONDS)));
+  const merged: DuckRange[] = [spoken[0]!];
+  for (const [from, to] of spoken.slice(1)) {
+    const last = merged[merged.length - 1]!;
+    if (from - last[1] <= recovery) merged[merged.length - 1] = [last[0], Math.max(last[1], to)];
+    else merged.push([from, to]);
+  }
+  return merged;
 }

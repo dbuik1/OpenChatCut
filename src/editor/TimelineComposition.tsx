@@ -20,7 +20,7 @@ import { GlTransitionVisibility } from './GlTransitionVisibility';
 import { updateReadyGlWindows } from './glTransitionVisibilityState';
 import { AudioClip, BackgroundFillLayer, ContinuousVideoAudio, MediaFill, SharedVideoVisualGroup, VisualClipSurface } from './TimelineMediaLayer';
 import { firstGlEffect } from '../gl/clipEffects';
-import { continuousVideoAudioGroups, duckEnvelopeAt, duckGainFor, shareableVisualItem } from './transitionAudio';
+import { anchorDuckRanges, continuousVideoAudioGroups, duckEnvelopeAt, duckGainFor, shareableVisualItem } from './transitionAudio';
 import { ItemLayer, SolidLayer, TextLayer, WatermarkLayer } from './TimelineGraphicLayers';
 
 const GRID = 'repeating-conic-gradient(#242424 0% 25%, #1c1c1c 0% 50%) 50% / 40px 40px';
@@ -139,9 +139,15 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
     : visualTracks.indexOf(b.track) - visualTracks.indexOf(a.track));
   const audio = state.items.filter((it) => it.kind === 'audio' && it.src && !isHidden(it.track));
   const captionEntries = captionTrackEntries(state);
-  const anchorRanges = state.items.filter((item) => state.tracks?.[item.track]?.role === 'anchor'
-    && !isHidden(item.track) && !isMuted(item.track) && !!item.src)
-    .map((item) => [item.startFrame, item.startFrame + item.durationInFrames] as const);
+  // Derived once per render, not per audio frame: duckGain is called from each
+  // clip's volume callback for every frame it plays.
+  const anchorRanges = useMemo(() => state.items
+    .filter((item) => state.tracks?.[item.track]?.role === 'anchor'
+      && !(state.tracks?.[item.track]?.hidden ?? false)
+      && !(forceMuted || (state.tracks?.[item.track]?.muted ?? false))
+      && !!item.src)
+    .flatMap((item) => anchorDuckRanges(item, state.fps)),
+    [state.items, state.tracks, state.fps, forceMuted]);
   const duckGain = (track: TimelineItem['track'], frame: number): number => {
     const config = state.tracks?.[track];
     if (config?.role !== 'follower') return 1;
