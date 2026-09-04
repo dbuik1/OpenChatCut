@@ -14,10 +14,12 @@ const EDIT_VERBS = [
   'delete', 'remove', 'trim', 'split', 'move', 'retime', 'slip',
   'cut', 'crop', 'duplicate', 'resize', 'rotate', 'extend', 'shorten', 'stretch',
   'speed up', 'slow down', 'swap', 'replace', 'join', 'merge', 'mute', 'reverse', 'freeze',
+  'clear', 'empty', 'wipe', 'link', 'unlink',
   '编辑', '加', '添加', '新增', '插入', '创建', '修改', '调整', '设置', '应用', '排列', '排序', '重排',
   '删除', '移除', '裁剪', '分割', '移动', '变速', '滑动',
   '剪', '剪切', '裁切', '复制', '缩放', '旋转', '延长', '缩短', '加速', '减速',
   '交换', '替换', '拼接', '合并', '静音', '倒放', '定格',
+  '清空', '清除', '关联', '链接', '解除关联',
 ];
 const EDIT_TARGETS = [
   'clip', 'item', 'track', 'timeline', 'sequence', 'title', 'text',
@@ -38,14 +40,17 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
       'trim', 'split', 'move clip', 'delete clip', 'remove clip', 'retime', 'slip edit',
       'background fill', 'blur background', 'edit timeline',
       'undo', 'redo',
+      'start over', 'start again', 'clear everything', 'delete everything', 'remove everything',
+      'link group', 'linked clips',
       '剪辑', '裁剪', '分割', '移动片段', '删除片段', '移除片段', '变速', '滑动编辑',
       '背景填充', '模糊背景', '虚化背景', '撤销', '重做',
+      '重新开始', '全部删除', '全部清空', '关联组',
     ],
     requestContext: [EDIT_VERBS, EDIT_TARGETS],
     tools: [
       'update_item_props', 'move_item', 'set_item_timing', 'duplicate_item', 'remove_item',
       'split_item', 'manage_timelines', 'edit_track', 'edit_item', 'undo_last_change',
-      'redo_last_change', 'apply_layout',
+      'redo_last_change', 'apply_layout', 'clear_timeline', 'manage_link_group',
     ],
   },
   {
@@ -77,10 +82,13 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
     ],
   },
   {
-    requestKeywords: ['transcript', 'script', 'speech', '文字稿', '台词', '口播', '讲稿'],
+    requestKeywords: [
+      'transcript', 'script', 'speech', 'where did i say', 'when did i say', 'did i mention',
+      '文字稿', '台词', '口播', '讲稿', '我在哪里说', '有没有提到',
+    ],
     tools: [
       'read_transcript', 'find_transcript', 'clean_script', 'edit_gap', 'delete_text',
-      'manage_transcript', 'read_script', 'apply_script',
+      'manage_transcript', 'read_script', 'apply_script', 'search_content',
     ],
   },
   {
@@ -98,12 +106,14 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
   {
     requestKeywords: [
       'library', 'template', 'effect', 'transition', 'zoom', 'lut', 'graphic', 'watermark',
-      '素材库', '模板', '特效', '转场', '动效', '水印',
+      'bake', 'flatten',
+      '素材库', '模板', '特效', '转场', '动效', '水印', '烘焙', '转为视频',
     ],
     tools: [
       'list_templates', 'search_templates', 'browse_library', 'manage_effects', 'manage_template',
       'update_watermark', 'search_fonts', 'add_motion_graphic', 'create_motion_graphic',
       'submit_motion_graphic', 'create_motion_graphic_from_code',
+      'convert_motion_graphic_to_video', 'register_converted_video',
     ],
   },
   {
@@ -114,18 +124,28 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
     ],
   },
   {
-    requestKeywords: ['import', 'upload', 'download', 'media', 'asset', 'stock', '素材', '导入', '上传', '下载', '媒体', '版权'],
+    requestKeywords: [
+      'import', 'upload', 'download', 'media', 'asset', 'stock', 'folder', 'footage',
+      'fcpxml', 'edl',
+      '素材', '导入', '上传', '下载', '媒体', '版权', '文件夹', '素材文件',
+    ],
     tools: [
       'search_media', 'manage_media_pool', 'download_media', 'push_asset', 'import_url_asset',
       'search_stock_media', 'edit_asset', 'import_media', 'finalize_uploaded_asset',
       'request_asset_download', 'probe_media',
+      'import_asset', 'import_folder', 'import_timeline',
     ],
   },
   {
-    requestKeywords: ['export', 'render', 'xml', 'prores', 'premiere', 'resolve', '导出', '渲染', '成片'],
+    requestKeywords: [
+      'export', 'render', 'xml', 'prores', 'premiere', 'resolve',
+      'capcut', 'jianying', 'draft',
+      '导出', '渲染', '成片', '剪映', '草稿',
+    ],
     tools: [
       'submit_export', 'submit_render_job', 'track_export', 'read_export_history',
       'verify_export', 'download_media', 'export_motion_graphic_prores',
+      'export_jianying_draft',
     ],
   },
   {

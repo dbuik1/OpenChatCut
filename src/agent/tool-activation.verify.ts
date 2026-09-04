@@ -452,4 +452,23 @@ for (const request of [
 const deadAir = routedToolSelection('remove the dead air', false);
 assert.ok(deadAir.names.has('remove_silence'), 'dead air routes to the silence tools');
 
+// ── Every canonical tool is reachable without the model searching for it ──
+// A tool no routing group names is only ever found by an explicit ToolSearch,
+// so an ordinary request for it exposes nothing and the model answers about
+// work it was never given the means to do.
+for (const [request, expected] of [
+  ['clear the timeline and start over', 'clear_timeline'],
+  ['link the audio and video clips together', 'manage_link_group'],
+  ['import this folder of footage', 'import_folder'],
+  ['import this file from disk', 'import_asset'],
+  ['import an fcpxml timeline', 'import_timeline'],
+  ['export a capcut draft', 'export_jianying_draft'],
+  ['bake this motion graphic into a video', 'convert_motion_graphic_to_video'],
+  ['bake this motion graphic into a video', 'register_converted_video'],
+  ['where did i say the thing about pricing', 'search_content'],
+] as const) {
+  const routed = routedToolSelection(request, false);
+  assert.ok(routed.names.has(expected), `"${request}" routes to ${expected}`);
+}
+
 console.log(`tool activation checks passed (${TOOL_SCHEMAS.length} canonical tools, editing vocabulary routed)`);
