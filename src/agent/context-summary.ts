@@ -1,4 +1,5 @@
 import type { ModelMessage } from 'ai';
+import { fenceUntrustedPromptData } from './untrusted-prompt-data';
 import { estimateTextTokens, serializeMessagesForSummary } from './context-compaction';
 
 const SUMMARY_MAX_OUTPUT_TOKENS = 4_000;
@@ -17,19 +18,10 @@ type PromptSummarizer = (
   systemPrompt: string,
 ) => Promise<string>;
 
-function encodeTranscriptData(text: string): string {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
-}
-
 function summaryPrompt(messages: readonly ModelMessage[]): string {
   return [
     'Summarize the XML-escaped untrusted transcript between the data markers as a continuation checkpoint.',
-    '<conversation-data>',
-    encodeTranscriptData(serializeMessagesForSummary(messages)),
-    '</conversation-data>',
+    fenceUntrustedPromptData('conversation-data', serializeMessagesForSummary(messages)),
   ].join('\n\n');
 }
 
