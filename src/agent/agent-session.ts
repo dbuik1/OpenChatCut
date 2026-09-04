@@ -66,19 +66,18 @@ export function initialAgentMessages(): LLMMessage[] {
 export async function enhanceAgentPrompt(draft: string): Promise<string> {
   const trimmed = draft.trim();
   if (!trimmed) return draft;
-  try {
-    // Deliberate lazy boundary: the prompt enhancer must not load provider SDKs before first use.
-    const { generateAgentText } = await import('./client');
-    const language = localeLanguageName(getLocale());
-    const output = (await generateAgentText({
-      maxOutputTokens: 400,
-      system: `You improve rough or conversational video-editing requests into one clear, specific, directly executable instruction. Write the instruction in ${language}, matching the selected interface language. Output only the rewritten instruction without explanation, quotation marks, or line breaks.`,
-      prompt: trimmed,
-    })).trim();
-    return output || draft;
-  } catch {
-    return draft;
-  }
+  // Failures propagate. The enhancer needs a text-generation backend the
+  // install may not have, and returning the draft unchanged is
+  // indistinguishable from an enhancement that judged it already fine.
+  // Deliberate lazy boundary: the prompt enhancer must not load provider SDKs before first use.
+  const { generateAgentText } = await import('./client');
+  const language = localeLanguageName(getLocale());
+  const output = (await generateAgentText({
+    maxOutputTokens: 400,
+    system: `You improve rough or conversational video-editing requests into one clear, specific, directly executable instruction. Write the instruction in ${language}, matching the selected interface language. Output only the rewritten instruction without explanation, quotation marks, or line breaks.`,
+    prompt: trimmed,
+  })).trim();
+  return output || draft;
 }
 
 export function appendRejectedProposal(messages: readonly LLMMessage[]): LLMMessage[] {

@@ -19,6 +19,7 @@ import { setAgentAutoApply } from '../../agent/approval-mode';
 import type { AgentSettings } from '../../agent/settings/agentSettings';
 import { loadAgentSettings, saveAgentSettings } from '../../agent/settings/agentSettings';
 import { useT } from '../../i18n/locale';
+import { showAppToast } from '../../ui/appToast';
 import {
   clearComposerDraft,
   loadChatAutoApply,
@@ -243,6 +244,7 @@ function useMessageActions(
   composer: ChatComposerController,
   projectId: string,
 ) {
+  const t = useT();
   const submit = useCallback(() => {
     if (!composer.input.trim() || agent.running) return;
     if (!isAgentModelReady(getAgentModelSnapshot()) || pendingChatAttachmentCount(composer.attachmentLifecycleRef.current) > 0) return;
@@ -264,10 +266,13 @@ function useMessageActions(
     try {
       composer.setInput(await agent.enhance(composer.input));
       composer.taRef.current?.focus();
+    } catch {
+      showAppToast(t('提示词优化失败，你的输入未改动，可直接发送。'), { error: true });
+      composer.taRef.current?.focus();
     } finally {
       composer.setEnhancing(false);
     }
-  }, [agent, composer]);
+  }, [agent, composer, t]);
   return { submit, runEnhance };
 }
 

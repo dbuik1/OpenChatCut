@@ -280,6 +280,7 @@ export default {
   '自定义': 'Custom',
   '增强中…': 'Enhancing…',
   '增强提示词': 'Enhance prompt',
+  '提示词优化失败，你的输入未改动，可直接发送。': 'Could not enhance the prompt. Your text is unchanged and ready to send.',
   '停止': 'Stop',
   '发送 (Enter)': 'Send (Enter)',
   '发送时以 chat_context_entry 结构化注入': 'Injected as structured chat_context_entry on send',
