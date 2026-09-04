@@ -28,6 +28,14 @@ import { supportsDirectDesktopUpdates } from './update-service.ts';
 import { installDesktopInferenceIpc } from './native-inference-ipc.ts';
 import { detectDesktopHardwareProfile } from './native-hardware-profile.ts';
 import { installDirectoryWatchIpc } from './directory-watch-ipc.ts';
+import { installDiagnosticsIpc } from './diagnostics-ipc.ts';
+import {
+  DiagnosticsLog,
+  diagnosticsLogDir,
+  installProcessCrashCapture,
+  installProcessGoneCapture,
+  teeConsoleToDiagnostics,
+} from './diagnostics-log.ts';
 import {
   AGENT_IMPORT_ROOTS_KEY,
   importAgentPathsWithGrant,
@@ -86,6 +94,9 @@ const SMOKE = process.env.CC_SMOKE === '1';
 const SMOKE_RENDER = process.env.CC_SMOKE_RENDER === '1';
 const SMOKE_TIMEOUT_MS = SMOKE_RENDER ? 240_000 : 90_000;
 let mainWindow: BrowserWindow | null = null;
+// Created once the single-instance lock has settled userData (a dev profile
+// moves it); everything the process logs from then on is also written to disk.
+let diagnosticsLog: DiagnosticsLog | null = null;
 
 type DesktopIpcHandler = Parameters<typeof ipcMain.handle>[1];
 
@@ -346,6 +357,7 @@ async function boot(): Promise<void> {
     }),
   });
   installDirectoryWatchIpc(origin);
+  if (diagnosticsLog) installDiagnosticsIpc(origin, diagnosticsLog);
   ipcMain.handle(AGENT_PATH_IMPORT_CHANNEL, trustedDesktopHandler(origin, async (event, request: unknown) => {
     const value = request as { paths?: unknown; projectId?: unknown; knownHashes?: unknown };
     const paths = Array.isArray(value?.paths)
@@ -454,6 +466,11 @@ const hasSingleInstanceLock = requestProfileScopedSingleInstanceLock(app, runtim
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  diagnosticsLog = new DiagnosticsLog({ dir: diagnosticsLogDir(app) });
+  teeConsoleToDiagnostics(diagnosticsLog);
+  installProcessCrashCapture(diagnosticsLog, process, (line) => process.stderr.write(line));
+  installProcessGoneCapture(diagnosticsLog, app);
+  diagnosticsLog.write('info', 'desktop', `OpenChatCut ${app.getVersion()} starting on ${process.platform} (electron ${process.versions.electron})`);
   applyWindowsGpuCrashFallback(app);
   installWindowsGpuCrashRecovery(app, () => BrowserWindow.getAllWindows());
   app.on('second-instance', () => {

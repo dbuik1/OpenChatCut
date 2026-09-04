@@ -554,4 +554,12 @@ export default {
   '桌面端点击“选择目录”；也可手动输入绝对路径（可用 ~/ 开头）。清除后回到默认目录。': 'On desktop, click "Choose folder"; you can also type an absolute path (~/ accepted). Clear it to return to the default folder.',
   '已保存 · 重启应用后新的工程存储目录才会生效': 'Saved · the new project storage folder takes effect after a restart',
   '该模型不在内置目录，以上数值为估算（上下文 {context} / 输出 {output}）。若与实际不符，点「展开」手动修改。': 'This model is not in the built-in catalog, so these values are estimates (context {context} / output {output}). If they do not match the real model, expand and adjust them manually.',
+  '诊断': 'Diagnostics',
+  '错误与崩溃记录，只保存在本机。': 'Error and crash records, kept on this machine only.',
+  '日志': 'Logs',
+  '主进程、内置服务与界面的错误都写入本机日志文件夹，保留最近 4 份、每份不超过 2 MB，不会上传。反馈问题时附上最新的 openchatcut.log。':
+    'Errors from the main process, the built-in server and the interface are written to a local log folder: the latest 4 files, 2 MB each, never uploaded. Attach the newest openchatcut.log when reporting a problem.',
+  '打开日志文件夹': 'Open log folder',
+  '日志文件夹仅桌面版可用；浏览器版请查看开发者工具的控制台。': 'The log folder exists only in the desktop app; in the browser, check the DevTools console.',
+  '打开日志文件夹失败：{error}': 'Could not open the log folder: {error}',
 } as Record<string, string>;

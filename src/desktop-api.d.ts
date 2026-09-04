@@ -5,6 +5,7 @@ import type {
 } from '../shared/project-store-transport';
 import type { AgentPathImportRequest, AgentPathImportResult } from '../shared/directory-import';
 import type { EditorBootstrapInfo } from '../shared/editor-auth-transport';
+import type { DesktopDiagnosticsReport } from '../shared/desktop-diagnostics';
 import type {
   DesktopUpdateCheckSource,
   DesktopUpdateState,
@@ -56,6 +57,12 @@ interface DesktopInferenceApi {
   subscribeProgress(listener: (progress: DesktopInferenceProgress) => void): () => void;
 }
 
+interface DesktopDiagnosticsApi {
+  report(report: DesktopDiagnosticsReport): void;
+  logPath(): Promise<string>;
+  openLogFolder(): Promise<void>;
+}
+
 declare global {
   interface Window {
     openChatCutDesktop?: {
@@ -91,6 +98,7 @@ declare global {
       editorCredentials(): Promise<EditorBootstrapInfo>;
       updates: DesktopUpdateApi;
       inference: DesktopInferenceApi;
+      diagnostics: DesktopDiagnosticsApi;
     };
   }
 }

@@ -17,6 +17,8 @@ import { useCodexSettings } from './useCodexSettings';
 import type { CodexAgentStatus } from '../../../shared/codex-agent';
 import { stageFieldValue } from './codexReasoning';
 import { SettingsVersionControl } from './SettingsVersionControl';
+import { bindAction } from '../../shortcuts/actionRegistry';
+import { showAppToast } from '../../ui/appToast';
 import {
   CURRENT_APP_VERSION,
   formatDisplayVersion,
@@ -252,6 +254,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
   const ctx = useFieldContext(status, values, setValues, reveal, refreshStatus);
+  // The diagnostics page offers the log folder; only the desktop build has one.
+  useEffect(() => bindAction('open-log-folder', () => {
+    const diagnostics = window.openChatCutDesktop?.diagnostics;
+    if (!diagnostics) { showAppToast(t('日志文件夹仅桌面版可用；浏览器版请查看开发者工具的控制台。'), { error: true }); return; }
+    void diagnostics.openLogFolder().catch((error: unknown) => {
+      showAppToast(t('打开日志文件夹失败：{error}', { error: error instanceof Error ? error.message : String(error) }), { error: true });
+    });
+  }), [t]);
   useEffect(() => {
     if (!status?.models) return;
     syncTranscriptionPreferences(status.models);

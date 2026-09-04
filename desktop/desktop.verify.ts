@@ -120,8 +120,10 @@ async function tick(): Promise<void> { await new Promise((r) => setTimeout(r, 0)
   for (const block of prefs) {
     assert.match(block, /backgroundThrottling:\s*false/, 'every editor webPreferences keeps the bridge heartbeat running in the background');
   }
-  assert.match(main, /if \(!hasSingleInstanceLock\)\s*\{\s*app\.quit\(\);\s*\}\s*else\s*\{\s*applyWindowsGpuCrashFallback\(app\);/,
-    'GPU fallback runs only after profile selection and successful single-instance acquisition');
+  // The diagnostics log is the only thing allowed ahead of the GPU fallback in
+  // that branch: it has to exist before the fallback's own warning is emitted.
+  assert.match(main, /if \(!hasSingleInstanceLock\)\s*\{\s*app\.quit\(\);\s*\}\s*else\s*\{\s*diagnosticsLog = new DiagnosticsLog\([^;]*\);(?:\s*(?:teeConsoleToDiagnostics|installProcessCrashCapture|installProcessGoneCapture|diagnosticsLog\.write)\([^\n]*\);)*\s*applyWindowsGpuCrashFallback\(app\);/,
+    'GPU fallback runs only after profile selection, successful single-instance acquisition, and the diagnostics log');
   assert.match(main, /webContents\.on\('did-finish-load',[\s\S]*?TRANSCRIPT_WINDOW_CHANNELS\.update, transcriptPayload/,
     'every floating-window load receives its latest transcript payload');
 }

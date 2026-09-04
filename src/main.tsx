@@ -7,6 +7,12 @@ import { loadProjectFonts } from './fonts/googleFonts';
 import { hydratePlugins } from './plugins/store';
 import { initSkins } from './skins';
 import { ensureLocaleDict, getLocale, prefetchLocaleDicts } from './i18n/locale';
+import { installRendererErrorReporting } from './diagnostics/rendererErrorReporting';
+import { AppErrorBoundary } from './diagnostics/AppErrorBoundary';
+
+// Before anything else can throw: a failure during the setup below is worth
+// recording too.
+installRendererErrorReporting();
 
 // Kick the active locale's dictionary off FIRST so its fetch overlaps the setup
 // below; the render waits on it so no frame renders untranslated copy. Only
@@ -29,7 +35,9 @@ const isTranscriptWindow = new URLSearchParams(window.location.search).has('tran
 void localeReady.then(() => {
   createRoot(root).render(
     <StrictMode>
-      {isTranscriptWindow ? <TranscriptWindowRoot /> : <App />}
+      <AppErrorBoundary>
+        {isTranscriptWindow ? <TranscriptWindowRoot /> : <App />}
+      </AppErrorBoundary>
     </StrictMode>,
   );
   // Warm the other languages only once the first paint is out of the way, so

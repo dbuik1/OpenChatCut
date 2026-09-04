@@ -428,6 +428,14 @@ const overrides: Record<string, string> = {
   '默认工程位置': 'Posizione predefinita dei progetti',
   '新建工程、历史版本和应用生成的素材保存在这里。桌面端从外部拖入的文件和文件夹保留在原位置，工程只建立引用；浏览器运行时会上传托管副本。修改后重启应用生效。': 'Qui vengono salvati i nuovi progetti, la cronologia delle versioni e i media generati dall’app. Sul desktop i file e le cartelle trascinati dall’esterno restano nella posizione originale e il progetto crea solo un riferimento; nel browser viene caricata una copia gestita. La modifica si applica dopo il riavvio.',
   '未配置时素材只存本机。配置后：每次上传同步写入 R2（桶保持私有，读取经本地服务回源，src 路径不变）；本机缺文件时自动从云端取回。改动即时生效。R2 控制台建桶 → R2 API Token（Object Read & Write）即可拿到下面四个值。': 'Senza configurazione i media restano solo sul computer. Dopo la configurazione ogni caricamento viene scritto anche su R2; il bucket resta privato, la lettura passa dal servizio locale e il percorso src non cambia. Se manca un file locale, viene recuperato automaticamente dal cloud. Le modifiche hanno effetto immediato. Crea un bucket nella console R2 e un token API R2 con Object Read & Write per ottenere i quattro valori seguenti.',
+  '诊断': 'Diagnostica',
+  '错误与崩溃记录，只保存在本机。': 'Registro di errori e arresti anomali, conservato solo su questo computer.',
+  '日志': 'Log',
+  '主进程、内置服务与界面的错误都写入本机日志文件夹，保留最近 4 份、每份不超过 2 MB，不会上传。反馈问题时附上最新的 openchatcut.log。':
+    'Gli errori del processo principale, del servizio integrato e dell’interfaccia vengono scritti in una cartella di log locale: gli ultimi 4 file, 2 MB ciascuno, mai caricati. Allega l’openchatcut.log più recente quando segnali un problema.',
+  '打开日志文件夹': 'Apri cartella dei log',
+  '日志文件夹仅桌面版可用；浏览器版请查看开发者工具的控制台。': 'La cartella dei log esiste solo nell’app desktop; nel browser controlla la console degli strumenti per sviluppatori.',
+  '打开日志文件夹失败：{error}': 'Impossibile aprire la cartella dei log: {error}',
 };
 
 export default overrides;

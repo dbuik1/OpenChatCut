@@ -267,6 +267,13 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
                 ] },
             ] },
         ] },
+      { key: 'diagnostics', title: '诊断', hint: '错误与崩溃记录，只保存在本机。',
+        vendors: [
+          { key: 'diagnostics/logs', vendor: 'localdisk', title: '日志', kind: 'settings',
+            note: '主进程、内置服务与界面的错误都写入本机日志文件夹，保留最近 4 份、每份不超过 2 MB，不会上传。反馈问题时附上最新的 openchatcut.log。',
+            noteAction: { label: '打开日志文件夹', action: 'open-log-folder' },
+            fields: [] },
+        ] },
     ],
   },
   {

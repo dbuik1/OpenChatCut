@@ -377,4 +377,8 @@ export default {
   '边框阴影': 'Border shadow',
   '边框颜色': 'Border color',
   '预览画布片段变换': 'Preview canvas clip transform',
+  '界面出错了': 'The interface hit an error',
+  '已记录到日志文件夹。工程最近一次保存的版本不受影响。': 'It has been written to the log folder. The last saved version of your project is unaffected.',
+  '工程最近一次保存的版本不受影响。': 'The last saved version of your project is unaffected.',
+  '重新加载': 'Reload',
 } as Record<string, string>;

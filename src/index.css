@@ -2131,3 +2131,12 @@ button, input, select { font: inherit; }
 .cc-preview-text-edit-draft textarea:focus {
   border-color:color-mix(in srgb, var(--cc-accent) 50%, var(--cc-border));
 }
+
+/* Whole-app render failure fallback: the one view where nothing else exists, so it is centred and self-contained. */
+.cc-app-crash { min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:10px; padding:48px; max-width:640px; margin:0 auto; color:var(--cc-text); background:var(--cc-bg); font-size:13px; }
+.cc-app-crash-title { font-size:18px; font-weight:600; }
+.cc-app-crash-detail { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:var(--cc-text-dim); white-space:pre-wrap; word-break:break-word; }
+.cc-app-crash-hint { color:var(--cc-text-dim); }
+.cc-app-crash-actions { display:flex; gap:8px; margin-top:6px; }
+.cc-app-crash-actions button { height:28px; padding:0 12px; border-radius:4px; border:0.5px solid var(--cc-border); background:var(--cc-panel); color:var(--cc-text); cursor:pointer; font-size:12px; }
+.cc-app-crash-actions .cc-app-crash-primary { background:var(--cc-accent); border-color:var(--cc-accent); color:var(--cc-on-accent); }

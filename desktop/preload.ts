@@ -19,6 +19,10 @@ import {
   type DesktopUpdateState,
 } from '../shared/desktop-update.ts';
 import {
+  DESKTOP_DIAGNOSTICS_CHANNELS,
+  type DesktopDiagnosticsReport,
+} from '../shared/desktop-diagnostics.ts';
+import {
   DESKTOP_INFERENCE_CHANNELS,
   isDesktopAsrResponse,
   isDesktopClapResponse,
@@ -82,6 +86,14 @@ export interface DesktopInferenceApi {
 }
 
 
+export interface DesktopDiagnosticsApi {
+  /** Forward a renderer failure into the desktop log file. Never rejects: a
+   *  reporting failure must not turn into a second unhandled error. */
+  report(report: DesktopDiagnosticsReport): void;
+  logPath(): Promise<string>;
+  openLogFolder(): Promise<void>;
+}
+
 export interface OpenChatCutDesktopApi {
   getPathForFile(file: File): string | undefined;
   platform: NodeJS.Platform;
@@ -115,6 +127,7 @@ export interface OpenChatCutDesktopApi {
   editorCredentials(): Promise<EditorBootstrapInfo>;
   updates: DesktopUpdateApi;
   inference: DesktopInferenceApi;
+  diagnostics: DesktopDiagnosticsApi;
 }
 
 const localMediaPreloadDependencies: LocalMediaPreloadDependencies<File> = {
@@ -255,6 +268,13 @@ const api: OpenChatCutDesktopApi = {
       ipcRenderer.on(DESKTOP_UPDATE_CHANNELS.state, handleState);
       return () => { ipcRenderer.removeListener(DESKTOP_UPDATE_CHANNELS.state, handleState); };
     },
+  },
+  diagnostics: {
+    report: (report) => {
+      void ipcRenderer.invoke(DESKTOP_DIAGNOSTICS_CHANNELS.report, report).catch(() => {});
+    },
+    logPath: () => ipcRenderer.invoke(DESKTOP_DIAGNOSTICS_CHANNELS.logPath) as Promise<string>,
+    openLogFolder: () => ipcRenderer.invoke(DESKTOP_DIAGNOSTICS_CHANNELS.openLogFolder) as Promise<void>,
   },
 };
 

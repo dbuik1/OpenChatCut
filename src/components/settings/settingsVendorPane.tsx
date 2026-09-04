@@ -67,13 +67,15 @@ export function VendorPane({ page, hint, ctx }: {
   if (page.key === 'llm/vision') return <VisionModelPane />;
   if (page.kind === 'local-models') return <LocalModelsPane page={page} fields={page.fields} ctx={ctx} />;
   const on = vendorConfigured(ctx.status, page, ctx.codex.status);
+  // A page with nothing to configure has no configured state and nothing to test.
+  const configurable = page.fields.length > 0;
   return (
     <div style={pane}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <VendorIcon vendor={page.vendor} size={18} />
           <b style={{ fontSize: 13 }}>{t(page.title)}</b>
-          <span style={{ fontSize: 11, color: on ? ON : theme.textDim }}>{on ? t('已配置') : t('未配置')}</span>
+          {configurable && <span style={{ fontSize: 11, color: on ? ON : theme.textDim }}>{on ? t('已配置') : t('未配置')}</span>}
         </div>
         <div style={{ fontSize: 11.5, color: theme.textDim, marginTop: 3, paddingLeft: 26 }}>{t(hint)}</div>
       </div>
@@ -89,7 +91,7 @@ export function VendorPane({ page, hint, ctx }: {
             onChange={(value) => ctx.onStage(CAPABILITY_OVERRIDE_FIELD, value)} />
         )}
       </section>
-      <TestConnectionRow page={page} ctx={ctx} />
+      {configurable && <TestConnectionRow page={page} ctx={ctx} />}
     </div>
   );
 }
