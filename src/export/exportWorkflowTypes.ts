@@ -80,6 +80,11 @@ export interface UseExportWorkflowOptions {
   nleFormat: 'fcp_xml' | 'fcp_xml_resolve';
   includeMg: boolean;
   mgItems: TimelineItem[];
+  /**
+   * Half-open marked range. Absent means the whole timeline; the browser fast
+   * path renders the whole timeline only, so a range forces the local renderer.
+   */
+  frameRange?: { startFrame: number; endFrameExclusive: number };
   onClose: () => void;
 }
 

@@ -3,6 +3,7 @@ import { useT } from '../i18n/locale';
 import { ExportDestinationBar } from './ExportDestinationBar';
 import { ExportFooter } from './ExportDialogFooter';
 import { ExportTabContent } from './ExportDialogTabs';
+import { fmt } from '../components/timeline/timelineUtil';
 import { EXPORT_TABS, type ExportDialogModel } from './useExportDialogModel';
 import type { ExportTab, RenderEngine } from './useExportWorkflow';
 import type { ExportEngineInfo } from './exportWorkflowTypes';
@@ -87,11 +88,36 @@ function StructuredExportFailure({ model }: { model: ExportDialogModel }) {
   );
 }
 
+/**
+ * A marked range changes what the file contains, so it is stated above the
+ * format controls rather than tucked in beside them. The local renderer is
+ * named because the browser fast path cannot render a range at all.
+ */
+function MarkedRangeCallout({ state, model }: { state: TimelineState; model: ExportDialogModel }) {
+  const t = useT();
+  const { marked, available, useMarked, setUseMarked } = model.range;
+  if (!marked || !available) return null;
+  return (
+    <label className={`cc-export-range${useMarked ? ' active' : ''}`}>
+      <input type="checkbox" checked={useMarked} disabled={!!model.workflow.busy}
+        onChange={(event) => setUseMarked(event.target.checked)} />
+      <strong>{t('只导出标记范围')}</strong>
+      <span>
+        {fmt(marked.startFrame, state.fps)}–{fmt(marked.endFrameExclusive, state.fps)}
+        {' · '}
+        {fmt(marked.endFrameExclusive - marked.startFrame, state.fps)}
+      </span>
+      {useMarked && <small>{t('本机渲染')}</small>}
+    </label>
+  );
+}
+
 export function ExportDialogMain({ state, model }: { state: TimelineState; model: ExportDialogModel }) {
   const { workflow } = model;
   return (
     <main className="cc-export-main">
       <ExportMainHeader model={model} />
+      <MarkedRangeCallout state={state} model={model} />
       <div className="cc-export-content" role="tabpanel" id={`cc-export-content-${model.tab}`}
         aria-labelledby={`cc-export-tab-${model.tab}`}>
         <ExportTabContent
@@ -110,7 +136,7 @@ export function ExportDialogMain({ state, model }: { state: TimelineState; model
           destination={workflow.destination} onChoose={workflow.chooseDestination} />
       )}
       <ExportFooter tab={model.tab} outputName={model.outputName} videoSummary={model.videoSummary}
-        disabled={model.disabled} workflow={workflow} />
+        ranged={!!model.range.active} disabled={model.disabled} workflow={workflow} />
     </main>
   );
 }

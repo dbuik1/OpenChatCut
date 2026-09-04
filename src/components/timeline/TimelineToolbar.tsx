@@ -113,6 +113,9 @@ interface TimelineToolbarProps {
   playheadFrame: number;
   total: number;
   captionsVisible: boolean;
+  /** Marked in/out points; both are set only once a range exists. */
+  zoneIn: number | null;
+  zoneOut: number | null;
   zoom: number;
   setZoom: (z: number) => void;
 }
@@ -120,7 +123,7 @@ interface TimelineToolbarProps {
 export function TimelineToolbar({
   state, commands, editMode, placeMode, setPlaceMode, snapping,
   recorder, canRecord, playing, timecodeRef, playheadFrame, total, captionsVisible,
-  zoom, setZoom,
+  zoneIn, zoneOut, zoom, setZoom,
 }: TimelineToolbarProps) {
   const t = useT();
   const speedItem = state.items.find((item) => (
@@ -201,6 +204,11 @@ export function TimelineToolbar({
         onClick={() => invokeAction('play-pause', undefined, 'toolbar')}
       />
       <span ref={timecodeRef} className="cc-timeline-timecode">{fmt(playheadFrame, state.fps)} / {fmt(total, state.fps)}</span>
+      {zoneIn !== null && zoneOut !== null && zoneOut > zoneIn && (
+        <span className="cc-timeline-zone-readout cc-tip" data-tip={t('清除入出点 (X)')}>
+          {t('标记范围')} {fmt(zoneIn, state.fps)}–{fmt(zoneOut, state.fps)} · {fmt(zoneOut - zoneIn, state.fps)}
+        </span>
+      )}
       </div>
       <div className="cc-timeline-view-controls">
       <TB icon="zoomOut" title={t('缩小时间轴 (⌘−)')} tipRight onClick={() => invokeAction('zoom-out', undefined, 'toolbar')} />

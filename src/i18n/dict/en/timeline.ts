@@ -194,6 +194,8 @@ export default {
   '关键帧': 'Keyframes',
   // ── MarkerEditor.tsx ──
   '标记': 'Marker',
+  '标记范围': 'Marked range',
+  '清除入出点 (X)': 'Clear marks (X)',
   '批注…': 'Note…',
   '时长': 'Duration',
   '秒': 'sec',

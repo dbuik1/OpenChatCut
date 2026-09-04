@@ -66,11 +66,13 @@ interface ExportFooterProps {
   tab: ExportTab;
   outputName: string;
   videoSummary: string;
+  /** The run is bounded by the marked range, which the button has to say. */
+  ranged: boolean;
   disabled: boolean;
   workflow: ExportWorkflowModel;
 }
 
-export function ExportFooter({ tab, outputName, videoSummary, disabled, workflow }: ExportFooterProps) {
+export function ExportFooter({ tab, outputName, videoSummary, ranged, disabled, workflow }: ExportFooterProps) {
   const t = useT();
   const { busy, cancelExport, clock, progress, renderEngine, run } = workflow;
   const cancellablePhase = progress?.phase === 'queued'
@@ -93,7 +95,8 @@ export function ExportFooter({ tab, outputName, videoSummary, disabled, workflow
         <button type="button" className="cc-export-cta" onClick={() => void run()} disabled={disabled}>
           {!busy && <Icon name={progress?.phase === 'completed' ? 'check' : 'download'} size={17} />}
           {busy ? `${progress?.percent ?? 0}%` : progress?.phase === 'completed' ? t('完成')
-            : progress?.phase === 'failed' ? t('重试') : t(EXPORT_ACTION_LABELS[tab])}
+            : progress?.phase === 'failed' ? t('重试')
+              : ranged ? t('导出标记范围') : t(EXPORT_ACTION_LABELS[tab])}
         </button>
       )}
     </footer>

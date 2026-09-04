@@ -872,6 +872,9 @@ button, input, select { font: inherit; }
 .cc-track-create-separator { height:0.5px; margin:4px 3px; background:var(--cc-border); }
 .cc-mic-group { height:28px; display:flex; align-items:center; padding-right:3px; border:0.5px solid var(--cc-border); border-radius:4px; color:var(--cc-text-muted); }
 .cc-timeline-timecode { min-width:174px; color:rgba(var(--cc-ink-rgb), 0.78); text-align:center; font-size:14px; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+/* Marked range sits beside the playhead readout: it is a fact about the
+   timeline, not a control, and it disappears with the marks. */
+.cc-timeline-zone-readout { margin-left:8px; padding:1px 6px; border-radius:3px; border:0.5px solid var(--cc-accent); color:var(--cc-accent); font-size:11px; letter-spacing:.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .cc-timeline-zoom { width:92px; height:3px; margin:0; accent-color:var(--cc-text); cursor:pointer; }
 .cc-aspect-select { position:relative; width:24px; height:24px; display:grid; place-items:center; color:var(--cc-text-muted); cursor:pointer; }
 .cc-aspect-select:hover { border-radius:4px; background:var(--cc-hover); }
@@ -1011,6 +1014,13 @@ button, input, select { font: inherit; }
 .cc-export-main-header { min-height:50px; display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:0.5px solid var(--cc-border); }
 .cc-export-main-header h3 { margin:0; color:var(--cc-text-strong); font-size:13px; }
 .cc-export-main-header p { margin:3px 0 0; color:var(--cc-text-dim); font:10px/1.2 Geist Mono, ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* Sits between the header and the format controls because it changes what the
+   file contains, not how it is encoded. */
+.cc-export-range { display:flex; align-items:center; gap:8px; padding:8px 16px; border-bottom:0.5px solid var(--cc-border); color:var(--cc-text-dim); font-size:12px; cursor:pointer; }
+.cc-export-range.active { color:var(--cc-text); background:rgba(var(--cc-accent-rgb), 0.08); }
+.cc-export-range strong { font-weight:600; font-size:12px; }
+.cc-export-range span { font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.cc-export-range small { margin-left:auto; padding:1px 6px; border-radius:3px; border:0.5px solid var(--cc-border); font-size:10px; }
 .cc-export-local-badge { margin-left:auto; display:flex; align-items:center; gap:5px; color:var(--cc-text-muted); font-size:10px; }
 .cc-export-local-badge i { width:5px; height:5px; border-radius:50%; background:var(--cc-gold); }
 .cc-export-local-badge.accelerated i { background:var(--cc-success); }

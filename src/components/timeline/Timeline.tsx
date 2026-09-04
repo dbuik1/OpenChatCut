@@ -88,6 +88,7 @@ export function Timeline(props: TimelineProps) {
         playing={playing}
         timecodeRef={toolbarTimecodeRef} playheadFrame={playheadRef.current} total={total}
         captionsVisible={captionsVisible}
+        zoneIn={zoneIn} zoneOut={zoneOut}
         zoom={zoom} setZoom={setZoom}
       />
 

@@ -18,6 +18,7 @@ import { keyframeResetBatch } from './keyframeReset';
 import { captureTimelineItemSource, validateTimelineItemSourceBatch } from './mediaSourceRevision';
 import { useEditor } from './store';
 import type { ProjectDoc } from './types';
+import { markedRangeFromZone } from '../export/markedRange';
 import { useEditorAgentEnvironment } from './useEditorAgentEnvironment';
 import { useEditorAutoGrade } from './useEditorAutoGrade';
 import { useEditorProjectPersistence } from './useEditorProjectPersistence';
@@ -114,7 +115,7 @@ function buildEditorWorkspaceViewProps(
     gridTemplateColumns: panelLayout.gridTemplateColumns,
     gridTemplateRows: panelLayout.gridTemplateRows,
     topBar: { projectId: project.id, projectName: project.name, exporting: activeExportJobs > 0, exportJobCount: activeExportJobs, canUndo, canRedo, onHome: handleHome, onRename, onResumeGeneration: () => resumeOpenGenerationJobs(project.id, { getState: () => stateRef.current, onAsset: (asset) => { if ((docRef.current.assets ?? []).some((item) => item.id === asset.id || item.src === asset.src)) return; commands.addAsset(asset); if (asset.kind !== 'audio') enqueueVisualAnalysis(asset); }, timeoutSeconds: 180 }).then(() => undefined) },
-    exportDialog: exportOpen ? { state, project: doc, projectId: project.id, projectName: project.name, exportJobs, onClose: () => setExportOpen(false) } : null,
+    exportDialog: exportOpen ? { state, project: doc, projectId: project.id, projectName: project.name, exportJobs, markedRange: markedRangeFromZone(shortcutApiRef.current?.getZone()), onClose: () => setExportOpen(false) } : null,
     designStylePanel: showDesign ? { style: doc.designStyle, onApply: commands.setDesignStyle, onClose: () => setShowDesign(false) } : null,
     versionHistory: showVersions ? { projectId: project.id, currentDoc: doc, onRestore: (d) => { commands.applyDoc(d); setShowVersions(false); }, onClose: () => setShowVersions(false) } : null,
     shortcutsDialog: showShortcuts ? { onClose: () => setShowShortcuts(false) } : null,

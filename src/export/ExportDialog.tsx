@@ -11,11 +11,13 @@ interface ExportDialogProps {
   projectId: string;
   projectName: string;
   exportJobs: ExportJobStore;
+  /** In/out marks standing when the dialog opened, or null when none are set. */
+  markedRange: { startFrame: number; endFrameExclusive: number } | null;
   onClose: () => void;
 }
 
-export function ExportDialog({ state, project, projectId, projectName, exportJobs, onClose }: ExportDialogProps) {
-  const model = useExportDialogModel({ state, project, projectId, projectName, exportJobs, onClose });
+export function ExportDialog({ state, project, projectId, projectName, exportJobs, markedRange, onClose }: ExportDialogProps) {
+  const model = useExportDialogModel({ state, project, projectId, projectName, exportJobs, markedRange, onClose });
   const selectTab = (tab: ExportTab) => {
     model.setTab(tab);
     model.workflow.resetFeedback();

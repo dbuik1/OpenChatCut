@@ -15,6 +15,9 @@ export default {
   '剪辑工程': 'Edit project',
   '剪映草稿': 'JianYing Draft',
   '导出剪映草稿': 'Export JianYing Draft',
+  // Marked-range export
+  '只导出标记范围': 'Marked range only',
+  '导出标记范围': 'Export marked range',
   '输出类型': 'Output type',
   '本机渲染': 'Local render',
   '本机自适应': 'Adaptive local',

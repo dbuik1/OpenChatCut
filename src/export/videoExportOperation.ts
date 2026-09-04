@@ -57,9 +57,12 @@ export function validateVideoExportSequenceGraph(options: Pick<UseExportWorkflow
 }
 
 function exportDuration(options: UseExportWorkflowOptions): number {
-  return options.project && options.timelineId
+  const full = options.project && options.timelineId
     ? resolveTimelineRenderPlan(options.project, options.timelineId).durationInFrames
     : timelineDuration(options.state);
+  if (!options.frameRange) return full;
+  const { startFrame, endFrameExclusive } = options.frameRange;
+  return Math.max(1, Math.min(full, endFrameExclusive) - Math.max(0, startFrame));
 }
 
 function browserProgress(context: VideoExportContext): NonNullable<BrowserExportOptions['onProgress']> {
@@ -294,7 +297,7 @@ async function exportVideo(context: VideoExportContext, ownerSignal?: AbortSigna
   context.setEngineReason(null);
   try {
     const options = browserOptions(context, controller.signal);
-    const plan = await planVideoExportRoute(options);
+    const plan = await planVideoExportRoute(options, { rangeLimited: !!context.options.frameRange });
     controller.signal.throwIfAborted();
     setPlannedRoute(context, plan);
     if (plan.route === 'browser') await runBrowserThenServer(context, controller, plan);

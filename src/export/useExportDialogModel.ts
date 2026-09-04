@@ -10,6 +10,7 @@ import {
 } from '../editor/types';
 import { useT } from '../i18n/locale';
 import { sanitizeFileName } from '../media/fileName';
+import { fmt } from '../components/timeline/timelineUtil';
 import {
   DEFAULT_CUSTOM_BITRATE_MBPS,
   requestedVideoBitrateBps,
@@ -134,6 +135,22 @@ export interface ExportDialogModel {
   disabled: boolean;
   qualityMode: QualityMode;
   setQualityMode: (mode: QualityMode) => void;
+  range: ExportRangeModel;
+}
+
+/** Only the media tabs render a range; a caption file or an NLE project is
+ * always the whole timeline. */
+export const RANGEABLE_TABS: readonly ExportTab[] = ['video', 'audio'];
+
+export interface ExportRangeModel {
+  /** Marks standing when the dialog opened, or null when none were set. */
+  marked: { startFrame: number; endFrameExclusive: number } | null;
+  /** Whether this tab can be bounded at all. */
+  available: boolean;
+  useMarked: boolean;
+  setUseMarked: (next: boolean) => void;
+  /** The bound actually sent, or undefined for a whole-timeline export. */
+  active: { startFrame: number; endFrameExclusive: number } | undefined;
 }
 
 function useVideoSettings(state: TimelineState, qualityMode: QualityMode): ExportVideoSettings {
@@ -191,12 +208,13 @@ function outputName(base: string, tab: ExportTab, video: ExportVideoSettings, su
   return mgOutput;
 }
 
-export function useExportDialogModel({ state, project, projectId, projectName, exportJobs, onClose }: {
+export function useExportDialogModel({ state, project, projectId, projectName, exportJobs, markedRange, onClose }: {
   state: TimelineState;
   project: ProjectDoc;
   projectId: string;
   projectName: string;
   exportJobs: ExportJobStore;
+  markedRange?: { startFrame: number; endFrameExclusive: number } | null;
   onClose: () => void;
 }): ExportDialogModel {
   const t = useT();
@@ -209,11 +227,18 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
   const mgItems = useMemo(() => state.items.filter((item) => item.kind === 'motion-graphic'), [state.items]);
   const includeAvailableMg = effectiveIncludeMg(includeMg, mgItems);
   const base = sanitizeFileName(projectName, 'export');
+  // Marking in and out is a deliberate act, so it decides the bound by default;
+  // the toggle and the summary keep that visible rather than silent.
+  const marked = markedRange ?? null;
+  const [useMarked, setUseMarked] = useState(true);
+  const rangeAvailable = !!marked && RANGEABLE_TABS.includes(tab);
+  const activeRange = rangeAvailable && useMarked && marked ? marked : undefined;
   const workflow = useExportWorkflow({
     state, project, timelineId: project.activeTimelineId, projectId, projectName, base, tab, codec: video.codec, resolution: video.resolution,
     fps: video.fps, requestedVideoBitrate: video.requestedBitrate,
     subtitleFormat: subtitles.format, subtitleCaptions: subtitles.captions,
     nleFormat, includeMg: includeAvailableMg, mgItems, onClose,
+    ...(activeRange ? { frameRange: activeRange } : {}),
   }, exportJobs);
   const name = outputName(base, tab, video, subtitles, nleFormat, t('{n} 个透明 MOV 文件', { n: mgItems.length }));
   const qualityTag = qualityMode === 'master' ? ` · ${t('画质优先')}` : '';
@@ -223,7 +248,10 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
   const rateLabel = video.codec === 'prores'
     ? t('母带')
     : `${(video.resolvedBitrate / 1_000_000).toFixed(1)} Mbps`;
-  const videoSummary = `${codecLabel} · ${video.dimensions.width}×${video.dimensions.height} · ${video.fps} fps · ${rateLabel}${qualityTag}`;
+  const rangeTag = activeRange
+    ? ` · ${t('标记范围')} ${fmt(activeRange.endFrameExclusive - activeRange.startFrame, state.fps)}`
+    : '';
+  const videoSummary = `${codecLabel} · ${video.dimensions.width}×${video.dimensions.height} · ${video.fps} fps · ${rateLabel}${qualityTag}${rangeTag}`;
   const disabled = !!workflow.busy
     || (tab === 'subtitles' && !subtitles.captions)
     || (tab === 'mg' && mgItems.length === 0);
@@ -231,5 +259,6 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
     tab, setTab, video, subtitles, nleFormat, setNleFormat, includeMg, setIncludeMg,
     mgItems, base, outputName: name, videoSummary, workflow, disabled,
     qualityMode, setQualityMode,
+    range: { marked, available: rangeAvailable, useMarked, setUseMarked, active: activeRange },
   };
 }

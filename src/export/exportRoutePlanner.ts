@@ -105,11 +105,23 @@ export function chooseSupportedRoute(browser: BrowserExportInspection, server: E
   return { route: 'browser' as const, engine: web, reason: '浏览器兼容且无需额外渲染进程' };
 }
 
-export async function planVideoExportRoute(options: BrowserExportOptions): Promise<ExportRoutePlan> {
-  const [browser, capabilities] = await Promise.all([
+/**
+ * `rangeLimited` marks an export bounded by the marked range. The browser fast
+ * path always renders the whole timeline, so a range is reported as an
+ * unsupported browser route rather than a preference — that also stops the
+ * server route from silently falling back to a full-length browser render.
+ */
+export async function planVideoExportRoute(
+  options: BrowserExportOptions,
+  { rangeLimited = false }: { rangeLimited?: boolean } = {},
+): Promise<ExportRoutePlan> {
+  const [inspected, capabilities] = await Promise.all([
     inspectBrowser(options),
     loadServerCapabilities(options.signal),
   ]);
+  const browser: BrowserExportInspection = rangeLimited
+    ? { status: 'unsupported', reason: '浏览器快导只能导出整条时间线', issues: [] }
+    : inspected;
   const server = options.codec === 'h264' ? capabilities.h264 ?? unknownServerEngine() : unknownServerEngine();
   const browserEngineInfo = browserEngine(browser.status === 'supported' ? browser.powerEfficient : undefined);
   // ProRes mezzanine is Remotion/server-only (not WebCodecs).

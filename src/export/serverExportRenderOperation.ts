@@ -108,11 +108,16 @@ function submissionBody(
   codec: ExportCodec,
   operationId: string,
 ) {
-  const { state, project, timelineId, base, resolution, fps, requestedVideoBitrate } = context.options;
+  const { state, project, timelineId, base, resolution, fps, requestedVideoBitrate, frameRange } = context.options;
   const body: Record<string, unknown> = {
     state, format, codec, name: base, operationId,
     ...(project && timelineId ? { project, timelineId } : {}),
   };
+  // The range bounds a rendered media file, so audio exports carry it too.
+  if (frameRange) {
+    body.startFrame = frameRange.startFrame;
+    body.endFrameExclusive = frameRange.endFrameExclusive;
+  }
   if (format !== 'video') return body;
   body.resolution = resolution;
   if (fps !== state.fps) body.fps = fps;
