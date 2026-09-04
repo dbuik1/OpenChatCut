@@ -29,21 +29,21 @@
       "x": 4760,
       "y": 0,
       "w": 1600,
-      "h": 1000,
+      "h": 1140,
       "title": "Editor \u00b7 Refine"
     },
     {
       "file": "Palette.dc.html",
       "x": 1320,
-      "y": 1120,
+      "y": 1280,
       "w": 1600,
-      "h": 1000,
+      "h": 1140,
       "title": "Capability palette"
     },
     {
       "file": "InspectorDensity.dc.html",
       "x": 3040,
-      "y": 1120,
+      "y": 1280,
       "w": 820,
       "h": 1000,
       "title": "Density"
@@ -51,7 +51,7 @@
     {
       "file": "FirstRun.dc.html",
       "x": 3960,
-      "y": 1120,
+      "y": 1280,
       "w": 1600,
       "h": 1000,
       "title": "First run"
@@ -59,7 +59,7 @@
     {
       "file": "Dashboard.dc.html",
       "x": 1320,
-      "y": 2240,
+      "y": 2540,
       "w": 1600,
       "h": 1000,
       "title": "Dashboard"
@@ -67,7 +67,7 @@
     {
       "file": "Settings.dc.html",
       "x": 3040,
-      "y": 2240,
+      "y": 2540,
       "w": 1200,
       "h": 900,
       "title": "Settings \u00b7 Appearance"
@@ -75,7 +75,7 @@
     {
       "file": "ModeMap.dc.html",
       "x": 4340,
-      "y": 2240,
+      "y": 2540,
       "w": 1100,
       "h": 780,
       "title": "Mode map"
