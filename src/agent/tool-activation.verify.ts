@@ -5,6 +5,7 @@ import { activationProviderOptions, ToolActivation } from './tool-activation';
 import { normalizeLlmMessages, prepareMessagesForProvider } from './messages';
 import { TOOL_SCHEMAS } from './tools';
 import { execCoreTool } from './tools/core-tools';
+import { hasMutationRoutingIntent, routedToolSelection } from './tool-routing';
 
 const schema = (name: string): AgentToolSchema => ({
   name,
@@ -424,4 +425,31 @@ for (const tool of TOOL_SCHEMAS) {
     `a remembered call to canonical tool ${tool.name} is admitted`);
 }
 
-console.log(`tool activation checks passed (${TOOL_SCHEMAS.length} canonical tools)`);
+// ── Ordinary editing vocabulary routes ──
+// A request naming no term the routing tables carry matches no group, so the
+// timeline tools are never exposed for it and the model answers about an
+// edit it cannot make.
+for (const request of [
+  'cut these into clips',
+  'crop the clip',
+  'duplicate this item',
+  'mute that clip',
+  'speed up the clip',
+  'reverse this clip',
+  'merge these clips',
+  'freeze frame on this clip',
+  'swap the two clips',
+  'undo that',
+  '把这个片段静音',
+  '倒放这个片段',
+]) {
+  const routed = routedToolSelection(request, false);
+  assert.ok(routed.matchedGroupCount > 0, `"${request}" routes to at least one tool group`);
+  assert.ok(hasMutationRoutingIntent(request), `"${request}" reads as an edit, not a question`);
+}
+// Removing silence is a transcript edit, so it routes without reading as a
+// direct timeline mutation.
+const deadAir = routedToolSelection('remove the dead air', false);
+assert.ok(deadAir.names.has('remove_silence'), 'dead air routes to the silence tools');
+
+console.log(`tool activation checks passed (${TOOL_SCHEMAS.length} canonical tools, editing vocabulary routed)`);

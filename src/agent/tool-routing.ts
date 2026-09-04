@@ -5,11 +5,19 @@ interface RoutingGroup {
   readonly tools: readonly string[];
 }
 
+// Both halves of the pair must match, so a verb here only routes when it also
+// sits beside an edit target. Missing verbs are the expensive failure: a
+// request the list does not name matches no group at all and the timeline
+// tools are never exposed for it.
 const EDIT_VERBS = [
   'edit', 'add', 'insert', 'create', 'update', 'modify', 'adjust', 'apply', 'reorder',
   'delete', 'remove', 'trim', 'split', 'move', 'retime', 'slip',
+  'cut', 'crop', 'duplicate', 'resize', 'rotate', 'extend', 'shorten', 'stretch',
+  'speed up', 'slow down', 'swap', 'replace', 'join', 'merge', 'mute', 'reverse', 'freeze',
   '编辑', '加', '添加', '新增', '插入', '创建', '修改', '调整', '设置', '应用', '排列', '排序', '重排',
   '删除', '移除', '裁剪', '分割', '移动', '变速', '滑动',
+  '剪', '剪切', '裁切', '复制', '缩放', '旋转', '延长', '缩短', '加速', '减速',
+  '交换', '替换', '拼接', '合并', '静音', '倒放', '定格',
 ];
 const EDIT_TARGETS = [
   'clip', 'item', 'track', 'timeline', 'sequence', 'title', 'text',
@@ -29,8 +37,9 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
     requestKeywords: [
       'trim', 'split', 'move clip', 'delete clip', 'remove clip', 'retime', 'slip edit',
       'background fill', 'blur background', 'edit timeline',
+      'undo', 'redo',
       '剪辑', '裁剪', '分割', '移动片段', '删除片段', '移除片段', '变速', '滑动编辑',
-      '背景填充', '模糊背景', '虚化背景',
+      '背景填充', '模糊背景', '虚化背景', '撤销', '重做',
     ],
     requestContext: [EDIT_VERBS, EDIT_TARGETS],
     tools: [
@@ -75,7 +84,7 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
     ],
   },
   {
-    requestKeywords: ['silence', 'pause', 'filler word', '静音', '停顿', '填充词', '赘词'],
+    requestKeywords: ['silence', 'pause', 'dead air', 'filler word', '静音', '停顿', '空白', '填充词', '赘词'],
     tools: ['read_transcript', 'find_transcript', 'clean_script', 'edit_gap', 'delete_text', 'remove_silence'],
   },
   {
