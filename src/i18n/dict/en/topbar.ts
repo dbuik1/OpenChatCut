@@ -5,6 +5,7 @@ export default {
   '双击重命名': 'Double-click to rename',
   '编辑快捷键': 'Edit keyboard shortcuts',
   '撤销': 'Undo',
+  '没有可撤销的改动 · 打开历史版本': 'Nothing to undo · open Version History',
   '重做': 'Redo',
   '设计风格(品牌)': 'Design style (brand)',
   '历史版本': 'Version History',

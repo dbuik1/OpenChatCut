@@ -81,7 +81,11 @@ export function TopBar({ projectId, projectName, canUndo, canRedo, exporting, ex
       <div className="cc-topbar-actions">
 
       {/* right: undo · redo · shortcuts · history · layout · export · avatar */}
-      <TopBarIconButton icon="undo" label={t('撤销')} onClick={() => invokeAction('undo', undefined, 'toolbar')} disabled={!canUndo} />
+      {/* Undo only reaches back through this session; with nothing left to undo the
+          same control leads to the saved versions instead of going dead. */}
+      {canUndo
+        ? <TopBarIconButton icon="undo" label={t('撤销')} onClick={() => invokeAction('undo', undefined, 'toolbar')} />
+        : <TopBarIconButton icon="undo" dim label={t('没有可撤销的改动 · 打开历史版本')} onClick={() => invokeAction('open-history', undefined, 'toolbar')} />}
       <TopBarIconButton icon="redo" label={t('重做')} onClick={() => invokeAction('redo', undefined, 'toolbar')} disabled={!canRedo} />
       <TopBarIconButton icon="keyboard" label={t('编辑快捷键')} onClick={() => invokeAction('keyboard-shortcuts', undefined, 'toolbar')} />
       <TopBarIconButton icon="plug" label={t('外部 Agent 接入 (MCP)')} onClick={() => setMcpOpen(true)} />

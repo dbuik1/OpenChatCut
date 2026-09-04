@@ -7,11 +7,13 @@ interface TopBarIconButtonProps {
   label: string;
   onClick?: () => void;
   disabled?: boolean;
+  /** Drawn at disabled strength but still clickable: for a control whose primary action is exhausted and whose click now leads somewhere else. */
+  dim?: boolean;
   badge?: ReactNode;
 }
 
 /** Shared right-side top-bar icon button: instant tooltip and consistent hover feedback. */
-export function TopBarIconButton({ icon, label, onClick, disabled = false, badge }: TopBarIconButtonProps) {
+export function TopBarIconButton({ icon, label, onClick, disabled = false, dim = false, badge }: TopBarIconButtonProps) {
   return (
     <button
       type="button"
@@ -20,16 +22,18 @@ export function TopBarIconButton({ icon, label, onClick, disabled = false, badge
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      style={{ position: 'relative', width: 28, height: 28, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: 0, borderRadius: 4, lineHeight: 0, display: 'grid', placeItems: 'center', color: theme.textDim, opacity: disabled ? 0.35 : 1 }}
+      style={{ position: 'relative', width: 28, height: 28, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: 0, borderRadius: 4, lineHeight: 0, display: 'grid', placeItems: 'center', color: theme.textDim, opacity: disabled || dim ? 0.35 : 1 }}
       onMouseEnter={(event) => {
         if (!disabled) {
           event.currentTarget.style.color = theme.text;
           event.currentTarget.style.background = theme.panelAlt;
+          event.currentTarget.style.opacity = '1';
         }
       }}
       onMouseLeave={(event) => {
         event.currentTarget.style.color = theme.textDim;
         event.currentTarget.style.background = 'none';
+        event.currentTarget.style.opacity = disabled || dim ? '0.35' : '1';
       }}
     >
       <Icon name={icon} size={17} />
