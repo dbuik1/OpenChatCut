@@ -591,7 +591,7 @@ Set the mood and smooth over micro-gaps in speech.
 ### Principles
 
 - Set the music track's `role` to `follower` with `edit_track` (and the talking track's `role` to `anchor`). That single pair turns on auto-ducking — the engine dips the music under speech and lifts it back in the gaps.
-- Let `edit_track` initialize `audioRouting.duckDepthDb` from the current timeline loudness when it can. Pass `audioRouting.duckDepthDb` yourself only when the user explicitly wants the music louder or softer under speech.
+- Leave `audioRouting.duckDepthDb` unset unless the user explicitly wants the music louder or softer under speech. Unset ducks by -12 dB, which suits most beds; the other useful depths are -6 (a light dip), -18 and -24 (a deep one).
 - Keep the BGM clip's base `decibelAdjustment` natural by default. Do not pre-duck music with a large negative clip gain, then also set manual `duckDepthDb`; only do both when the user explicitly asks for a lower overall bed and a stronger / weaker speech duck.
 - Do not put short sound effects (SFX) or stingers on follower tracks by default. Place them at their editorial moment and adjust item volume only if they are clearly too loud or too quiet.
 - No prominent lyrics
@@ -612,7 +612,7 @@ Fit BGM to the final video extent after A-roll timing is finalized. The target d
 
 Ducking is automatic once the music track's `role` is `follower`: the engine dips the track under audible `anchor` tracks (the speech / voice), and lifts it back to full level in pauses and the outro. This needs both halves — the music track has `role: follower` **and** the talking track has `role: anchor` (see Track roles above). If nothing is set to `anchor`, nothing ducks and the music stays at full level.
 
-Set music to a normal, audible base level where there is no speech. To tune the dip under speech, update the follower track's `audioRouting.duckDepthDb`; otherwise leave it unset and let `edit_track` auto-initialize from timeline loudness when available. Do not solve speech clarity by heavily lowering the clip and also manually deepening the duck. To keep a track out of ducking entirely (for example a stinger that should punch through), leave its `role` unset (none).
+Set music to a normal, audible base level where there is no speech. To tune the dip under speech, update the follower track's `audioRouting.duckDepthDb`; otherwise leave it unset and take the -12 dB default. Do not solve speech clarity by heavily lowering the clip and also manually deepening the duck. To keep a track out of ducking entirely (for example a stinger that should punch through), leave its `role` unset (none).
 
 ---
 
