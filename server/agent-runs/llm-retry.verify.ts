@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { APICallError } from 'ai';
 import {
   classifyLlmFailure,
+  hasSideEffectsPerformed,
   isRetryableLlmFailure,
+  markSideEffectsPerformed,
   MAX_LLM_ATTEMPTS,
   MAX_RETRY_DELAY_MS,
   resolveRetryDelayMs,
 } from './llm-retry.ts';
+import { CodexProcessError, CodexRpcError, CodexTimeoutError } from '../codex/app-server.ts';
 
 function apiError(statusCode: number, body = '', headers?: Record<string, string>): APICallError {
   return new APICallError({
@@ -76,4 +79,48 @@ for (let attempt = 0; attempt < MAX_LLM_ATTEMPTS; attempt += 1) {
   assert.ok(delay >= 0 && delay <= MAX_RETRY_DELAY_MS, `attempt ${attempt}: ${delay}`);
 }
 
-console.log('server llm-retry classification checks passed');
+// ── Codex backend failures ──────────────────────────────────────────────────
+// The Codex path never raises APICallError; it throws its own error types over
+// JSON-RPC. Before these were classified every Codex failure fell through to
+// UNKNOWN and the retry budget wrapping the turn was never spent.
+assert.equal(classifyLlmFailure(new CodexTimeoutError('turn/start')).code, 'TIMEOUT');
+assert.equal(classifyLlmFailure(new CodexProcessError()).code, 'TRANSPORT');
+assert.equal(classifyLlmFailure(new CodexRpcError('turn/start', -32603)).code, 'SERVER');
+// A malformed call repeats identically, so it is not worth another attempt.
+assert.equal(classifyLlmFailure(new CodexRpcError('turn/start', -32600)).code, 'INVALID_REQUEST');
+assert.equal(classifyLlmFailure(new CodexRpcError('turn/start', -32602)).code, 'INVALID_REQUEST');
+assert.equal(classifyLlmFailure(new CodexRpcError('turn/start', null)).code, 'SERVER');
+// The turn path also throws plain Errors carrying only a message.
+assert.equal(classifyLlmFailure(new Error('Codex turn timed out after 600s.')).code, 'TIMEOUT');
+assert.equal(
+  classifyLlmFailure(new Error('Codex app-server stopped unexpectedly.')).code,
+  'TRANSPORT',
+);
+assert.equal(
+  classifyLlmFailure(new Error('Codex turn ended without a terminal event.')).code,
+  'TRANSPORT',
+);
+// An unrelated message still classifies as UNKNOWN rather than being retried.
+assert.equal(classifyLlmFailure(new Error('something else entirely')).code, 'UNKNOWN');
+
+// ── Side-effect gate ────────────────────────────────────────────────────────
+// Tool calls reach the editor while the turn streams, so a failure raised after
+// one has run must not be replayed even when its cause is retryable.
+const replayable = new CodexTimeoutError('turn/start');
+assert.equal(hasSideEffectsPerformed(replayable), false);
+assert.equal(isRetryableLlmFailure(classifyLlmFailure(replayable).code), true);
+markSideEffectsPerformed(replayable);
+assert.equal(hasSideEffectsPerformed(replayable), true);
+// The marker does not change the classification, only whether it is replayed.
+assert.equal(classifyLlmFailure(replayable).code, 'TIMEOUT');
+// It survives being thrown and caught, and is not enumerable.
+assert.equal(Object.keys(replayable).includes('sideEffects'), false);
+assert.deepEqual(
+  Object.getOwnPropertyNames(replayable).filter((key) => key.includes('side')),
+  [],
+);
+assert.equal(hasSideEffectsPerformed(null), false);
+assert.equal(hasSideEffectsPerformed('a string'), false);
+assert.equal(hasSideEffectsPerformed(undefined), false);
+
+console.log('server llm-retry classification checks passed, Codex failures and side-effect gate included');

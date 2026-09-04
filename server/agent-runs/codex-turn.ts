@@ -11,6 +11,7 @@ import { summarizeConversation } from '../../src/agent/context-summary';
 import type { AgentToolSchema } from '../../src/agent/tool-schema';
 import { codexToolHistoryEntry } from '../../src/agent/codex/tool-history';
 import { isFailedToolResult, toolFailureReason } from '../../src/agent/toolFailure';
+import { markSideEffectsPerformed } from './llm-retry';
 import type { AgentContextUsage } from '../../src/agent/context-compaction';
 import {
   persistServerCheckpoint,
@@ -63,6 +64,18 @@ function usageFromCodexEvent(
     attemptIndex: 0,
     isEstimated: event.inputTokens === undefined || event.outputTokens === undefined,
   };
+}
+
+/**
+ * A turn that stopped because it exhausted its output budget, rather than
+ * because the model finished. Codex's turn/completed notification reports only
+ * completed/interrupted, with no stop reason, so the cap is detected from the
+ * reported output tokens instead. Without this a truncated answer is
+ * indistinguishable from a finished one and gets presented as the final word.
+ */
+function hitOutputCap(outputTokens: number | undefined, maxOutputTokens: number): boolean {
+  if (outputTokens === undefined || !(maxOutputTokens > 0)) return false;
+  return outputTokens >= maxOutputTokens;
 }
 
 /** One Codex turn used as the context-summary model call. */
@@ -149,6 +162,13 @@ export async function executeServerCodexTurn(
   hitMaxTokens: boolean;
 }> {
   const prepared = await prepareCodexContext(input);
+  // Two different sets on purpose. `activeSchemas` is what progressive exposure
+  // decided this turn deserves and is what goes on the wire; `schemas` is the
+  // whole catalogue and is only ever used to resolve an incoming tool name. The
+  // model can call a tool it remembers from earlier history that is no longer
+  // exposed, and resolving that against the exposed set alone reports it as an
+  // unknown tool. Widening the payload to match the resolver would send the
+  // entire catalogue every turn and defeat the exposure mechanism outright.
   const activeSchemas = input.activation.current.schemas();
   const schemas = input.activation.current.allSchemas();
   const requestId = `run-${input.run.id}-${input.requestIndex}`;
@@ -158,6 +178,10 @@ export async function executeServerCodexTurn(
   let pendingThinking = '';
   let done = false;
   let errorMessage: string | null = null;
+  let lastOutputTokens: number | undefined;
+  // Tool calls reach the editor as they stream, before the turn completes, so
+  // once one has run the turn is no longer safe to replay.
+  let toolsExecuted = false;
   const toolHistory: ModelMessage[] = [];
 
   const settle = (
@@ -187,6 +211,7 @@ export async function executeServerCodexTurn(
           settle(event.callId, false, failure);
           return;
         }
+        toolsExecuted = true;
         const delivered = await executeBrowserTool(
           input.run,
           schema,
@@ -224,6 +249,7 @@ export async function executeServerCodexTurn(
         bridgeToolCall(event);
         break;
       case 'context-usage':
+        lastOutputTokens = event.outputTokens;
         recordServerContextUsage(
           input.run,
           usageFromCodexEvent(event, prepared, input.requestIndex),
@@ -253,7 +279,7 @@ export async function executeServerCodexTurn(
         projectId: input.projectId,
         askOnly: input.askOnly,
         model: input.model,
-        tools: codexToolSpecs(schemas),
+        tools: codexToolSpecs(activeSchemas),
       },
       emit,
       input.signal,
@@ -264,9 +290,10 @@ export async function executeServerCodexTurn(
   flushTextEvents(input.run, pending, true);
   flushThinkingEvents(input.run, pendingThinking, true);
   pushRunEvent(input.run, 'text-end', serverRunTextMetadata(text));
-  if (turnError) throw turnError;
+  if (turnError) throw toolsExecuted ? markSideEffectsPerformed(turnError) : turnError;
   if (errorMessage) {
-    throw new Error(errorMessage);
+    const failure = new Error(errorMessage);
+    throw toolsExecuted ? markSideEffectsPerformed(failure) : failure;
   }
   if (!done) {
     throw new Error('Codex turn ended without a terminal event.');
@@ -281,7 +308,7 @@ export async function executeServerCodexTurn(
     text,
     continued: false,
     followupText: input.activation.followupText,
-    hitMaxTokens: false,
+    hitMaxTokens: hitOutputCap(lastOutputTokens, input.maxOutputTokens),
   };
 }
 

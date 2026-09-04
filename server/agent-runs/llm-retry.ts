@@ -35,12 +35,39 @@ const RETRYABLE_CODES: ReadonlySet<LlmFailureCode> = new Set([
 ]);
 
 const QUOTA_BODY_PATTERN = /insufficient_quota|quota exceeded|balance.*(not enough|insufficient)/i;
+// The Codex turn path also throws plain Errors carrying only a message.
+const CODEX_TIMEOUT_MESSAGE = /codex turn timed out/i;
+const CODEX_TRANSPORT_MESSAGE = /codex app-server (stopped|is unavailable)|ended without a terminal event/i;
 const CONTEXT_BODY_PATTERN = /maximum context length|context length|tokens.*exceed/i;
 
 export const MAX_LLM_ATTEMPTS = 3; // 1 initial call + 2 retries
 export const INITIAL_RETRY_DELAY_MS = 500;
 export const MAX_RETRY_DELAY_MS = 10_000;
 const RETRY_JITTER = 0.15;
+
+const SIDE_EFFECTS_PERFORMED = Symbol.for('openchatcut.llm-retry.side-effects-performed');
+
+/**
+ * Marks a failure raised after the turn already executed tools. Tool calls are
+ * bridged to the editor as they stream, so replaying the turn would reapply
+ * mutations the project has already received. A marked failure is surfaced as
+ * it is, whatever its transport-level cause would otherwise permit.
+ */
+export function markSideEffectsPerformed<T>(error: T): T {
+  if (error !== null && typeof error === 'object') {
+    Object.defineProperty(error, SIDE_EFFECTS_PERFORMED, {
+      value: true,
+      enumerable: false,
+      configurable: true,
+    });
+  }
+  return error;
+}
+
+export function hasSideEffectsPerformed(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') return false;
+  return (error as Record<PropertyKey, unknown>)[SIDE_EFFECTS_PERFORMED] === true;
+}
 
 export function classifyLlmFailure(error: unknown): LlmFailure {
   if (error instanceof APICallError) {
@@ -71,6 +98,30 @@ export function classifyLlmFailure(error: unknown): LlmFailure {
     return { code: 'TRANSPORT', message: error.message };
   }
   const name = error instanceof Error ? error.name : '';
+  // The Codex backend never raises APICallError: it talks to a spawned
+  // app-server over JSON-RPC and throws its own error types. Without these
+  // branches every Codex failure classifies as UNKNOWN and the retry budget
+  // that wraps the turn is never spent.
+  if (name === 'CodexTimeoutError') {
+    return { code: 'TIMEOUT', message: safeMessage(error) };
+  }
+  if (name === 'CodexProcessError') {
+    return { code: 'TRANSPORT', message: safeMessage(error) };
+  }
+  if (name === 'CodexRpcError') {
+    // JSON-RPC rejects a malformed call with -32600..-32602; those repeat
+    // identically on a retry. An internal error (-32603) or a transport-level
+    // rejection is worth another attempt.
+    const code = (error as { code?: number | null }).code ?? null;
+    const malformed = code !== null && code >= -32602 && code <= -32600;
+    return { code: malformed ? 'INVALID_REQUEST' : 'SERVER', message: safeMessage(error) };
+  }
+  if (CODEX_TIMEOUT_MESSAGE.test(safeMessage(error))) {
+    return { code: 'TIMEOUT', message: safeMessage(error) };
+  }
+  if (CODEX_TRANSPORT_MESSAGE.test(safeMessage(error))) {
+    return { code: 'TRANSPORT', message: safeMessage(error) };
+  }
   if (name === 'AbortError' || name === 'TimeoutError') {
     // The caller checks its own abort signal first; reaching this branch
     // means the attempt timed out or was aborted mid-flight by the SDK.
@@ -140,6 +191,7 @@ export async function runServerTurnWithRetry<T>(
       return await attempt();
     } catch (error) {
       if (signal.aborted) throw error;
+      if (hasSideEffectsPerformed(error)) throw error;
       const failure = classifyLlmFailure(error);
       if (!isRetryableLlmFailure(failure.code) || call === MAX_LLM_ATTEMPTS - 1) {
         throw error;

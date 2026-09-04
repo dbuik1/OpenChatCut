@@ -207,7 +207,11 @@ function sequence(events: readonly CodexTurnStreamEvent[]): ServerCodexTurnDeps 
   }) as typeof turnManagerModule.codexTurnManager.settleToolResult;
   try {
     const outcome = await executeServerCodexTurn(input, deps);
-    assert.equal(registered, true, 'Codex receives the full canonical tool catalog');
+    // An inactive tool is deliberately absent from the request. Admitting the
+    // call is the resolver's job, not the payload's — sending the whole
+    // catalogue to keep this call working would cost the full schema block on
+    // every turn.
+    assert.equal(registered, false, 'an inactive tool is not sent in the request');
     assert.equal(settled, true, 'the delayed call remains admitted through the browser bridge');
     assert.ok(outcome.messages.some((message) => String(message.content).includes(analyzeMusicSchema.name)),
       'the delayed call is preserved in the tool history');
@@ -320,4 +324,97 @@ function sequence(events: readonly CodexTurnStreamEvent[]): ServerCodexTurnDeps 
   );
 }
 
-console.log('server agent codex turn verification passed');
+// ── Only the activated tools go on the wire ───────────────────────────────────
+// Progressive exposure exists to keep the request small. Sending the whole
+// catalogue instead costs the full schema payload on every turn and makes the
+// context accounting, which is computed from the activated set, understate the
+// real request.
+{
+  const run = makeRun();
+  const input = makeInput(run);
+  let sentToolNames: readonly string[] = [];
+  const deps: ServerCodexTurnDeps = {
+    runTurn: async (request, emit) => {
+      sentToolNames = (request.tools ?? []).map((tool) => tool.name);
+      emit({ type: 'done' });
+    },
+  };
+  await executeServerCodexTurn(input, deps);
+  assert.deepEqual(
+    [...sentToolNames].sort(),
+    [...input.activation.current.names()].sort(),
+    'the request carries exactly the activated set (boot tools plus what routing revealed)',
+  );
+  assert.ok(
+    sentToolNames.includes(searchMediaSchema.name),
+    'the routed tool is present',
+  );
+  assert.ok(
+    !sentToolNames.includes(analyzeMusicSchema.name),
+    'an unrelated catalogue tool is absent',
+  );
+  assert.ok(
+    sentToolNames.length < TOOL_SCHEMAS.length / 4,
+    `the payload stays a small slice of the catalogue (${sentToolNames.length} of ${TOOL_SCHEMAS.length})`,
+  );
+}
+
+// ── An inactive tool the model remembers still resolves ───────────────────────
+// Narrowing the payload must not narrow the resolver: the model can call a tool
+// it saw earlier in the conversation that is no longer exposed, and rejecting
+// that as unknown is the regression the wide payload was papering over.
+{
+  const run = makeRun();
+  const input = makeInput(run);
+  assert.ok(
+    !input.activation.current.names().includes(analyzeMusicSchema.name),
+    'the tool under test is genuinely inactive',
+  );
+  let requested = false;
+  const deps: ServerCodexTurnDeps = {
+    runTurn: async (_request, emit) => {
+      emit({ type: 'tool-start', callId: 'call-inactive', name: analyzeMusicSchema.name, args: {} });
+      await deliverWhenRequested(run, 'call-inactive', { ok: true });
+      requested = true;
+      emit({ type: 'done' });
+    },
+  };
+  await executeServerCodexTurn(input, deps);
+  assert.equal(requested, true, 'an inactive but canonical tool call is executed, not rejected');
+}
+
+// ── A turn cut off by the output cap is reported, not treated as finished ─────
+// Codex reports only completed/interrupted with no stop reason, so the cap is
+// detected from the reported output tokens.
+{
+  const run = makeRun();
+  const input = makeInput(run);
+  const outcome = await executeServerCodexTurn(input, sequence([
+    { type: 'text-delta', delta: 'a long answer that ran out of room' },
+    { type: 'context-usage', inputTokens: 1000, outputTokens: input.maxOutputTokens },
+    { type: 'done' },
+  ]));
+  assert.equal(outcome.hitMaxTokens, true, 'output at the cap is reported as truncated');
+}
+{
+  const run = makeRun();
+  const input = makeInput(run);
+  const outcome = await executeServerCodexTurn(input, sequence([
+    { type: 'text-delta', delta: 'a complete answer' },
+    { type: 'context-usage', inputTokens: 1000, outputTokens: 12 },
+    { type: 'done' },
+  ]));
+  assert.equal(outcome.hitMaxTokens, false, 'output below the cap is a finished answer');
+}
+{
+  // No usage reported at all must not be guessed at in either direction.
+  const run = makeRun();
+  const input = makeInput(run);
+  const outcome = await executeServerCodexTurn(input, sequence([
+    { type: 'text-delta', delta: 'no usage reported' },
+    { type: 'done' },
+  ]));
+  assert.equal(outcome.hitMaxTokens, false, 'absent usage is not treated as truncation');
+}
+
+console.log('server agent codex turn verification passed, tool payload and output cap included');
