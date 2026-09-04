@@ -29,42 +29,45 @@ browse_library(category: "audio-fx")
 
 Generate only when no catalog entry matches the user's intent closely enough.
 
-### `builtin:zoom` is track-bound only — DO NOT use item-bound
+### `builtin:zoom` attaches to one item
 
-The default effect mode is `"item-bound"` (attach to a single item via `targetItemId`). **`builtin:zoom` does NOT render in item-bound mode** — the renderer reads zoom data exclusively from track-bound effect items. An item-bound zoom inserts into the DB silently but shows nothing in preview.
-
-Use `mode: "track-bound"` with `trackId` + `trackBoundFrom` + `trackBoundDurationInFrames`. These three fields are required.
+Zoom is a property of a clip, not a range on a track. Pass `targetItemId`; the
+target must be a visual clip (video, image, gif, svg, motion-graphic — an audio
+target is rejected). There is no track-bound zoom: to zoom only part of a clip,
+`split_item` first and zoom the piece.
 
 ```text
-# Zoom on the entire video clip
-edit_item(json: '{"adds":[{"type":"effect","assetId":"builtin:zoom","mode":"track-bound","trackId":"<clip-trackId>","trackBoundFrom":<clip-fromFrame>,"trackBoundDurationInFrames":<clip-durationInFrames>,"propertyOverrides":{"magnification":1.5,"shape":"hold"}}]}')
+# Slow continuous zoom across the whole clip — the Ken Burns push
+edit_item(json: '{"adds":[{"type":"effect","targetItemId":"<clip-id>","assetId":"builtin:zoom","propertyOverrides":{"shape":"slow-push","magnification":1.2}}]}')
 
-# Zoom on a sub-range of the clip (e.g. frames 90–150 only, a punch zoom on a beat)
-edit_item(json: '{"adds":[{"type":"effect","assetId":"builtin:zoom","mode":"track-bound","trackId":"<trackId>","trackBoundFrom":90,"trackBoundDurationInFrames":60,"propertyOverrides":{"magnification":2,"shape":"punch"}}]}')
+# Punch in on a beat: split the clip at the beat, zoom the second piece
+edit_item(json: '{"adds":[{"type":"effect","targetItemId":"<piece-id>","assetId":"builtin:zoom","propertyOverrides":{"shape":"punch","magnification":1.6,"focalPointX":0.4,"focalPointY":0.35}}]}')
+
+# Remove a zoom
+edit_item(json: '{"deletes":[{"type":"effect","targetItemId":"<clip-id>","assetId":"builtin:zoom"}]}')
 ```
 
-Get `trackId` / `fromFrame` / `durationInFrames` from `read_project` (each video/image item lists its trackId and timeline-frame range).
+`assetId` may also be `library:zoom:<shape>`, which sets the shape and lets you
+omit it from `propertyOverrides`.
 
-| Key             | Type   | Range / values                             | Default | Notes                                          |
-| --------------- | ------ | ------------------------------------------ | ------- | ---------------------------------------------- |
-| `magnification` | number | 1–4                                        | `1.5`   | Zoom factor; 1 = no zoom, 2 = 2× in            |
-| `focalPointX`   | number | 0–1                                        | `0.5`   | Horizontal focal point (0 = left, 1 = right)   |
-| `focalPointY`   | number | 0–1                                        | `0.5`   | Vertical focal point (0 = top, 1 = bottom)     |
-| `shape`         | select | `punch` / `hold` / `slow-push` / `instant` | `hold`  | Animation curve                                |
-| `focalMode`     | select | `auto` / `manual`                          | `auto`  | `auto` picks subject; `manual` uses focalPoint |
-| `easeInFrames`  | number | 0–60                                       | `8`     | Frames to ramp in                              |
-| `easeOutFrames` | number | 0–60                                       | `8`     | Frames to ramp out                             |
+| Key             | Type     | Range / values           | Default | Notes                                                     |
+| --------------- | -------- | ------------------------ | ------- | --------------------------------------------------------- |
+| `shape`         | select   | see below                | `hold`  | The animation curve                                        |
+| `magnification` | number   | 1-16                     | `1.5`   | Peak zoom factor; 1 = no zoom, 2 = 2x in                   |
+| `focalPointX`   | number   | 0-1                      | `0.5`   | Horizontal point the zoom pushes toward (0 left, 1 right)  |
+| `focalPointY`   | number   | 0-1                      | `0.5`   | Vertical point the zoom pushes toward (0 top, 1 bottom)    |
+| `envelope`      | number[] | 2-120 points, each 0-1.5 | -       | A custom curve sampled across the clip; overrides `shape`  |
 
-Omit `propertyOverrides` entirely for default zoom. Send only the keys you want to change — patch semantics.
+Shapes: `slow-push` (gradual push across the whole clip), `hold` (in and back
+out), `punch`, `instant`, `zoom-out`, `ease-in`, `bounce`, `snap`, `pulse`,
+`whip-in`. `browse_library(category:"zoom")` returns all ten with usage notes.
 
-### Track-bound vs item-bound — the broader rule
+Only the keys above are read. Send only the keys you want to change — patch
+semantics; omit `propertyOverrides` entirely for a default zoom.
 
-Effect items in the schema have two modes:
-
-- **`item-bound`** (default): `targetItemId` only. Effect covers the whole target item's playback. Works for shader effects, LUTs, color grades, blurs.
-- **`track-bound`**: `trackId` + `trackBoundFrom` + `trackBoundDurationInFrames`. Effect covers a timeline range on a track, independent of any item. Required for `builtin:zoom`; also valid for any shader effect when you want it to cover a specific timeline range (e.g. a transition-like color shift across the boundary of two clips).
-
-Default to item-bound for shader effects. Use track-bound when (a) the asset requires it (zoom), or (b) the effect should cover a timeline range that doesn't match a single item.
+For a zoom that follows a moving subject rather than pushing toward a fixed
+point, `auto_reframe` writes a per-frame reframe curve instead, and that curve
+takes priority over any shape set here.
 
 ### Built-in LUT properties
 

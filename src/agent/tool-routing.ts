@@ -106,12 +106,14 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
   {
     requestKeywords: [
       'library', 'template', 'effect', 'transition', 'zoom', 'lut', 'graphic', 'watermark',
-      'bake', 'flatten',
+      'bake', 'flatten', 'push in', 'punch in', 'ken burns', 'pan', 'reframe',
       '素材库', '模板', '特效', '转场', '动效', '水印', '烘焙', '转为视频',
+      '推近', '推镜', '运镜', '缩放', '重构图',
     ],
     tools: [
       'list_templates', 'search_templates', 'browse_library', 'manage_effects', 'manage_template',
       'update_watermark', 'search_fonts', 'add_motion_graphic', 'create_motion_graphic',
+      'edit_item', 'auto_reframe',
       'submit_motion_graphic', 'create_motion_graphic_from_code',
       'convert_motion_graphic_to_video', 'register_converted_video',
     ],

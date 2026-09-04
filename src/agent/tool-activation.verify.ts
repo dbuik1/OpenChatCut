@@ -466,6 +466,9 @@ for (const [request, expected] of [
   ['bake this motion graphic into a video', 'convert_motion_graphic_to_video'],
   ['bake this motion graphic into a video', 'register_converted_video'],
   ['where did i say the thing about pricing', 'search_content'],
+  ['slowly zoom in on this clip', 'edit_item'],
+  ['add a ken burns push to the photo', 'edit_item'],
+  ['reframe this for vertical', 'auto_reframe'],
 ] as const) {
   const routed = routedToolSelection(request, false);
   assert.ok(routed.names.has(expected), `"${request}" routes to ${expected}`);
