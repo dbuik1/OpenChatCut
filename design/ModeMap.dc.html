@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    :root{
+      --bg:#101010; --inset:#141414; --panel:#181818; --panelAlt:#212121; --hover:#2c2c2c;
+      --border:#363636; --borderLight:#4a4a4a; --text:#e2e2e2; --muted:#b0b0b0; --dim:#808080;
+      --strong:#ffffff; --accent:#dc7036; --accentDeep:#c45c26; --gold:#e6ac42; --select:#3b82f6;
+      --success:#3fae6a; --danger:#e06c60; --tlTrack:#25262b; --tlSide:#202126;
+      --trackVideo:#3b4bd8; --trackA1:#e8993f; --trackA2:#3fae6a; --trackCap:#b05bd3;
+      --clipVideo:#2d7fb5; --clipAudio:#2f9e5a; --clipMg:#c14d86; --clipText:#c8912f;
+      --sans:Geist,system-ui,-apple-system,sans-serif;
+      --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+      -webkit-font-smoothing:antialiased;}
+    a{color:var(--accent);text-decoration:none;} a:hover{color:var(--accentDeep);}
+    .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+    /* type scale — six sizes, replacing thirteen */
+    .t-micro{font-size:10px;line-height:1.4;letter-spacing:.03em;}
+    .t-label{font-size:11px;line-height:1.45;}
+    .t-ui{font-size:12px;line-height:1.5;}
+    .t-body{font-size:13px;line-height:1.6;}
+    .t-sub{font-size:15px;line-height:1.45;}
+    .t-title{font-size:19px;line-height:1.3;letter-spacing:-.01em;}
+    .eyebrow{font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+    .row{display:flex;align-items:center;}
+    .col{display:flex;flex-direction:column;}
+    .panel{background:var(--panel);}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;
+      padding:0 10px;border-radius:5px;border:0.5px solid var(--border);background:var(--panelAlt);
+      color:var(--text);font-size:12px;font-family:var(--sans);}
+    .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+    .btn-ghost{background:transparent;border-color:transparent;color:var(--muted);}
+    .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+      border-radius:5px;color:var(--muted);border:0.5px solid transparent;}
+    .icon-btn.on{background:var(--hover);color:var(--strong);border-color:var(--border);}
+    .chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:4px;
+      background:var(--panelAlt);border:0.5px solid var(--border);font-size:10px;color:var(--muted);}
+    .card{background:var(--panelAlt);border:0.5px solid var(--border);border-radius:7px;}
+    .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;
+      padding:0 4px;border-radius:3px;background:var(--inset);border:0.5px solid var(--border);
+      font-family:var(--mono);font-size:9.5px;color:var(--dim);}
+    .sect{font-size:11px;font-weight:650;color:var(--muted);letter-spacing:.01em;}
+    .rule{height:0.5px;background:var(--border);}
+    .track{height:4px;border-radius:2px;background:var(--inset);position:relative;flex:1;}
+    .track > i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--accent);}
+    .knob{position:absolute;top:50%;width:10px;height:10px;margin-top:-5px;margin-left:-5px;
+      border-radius:50%;background:var(--text);border:0.5px solid var(--bg);}
+
+  </style>
+</helmet>
+<div style="width:1100px;height:760px;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;padding:0px"><div class="col" style="gap:8px;padding:26px 26px 18px;flex:none"><span class="eyebrow">Structure</span><span class="t-title" style="color:var(--strong)">Three modes, one lifecycle</span><span class="t-body" style="color:var(--muted);max-width:760px">The editor already moves a change through draft, proposal and applied state. The layout follows that movement instead of holding one arrangement for all three: whichever panel you are actually working in gets the space, and the other two shrink rather than disappear.</span></div><div class="row" style="padding:0 26px;align-items:stretch;flex:none"><div class="col" style="width:296px;gap:9px;padding:15px 16px;border-radius:9px;background:var(--panelAlt);border:0.5px solid var(--accentDeep)"><div class="row" style="gap:8px"><span style="width:7px;height:7px;border-radius:2px;background:var(--accent)"></span><span class="t-sub" style="color:var(--strong);font-weight:650">Brief</span></div><span class="t-label" style="color:var(--muted)">You describe the edit.</span><div class="col" style="gap:5px;margin-top:2px"><div class="row" style="gap:7px"><span style="width:58px;height:10px;border-radius:2px;background:var(--accent);flex:none"></span><span class="t-micro" style="color:var(--dim)">Chat &#8212; 780 px, primary</span></div><div class="row" style="gap:7px"><span style="width:22px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">Media pool &#8212; 300 px</span></div><div class="row" style="gap:7px"><span style="width:34px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">Preview &#8212; 520 px</span></div><div class="row" style="gap:7px"><span style="width:12px;height:10px;border-radius:2px;background:var(--border);flex:none"></span><span class="t-micro" style="color:var(--dim)">Timeline &#8212; 88 px strip</span></div></div></div><div class="col" style="width:96px;align-items:center;gap:6px;color:var(--dim)"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9.4 4.4 13 8l-3.6 3.6"/></svg><span class="t-micro" style="text-align:center;color:var(--dim)">a proposal arrives</span></div><div class="col" style="width:296px;gap:9px;padding:15px 16px;border-radius:9px;background:var(--panelAlt);border:0.5px solid var(--border)"><div class="row" style="gap:8px"><span style="width:7px;height:7px;border-radius:2px;background:var(--borderLight)"></span><span class="t-sub" style="color:var(--strong);font-weight:650">Review</span></div><span class="t-label" style="color:var(--muted)">You check what it wants to do.</span><div class="col" style="gap:5px;margin-top:2px"><div class="row" style="gap:7px"><span style="width:60px;height:10px;border-radius:2px;background:var(--accent);flex:none"></span><span class="t-micro" style="color:var(--dim)">Preview &#8212; 840 px, primary</span></div><div class="row" style="gap:7px"><span style="width:33px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">Proposal &#8212; 464 px</span></div><div class="row" style="gap:7px"><span style="width:21px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">History &#8212; 296 px</span></div><div class="row" style="gap:7px"><span style="width:26px;height:10px;border-radius:2px;background:var(--border);flex:none"></span><span class="t-micro" style="color:var(--dim)">Timeline &#8212; 200 px</span></div></div></div><div class="col" style="width:96px;align-items:center;gap:6px;color:var(--dim)"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9.4 4.4 13 8l-3.6 3.6"/></svg><span class="t-micro" style="text-align:center;color:var(--dim)">you approve</span></div><div class="col" style="width:296px;gap:9px;padding:15px 16px;border-radius:9px;background:var(--panelAlt);border:0.5px solid var(--border)"><div class="row" style="gap:8px"><span style="width:7px;height:7px;border-radius:2px;background:var(--borderLight)"></span><span class="t-sub" style="color:var(--strong);font-weight:650">Refine</span></div><span class="t-label" style="color:var(--muted)">You adjust the result by hand.</span><div class="col" style="gap:5px;margin-top:2px"><div class="row" style="gap:7px"><span style="width:60px;height:10px;border-radius:2px;background:var(--accent);flex:none"></span><span class="t-micro" style="color:var(--dim)">Timeline &#8212; 408 px, primary</span></div><div class="row" style="gap:7px"><span style="width:44px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">Preview &#8212; 1194 px</span></div><div class="row" style="gap:7px"><span style="width:26px;height:10px;border-radius:2px;background:var(--borderLight);flex:none"></span><span class="t-micro" style="color:var(--dim)">Inspector &#8212; 360 px</span></div><div class="row" style="gap:7px"><span style="width:6px;height:10px;border-radius:2px;background:var(--border);flex:none"></span><span class="t-micro" style="color:var(--dim)">Chat rail &#8212; 46 px</span></div></div></div></div><div class="col" style="gap:11px;padding:26px;flex:1"><div class="row" style="gap:10px"><span class="eyebrow">Rules</span><div class="rule" style="flex:1"></div></div><div class="row" style="gap:14px;align-items:stretch"><div class="col" style="flex:1;gap:5px;padding:12px 13px;border-radius:8px;background:var(--panelAlt);border:0.5px solid var(--border)"><span class="t-ui" style="color:var(--strong);font-weight:600">A mode is offered, never forced</span><span class="t-label" style="color:var(--muted)">The mode bar highlights the next mode when the state changes. You press it, or you do not; the segmented control is always visible and always live.</span></div><div class="col" style="flex:1;gap:5px;padding:12px 13px;border-radius:8px;background:var(--panelAlt);border:0.5px solid var(--border)"><span class="t-ui" style="color:var(--strong);font-weight:600">Nothing is hidden, only shrunk</span><span class="t-label" style="color:var(--muted)">Every panel exists in every mode. Chat becomes a 46&#160;px rail in Refine, not a closed drawer, so its state stays readable.</span></div><div class="col" style="flex:1;gap:5px;padding:12px 13px;border-radius:8px;background:var(--panelAlt);border:0.5px solid var(--border)"><span class="t-ui" style="color:var(--strong);font-weight:600">Mode and density are separate axes</span><span class="t-label" style="color:var(--muted)">Mode decides which panel is primary. Density decides how much a panel holds. Neither has to know about the other.</span></div></div></div></div>
+</x-dc>
+</body>
+</html>

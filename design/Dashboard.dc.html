@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    :root{
+      --bg:#101010; --inset:#141414; --panel:#181818; --panelAlt:#212121; --hover:#2c2c2c;
+      --border:#363636; --borderLight:#4a4a4a; --text:#e2e2e2; --muted:#b0b0b0; --dim:#808080;
+      --strong:#ffffff; --accent:#dc7036; --accentDeep:#c45c26; --gold:#e6ac42; --select:#3b82f6;
+      --success:#3fae6a; --danger:#e06c60; --tlTrack:#25262b; --tlSide:#202126;
+      --trackVideo:#3b4bd8; --trackA1:#e8993f; --trackA2:#3fae6a; --trackCap:#b05bd3;
+      --clipVideo:#2d7fb5; --clipAudio:#2f9e5a; --clipMg:#c14d86; --clipText:#c8912f;
+      --sans:Geist,system-ui,-apple-system,sans-serif;
+      --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+      -webkit-font-smoothing:antialiased;}
+    a{color:var(--accent);text-decoration:none;} a:hover{color:var(--accentDeep);}
+    .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+    /* type scale — six sizes, replacing thirteen */
+    .t-micro{font-size:10px;line-height:1.4;letter-spacing:.03em;}
+    .t-label{font-size:11px;line-height:1.45;}
+    .t-ui{font-size:12px;line-height:1.5;}
+    .t-body{font-size:13px;line-height:1.6;}
+    .t-sub{font-size:15px;line-height:1.45;}
+    .t-title{font-size:19px;line-height:1.3;letter-spacing:-.01em;}
+    .eyebrow{font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);}
+    .row{display:flex;align-items:center;}
+    .col{display:flex;flex-direction:column;}
+    .panel{background:var(--panel);}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;
+      padding:0 10px;border-radius:5px;border:0.5px solid var(--border);background:var(--panelAlt);
+      color:var(--text);font-size:12px;font-family:var(--sans);}
+    .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+    .btn-ghost{background:transparent;border-color:transparent;color:var(--muted);}
+    .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+      border-radius:5px;color:var(--muted);border:0.5px solid transparent;}
+    .icon-btn.on{background:var(--hover);color:var(--strong);border-color:var(--border);}
+    .chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:4px;
+      background:var(--panelAlt);border:0.5px solid var(--border);font-size:10px;color:var(--muted);}
+    .card{background:var(--panelAlt);border:0.5px solid var(--border);border-radius:7px;}
+    .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;
+      padding:0 4px;border-radius:3px;background:var(--inset);border:0.5px solid var(--border);
+      font-family:var(--mono);font-size:9.5px;color:var(--dim);}
+    .sect{font-size:11px;font-weight:650;color:var(--muted);letter-spacing:.01em;}
+    .rule{height:0.5px;background:var(--border);}
+    .track{height:4px;border-radius:2px;background:var(--inset);position:relative;flex:1;}
+    .track > i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--accent);}
+    .knob{position:absolute;top:50%;width:10px;height:10px;margin-top:-5px;margin-left:-5px;
+      border-radius:50%;background:var(--text);border:0.5px solid var(--bg);}
+
+  </style>
+</helmet>
+<div style="width:1600px;height:1000px;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;padding:0px"><div class="row" style="height:41px;flex:none;padding:0 24px;gap:12px;background:var(--panel);border-bottom:0.5px solid var(--border)"><span class="t-ui" style="color:var(--strong);font-weight:650">OpenChatCut</span><span style="flex:1"></span><div class="row" style="gap:6px;height:26px;padding:0 8px 0 7px;border-radius:5px;background:var(--inset);border:0.5px solid var(--border);color:var(--dim);width:210px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.2" cy="7.2" r="4.2"/><path d="m10.4 10.4 2.6 2.6"/></svg><span class="t-ui">Search projects and actions</span><span style="flex:1"></span><span class="kbd">&#8984;</span><span class="kbd">K</span></div><div class="icon-btn"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M14.2 8h-1.8M3.6 8H1.8M12.4 3.6l-1.3 1.3M4.9 11.1l-1.3 1.3M12.4 12.4l-1.3-1.3M4.9 4.9 3.6 3.6"/></svg></div></div><div class="col" style="flex:1;gap:20px;padding:26px 24px;overflow:hidden"><div class="row" style="gap:16px;align-items:flex-end"><div class="col" style="gap:5px;flex:1"><span class="t-title" style="color:var(--strong)">Projects</span><span class="t-body" style="color:var(--muted)">Five projects, 2.4&#160;GB of media cached on this machine.</span></div><div class="btn btn-primary" style="height:34px;padding:0 16px"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.4v9.2M3.4 8h9.2"/></svg> New project</div></div><div class="row" style="gap:12px;padding:11px 14px;border-radius:8px;background:var(--panelAlt);border:0.5px solid var(--border)"><span style="color:var(--accent);display:flex"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2.2" y="3" width="11.6" height="10" rx="1.2"/><path d="M5.4 3v10M10.6 3v10"/></svg></span><div class="col" style="gap:2px;flex:1"><span class="t-ui" style="color:var(--strong);font-weight:600">Countertop install short &#8212; rendering 1080p</span><span class="t-label" style="color:var(--muted)">Frame 812 of 1440 &#183; about 40 seconds left</span></div><div class="track" style="max-width:260px"><i style="width:56%"></i></div><span class="btn" style="height:26px">Show</span></div><div class="col" style="gap:11px"><div class="row" style="gap:10px"><span class="eyebrow">Recent</span><div class="rule" style="flex:1"></div><span class="t-label" style="color:var(--dim)">Sorted by last edited</span></div><div class="row" style="gap:16px;flex-wrap:wrap"><div class="col" style="width:288px;gap:0;border-radius:9px;overflow:hidden;background:var(--panelAlt);border:0.5px solid var(--border)"><div style="height:150px;background:linear-gradient(140deg,#2f4552,#1d2a34);position:relative"><span class="chip mono" style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">03:52</span></div><div class="col" style="gap:3px;padding:10px 12px 12px"><span class="t-ui" style="color:var(--strong);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Kitchen reno &#8212; episode 3</span><div class="row" style="gap:7px"><span class="t-label" style="color:var(--dim)">Edited 4 minutes ago</span><span style="width:2px;height:2px;border-radius:50%;background:var(--dim)"></span><span class="t-label" style="color:var(--muted)">in Refine</span></div></div></div><div class="col" style="width:288px;gap:0;border-radius:9px;overflow:hidden;background:var(--panelAlt);border:0.5px solid var(--border)"><div style="height:150px;background:linear-gradient(140deg,#43382a,#241f19);position:relative"><span class="chip mono" style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">00:48</span></div><div class="col" style="gap:3px;padding:10px 12px 12px"><span class="t-ui" style="color:var(--strong);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Countertop install short</span><div class="row" style="gap:7px"><span class="t-label" style="color:var(--dim)">Edited yesterday</span><span style="width:2px;height:2px;border-radius:50%;background:var(--dim)"></span><span class="t-label" style="color:var(--muted)">exported</span></div></div></div><div class="col" style="width:288px;gap:0;border-radius:9px;overflow:hidden;background:var(--panelAlt);border:0.5px solid var(--border)"><div style="height:150px;background:linear-gradient(140deg,#2b4038,#1a2620);position:relative"><span class="chip mono" style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">11:20</span></div><div class="col" style="gap:3px;padding:10px 12px 12px"><span class="t-ui" style="color:var(--strong);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tool review &#8212; cordless</span><div class="row" style="gap:7px"><span class="t-label" style="color:var(--dim)">Edited 3 days ago</span><span style="width:2px;height:2px;border-radius:50%;background:var(--dim)"></span><span class="t-label" style="color:var(--muted)">in Brief</span></div></div></div><div class="col" style="width:288px;gap:0;border-radius:9px;overflow:hidden;background:var(--panelAlt);border:0.5px solid var(--border)"><div style="height:150px;background:linear-gradient(140deg,#3a2f42,#221c28);position:relative"><span class="chip mono" style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">06:14</span></div><div class="col" style="gap:3px;padding:10px 12px 12px"><span class="t-ui" style="color:var(--strong);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Client cut v2</span><div class="row" style="gap:7px"><span class="t-label" style="color:var(--dim)">Edited last week</span><span style="width:2px;height:2px;border-radius:50%;background:var(--dim)"></span><span class="t-label" style="color:var(--muted)">exported</span></div></div></div><div class="col" style="width:288px;gap:0;border-radius:9px;overflow:hidden;background:var(--panelAlt);border:0.5px solid var(--border)"><div style="height:150px;background:linear-gradient(140deg,#3a3330,#221e1c);position:relative"><span class="chip mono" style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">&#8212;</span></div><div class="col" style="gap:3px;padding:10px 12px 12px"><span class="t-ui" style="color:var(--strong);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">B-roll library</span><div class="row" style="gap:7px"><span class="t-label" style="color:var(--dim)">Edited last week</span><span style="width:2px;height:2px;border-radius:50%;background:var(--dim)"></span><span class="t-label" style="color:var(--muted)">media only</span></div></div></div></div></div></div></div>
+</x-dc>
+</body>
+</html>
