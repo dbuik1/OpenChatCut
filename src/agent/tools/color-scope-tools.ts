@@ -1,46 +1,12 @@
 export { COLOR_SCOPE_TOOL_SCHEMAS, COLOR_SCOPE_TOOL_NAMES } from './schemas/color-scope-tools';
 // inspect_color - Numerical color grading oscilloscope: measure the black and white points/overflow/color shift/saturation/hue histogram of a frame,
 // Let Agent adjust color by numbers rather than by visual inspection based on screenshots. Pixel statistics are in src/color/scopes.ts (pure function);
-// Here we only do frame fetching (multiplexing /render-still and /api/extract-frames) and decoding glue.
+// Here we only do frame fetching (/render-still via src/color/frameCapture.ts, /api/extract-frames for assets) and decoding glue.
 import type { AgentContext } from '../context';
 import { analyzeRgbaPixels, describeScopeStats, type ColorScopeStats } from '../../color/scopes';
+import { decodeBase64Pixels, renderTimelineFrameBase64 } from '../../color/frameCapture';
 
 type Args = Record<string, unknown>;
-
-/** Press the long side to this size before counting: it is enough for full frame statistics and saves an order of magnitude in decoding/traversal. */
-const ANALYZE_MAX_EDGE = 320;
-
-/** base64 PNG/JPEG → downsample RGBA pixels (browser-specific: createImageBitmap + canvas). */
-async function decodeBase64Pixels(base64: string): Promise<{ data: Uint8ClampedArray; width: number; height: number }> {
-  const blob = await (await fetch(`data:image/png;base64,${base64}`)).blob();
-  const bitmap = await createImageBitmap(blob);
-  const scale = Math.min(1, ANALYZE_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = new OffscreenCanvas(width, height);
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('2d canvas unavailable');
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  return { data: context.getImageData(0, 0, width, height).data, width, height };
-}
-
-async function timelineFrameBase64(ctx: AgentContext, frame: number): Promise<string> {
-  const state = ctx.getState();
-  const res = await fetch('/render-still', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state, frames: [frame], fps: state.fps }),
-  });
-  if (!res.ok) {
-    const info = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(info?.error ?? `render-still failed (${res.status})`);
-  }
-  const data = (await res.json()) as { frames: { frame: number; base64: string }[] };
-  const base64 = data.frames?.[0]?.base64;
-  if (!base64) throw new Error('render-still returned no frame');
-  return base64;
-}
 
 async function assetFrameBase64(src: string, sourceMs: number | undefined): Promise<string> {
   const body: Record<string, unknown> = { src };
@@ -163,7 +129,7 @@ async function measureTimeline(ctx: AgentContext, rawFrame: unknown, rawSeconds:
   const frame = typeof rawFrame === 'number' ? Math.max(0, Math.round(rawFrame))
     : typeof rawSeconds === 'number' ? Math.max(0, Math.round(rawSeconds * state.fps))
       : Math.floor(contentEnd / 2);
-  const { data } = await decodeBase64Pixels(await timelineFrameBase64(ctx, frame));
+  const { data } = await decodeBase64Pixels(await renderTimelineFrameBase64(ctx.getState(), frame));
   const rawStats = analyzeRgbaPixels(data);
   return {
     mode: 'timeline', frame, seconds: round3(frame / state.fps),

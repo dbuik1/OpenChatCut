@@ -1820,6 +1820,19 @@ button, input, select { font: inherit; }
   color:var(--cc-text-strong); background:var(--cc-panel); font-size:9.5px; font-weight:650; line-height:16px;
 }
 .cc-insp-muted { font-size:11px; color:var(--cc-text-dim); }
+.cc-insp-scopes { margin-top:6px; border:0.5px solid var(--cc-border); border-radius:4px; background:var(--cc-inset); }
+.cc-insp-scopes > summary { padding:5px 8px; font-size:10.5px; font-weight:650; color:var(--cc-text-muted); cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; }
+.cc-insp-scopes > summary::-webkit-details-marker { display:none; }
+.cc-insp-scopes > summary::before { content:''; width:0; height:0; border:4px solid transparent; border-left-color:var(--cc-text-dim); margin-left:2px; }
+.cc-insp-scopes[open] > summary::before { transform:rotate(90deg) translate(1px, -1px); }
+.cc-insp-scopes > summary:hover { color:var(--cc-text-strong); }
+.cc-insp-scopes-body { display:flex; flex-direction:column; gap:5px; padding:0 8px 7px; }
+.cc-insp-scopes-row { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; align-items:end; }
+.cc-insp-scopes-row figure { margin:0; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.cc-insp-scopes-row canvas { width:100%; height:56px; border-radius:3px; image-rendering:auto; display:block; }
+.cc-insp-scopes-vector canvas { width:56px; height:56px; }
+.cc-insp-scopes-row figcaption { font-size:9.5px; color:var(--cc-text-dim); letter-spacing:0.03em; }
+.cc-insp-scopes-error { color:var(--cc-danger); }
 @container preview-workspace (max-width:720px) {
   .cc-inspector {
     position:absolute; inset:0 0 0 auto; z-index:12;

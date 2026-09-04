@@ -1,3 +1,4 @@
+import type { CapturedPixels } from '../../color/frameCapture';
 import type { RefObject } from 'react';
 import type { PlayerRef } from '@remotion/player';
 import type { Tpl } from '../../types';
@@ -70,6 +71,8 @@ export interface InspectorPanelProps {
   onNormalizeLoudness?: (targetLufs: number) => number | Promise<number>;
   onIsolateVoice?: (action: 'apply' | 'clear', strength?: number) => void | Promise<void>;
   getPlayhead: () => number;
+  /** Render the composed timeline at a frame for the drawn scopes; absent when no server render is reachable. */
+  captureFrame?: (frame: number, signal?: AbortSignal) => Promise<CapturedPixels>;
   onSetReframeKeyframe: (frame: number, focalPointX: number, focalPointY: number, magnification: number) => void;
   onRemoveReframeKeyframe: (frame: number) => void;
   onSetItemKeyframe: (prop: KeyframeProp, frame: number, value: number, easing?: KeyframeEasing) => void;

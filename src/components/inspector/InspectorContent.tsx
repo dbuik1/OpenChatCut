@@ -12,6 +12,7 @@ import { FadeControl, IsolateVoiceControl, SpeedControl, TextControl, Transition
 import { BackgroundFillControl, EffectsControl, FilterControl, SectionLabel } from './InspectorVisualControls';
 import type { InspectorPanelProps } from './InspectorTypes';
 import { InspectorSlipControl } from './InspectorSlipControl';
+import { ScopesControl } from './ScopesControl';
 import { groupInspectorPropSchema } from './inspectorPropSchemaLayout';
 
 export type InspectorTab = 'basic' | 'video' | 'audio' | 'animation';
@@ -161,7 +162,7 @@ function BasicTab({ panel, item, schema, playheadLocal }: InspectorContentProps)
   );
 }
 
-function VideoTab({ panel, item }: InspectorContentProps) {
+function VideoTab({ panel, item, playheadLocal }: InspectorContentProps) {
   const t = useT();
   const filters = item.filters;
   const resetDisabled = Math.abs((filters?.brightness ?? 1) - 1) < 1e-6
@@ -191,6 +192,9 @@ function VideoTab({ panel, item }: InspectorContentProps) {
         saturate: isMixed(panel, (entry) => entry.filters?.saturate ?? 1),
         blur: isMixed(panel, (entry) => entry.filters?.blur ?? 0),
       }} onChange={panel.onItemFiltersChange} autoGrade={panel.autoGrade} />
+      {panel.captureFrame && (item.kind === 'video' || item.kind === 'image') && (
+        <ScopesControl frame={item.startFrame + playheadLocal.localFrame} captureFrame={panel.captureFrame} revision={item} />
+      )}
       {(item.kind === 'video' || item.kind === 'image') && panel.selectedItems.every((entry) => entry.kind === 'video' || entry.kind === 'image') && <><SectionLabel>{t('特效')}</SectionLabel>{effectsMixed ? <div className="cc-insp-muted">{t('所选片段的特效堆栈不同；请先统一堆栈后再批量编辑。')}</div> : <EffectsControl item={item} onChange={panel.onItemEffectsChange} previewStatus={panel.selectedPreviewStatuses?.find((status) => status.kind === 'effect' && status.targetId === item.id)} />}</>}
     </>
   );
