@@ -16,15 +16,20 @@ import { getLanguageModel } from './client';
 import { getActiveAgentModelChoice, type AgentModelChoice } from './model-selection';
 import { prepareChatCompletionsMediaMessages } from './messages';
 import { resolveVisionModel, type VisionModelRef } from './visionConfig';
+import { getLocale, localeLanguageName } from '../i18n/locale';
 
 type UserContentParts = Exclude<UserContent, string>;
 type UserPart = UserContentParts[number];
 
 export type VisionPurpose = 'user-attachment' | 'timeline-frames' | 'asset-frames' | 'qa-evidence';
 
-const VISION_SYSTEM = `You are a visual-analysis pass for a video editor whose main model cannot see images.
-Describe images in concise structured Chinese (中文) bullet points, focusing on facts a video editor needs.
+// The description is read back by the main model and surfaced to the user, so
+// it follows the interface language rather than a fixed one.
+function visionSystemPrompt(language: string): string {
+  return `You are a visual-analysis pass for a video editor whose main model cannot see images.
+Describe images in concise structured ${language} bullet points, focusing on facts a video editor needs.
 Never invent details; if something is unreadable or uncertain, say so explicitly.`;
+}
 
 const VISION_TIMEOUT_MS = 30_000;
 const VISION_MAX_OUTPUT_TOKENS = 1024;
@@ -38,16 +43,16 @@ interface ImagePayload {
   mediaType: string;
 }
 
-function purposePrompt(purpose: VisionPurpose): string {
+function purposePrompt(purpose: VisionPurpose, language: string): string {
   switch (purpose) {
     case 'user-attachment':
-      return 'Analyze the attached image for a text-only editing agent. Report: subject and content; any readable text verbatim; layout and composition; colors; anything relevant to video editing. Answer in Chinese.';
+      return `Analyze the attached image for a text-only editing agent. Report: subject and content; any readable text verbatim; layout and composition; colors; anything relevant to video editing. Answer in ${language}.`;
     case 'timeline-frames':
-      return 'These are rendered frames from a video timeline (contact sheet: cells left-to-right, top-to-bottom, in frame order). Describe each cell briefly with its cell number, noting visual differences, text, composition, and any defects (black frames, glitches, color issues). Answer in Chinese.';
+      return `These are rendered frames from a video timeline (contact sheet: cells left-to-right, top-to-bottom, in frame order). Describe each cell briefly with its cell number, noting visual differences, text, composition, and any defects (black frames, glitches, color issues). Answer in ${language}.`;
     case 'asset-frames':
-      return 'These are sampled frames of one media asset. Describe content per cell with cell numbers, plus technical notes (resolution artifacts, color, readability). Answer in Chinese.';
+      return `These are sampled frames of one media asset. Describe content per cell with cell numbers, plus technical notes (resolution artifacts, color, readability). Answer in ${language}.`;
     case 'qa-evidence':
-      return 'This is an export QA evidence sheet: each row shows the frame immediately before and after one edit boundary. For each row, note whether the cut looks correct (no duplicate, black, or offset frames). Answer in Chinese.';
+      return `This is an export QA evidence sheet: each row shows the frame immediately before and after one edit boundary. For each row, note whether the cut looks correct (no duplicate, black, or offset frames). Answer in ${language}.`;
   }
 }
 
@@ -81,13 +86,14 @@ export async function describeImageWithVision(
   signal?: AbortSignal,
 ): Promise<string> {
   const model = await getLanguageModel(vision.provider, vision.model, vision.openAiApiMode);
+  const language = localeLanguageName(getLocale());
   const { text } = await generateText({
     model,
-    system: VISION_SYSTEM,
+    system: visionSystemPrompt(language),
     messages: [{
       role: 'user',
       content: [
-        { type: 'text', text: purposePrompt(purpose) },
+        { type: 'text', text: purposePrompt(purpose, language) },
         { type: 'file', data: { type: 'data', data: image.base64 }, mediaType: image.mediaType },
       ],
     }],

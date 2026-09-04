@@ -4,7 +4,7 @@ export const HIGHLIGHT_TOOL_SCHEMAS: AgentToolSchema[] = [
   {
     name: 'find_highlights',
     description:
-      'Create short-form highlights from long-form content: read the word-level transcript of a timeline clip, use an LLM to select the strongest self-contained moments, duplicate each into a vertical sequence (default 9:16), and trim it to the selected frame range. The clip must be transcribed first with transcribe_track. Returns each sequence id, title, and frame range. Falls back to information-density heuristics if LLM selection fails.',
+      'Create short-form highlights from long-form content: read the word-level transcript of a timeline clip, use an LLM to select the strongest self-contained moments, duplicate each into a vertical sequence (default 9:16), and trim it to the selected frame range. The clip must be transcribed first with transcribe_track. Returns each sequence id, title, frame range, and a `selector` field naming how the moments were chosen: "llm" for model selection, "heuristic" for the information-density fallback used when no text-generation model is reachable. When `selector` is "heuristic", tell the user the picks are density-based rather than judged, so they know to review them.',
     input_schema: {
       type: 'object',
       properties: {
