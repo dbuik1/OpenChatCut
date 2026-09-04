@@ -72,12 +72,16 @@ function execTemplateCatalog(name: string, args: Args, ctx: AgentContext): unkno
   return { ok: true, added: template.name, trackId: track, track: trackAlias(ctx.getState(), track) };
 }
 
-async function generateMgCode(description: string, brandHint = ''): Promise<string> {
+async function generateMgCode(
+  description: string,
+  geometry: MgGeometry,
+  brandHint = '',
+): Promise<string> {
   const system = `You write ONE Remotion motion-graphic React component. Output ONLY the code — no markdown fences, no prose.
 Contract (MUST follow exactly):
 - Shape: const Name = ({item}) => { ...; return (<AbsoluteFill>...</AbsoluteFill>); };
 - NO import / require / export. These globals are already injected: React, useCurrentFrame, useVideoConfig, interpolate, interpolateColors, spring, Easing, random, Img, Audio, Sequence, AbsoluteFill.
-- Canvas is 1920x1080. Animate with useCurrentFrame()+interpolate()/spring({fps,frame,config}). Get { fps, durationInFrames } from useVideoConfig().
+- Canvas is ${geometry.width}x${geometry.height} at ${geometry.fps}fps, running ${geometry.durationInFrames} frames. Compose for that aspect ratio; do not assume landscape. Animate with useCurrentFrame()+interpolate()/spring({fps,frame,config}). Get { fps, durationInFrames } from useVideoConfig().
 - interpolate()'s inputRange MUST be strictly increasing (e.g. [0, 15, 30]). When breakpoints are computed (per-item offsets, durationInFrames fractions), clamp with Math.max(prev + 1, next) so a later value can never be <= an earlier one — a non-monotonic inputRange throws at render time.
 - Pure, synchronous rendering only. FORBIDDEN: fetch, XMLHttpRequest, WebSocket, document, window, globalThis, eval, new Function, .constructor, localStorage, setTimeout, setInterval, while(true), for(;;), debugger.
 - Style inline. Make it clean and visually appealing (large readable text, tasteful colors, smooth fade/slide/scale animations).${brandHint}`;
@@ -91,8 +95,22 @@ Contract (MUST follow exactly):
 const MAX_MG_DIMENSION = 8192;
 const MAX_MG_FRAMES = 36_000;
 
-function generatedAsset(args: Args, code: string, ctx: AgentContext): MediaAsset {
-  const fps = ctx.getState().fps || 30;
+interface MgGeometry {
+  readonly width: number;
+  readonly height: number;
+  readonly fps: number;
+  readonly durationInFrames: number;
+}
+
+/**
+ * The geometry the generated component is written for and the geometry the
+ * asset is created at have to be the same numbers, or a vertical project gets
+ * a graphic composed for landscape. Unspecified dimensions fall back to the
+ * project canvas rather than to a fixed 1920x1080.
+ */
+export function mgGeometry(args: Args, ctx: AgentContext): MgGeometry {
+  const state = ctx.getState();
+  const fps = state.fps || 30;
   const requestedFrames = typeof args.durationInFrames === 'number' && args.durationInFrames > 0
     ? Math.round(args.durationInFrames)
     : Math.round((Number(args.durationSeconds) || 3) * fps);
@@ -102,13 +120,22 @@ function generatedAsset(args: Args, code: string, ctx: AgentContext): MediaAsset
       : fallback
   );
   return {
-    id: crypto.randomUUID(), name: String(args.name ?? '').trim() || 'Generated MG',
-    kind: 'motion-graphic', src: '', code,
+    width: dimension(args.width, dimension(state.width, 1920)),
+    height: dimension(args.height, dimension(state.height, 1080)),
+    fps,
     durationInFrames: Number.isFinite(requestedFrames)
       ? Math.min(MAX_MG_FRAMES, Math.max(15, requestedFrames))
       : 15,
-    width: dimension(args.width, 1920),
-    height: dimension(args.height, 1080),
+  };
+}
+
+function generatedAsset(args: Args, code: string, geometry: MgGeometry): MediaAsset {
+  return {
+    id: crypto.randomUUID(), name: String(args.name ?? '').trim() || 'Generated MG',
+    kind: 'motion-graphic', src: '', code,
+    durationInFrames: geometry.durationInFrames,
+    width: geometry.width,
+    height: geometry.height,
     props: {},
   };
 }
@@ -116,9 +143,10 @@ function generatedAsset(args: Args, code: string, ctx: AgentContext): MediaAsset
 async function createMotionGraphic(args: Args, ctx: AgentContext): Promise<unknown> {
   const description = String(args.prompt ?? args.description ?? '').trim();
   if (!description) return { error: 'prompt (or description) is required' };
+  const geometry = mgGeometry(args, ctx);
   let code: string;
   try {
-    code = await generateMgCode(description, designStyleHint(ctx.getDoc().designStyle));
+    code = await generateMgCode(description, geometry, designStyleHint(ctx.getDoc().designStyle));
   } catch (error) {
     return { error: `generation failed: ${error instanceof Error ? error.message : String(error)}` };
   }
@@ -128,7 +156,7 @@ async function createMotionGraphic(args: Args, ctx: AgentContext): Promise<unkno
   } catch (error) {
     return { error: `generated code rejected by sandbox: ${error instanceof Error ? error.message : String(error)}`, code };
   }
-  const asset = generatedAsset(args, code, ctx);
+  const asset = generatedAsset(args, code, geometry);
   ctx.commands.addAsset(asset);
   return {
     ok: true, status: 'succeeded', jobId: `mg_${asset.id}`, assetId: asset.id,

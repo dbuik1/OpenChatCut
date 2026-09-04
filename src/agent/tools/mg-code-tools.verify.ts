@@ -4,6 +4,7 @@ import { makeDraft } from '../../editor/store';
 import { docFromTimeline } from '../../persist/projectStore';
 import type { AgentContext } from '../context';
 import { execMgCodeTool, MG_CODE_TOOL_NAMES } from './mg-code-tools';
+import { mgGeometry } from './core-tools';
 
 assert.ok(MG_CODE_TOOL_NAMES.has('create_motion_graphic_from_code'));
 
@@ -46,4 +47,22 @@ assert.ok(asset);
 assert.strictEqual(asset!.kind, 'motion-graphic');
 assert.strictEqual(asset!.props?.title, 'Hello');
 
-console.log('mg-code-tools.check: ok');
+// ── Generated motion graphics follow the project canvas ──
+// The geometry named in the generation prompt and the geometry the asset is
+// created at are the same numbers, so a vertical project cannot be handed a
+// graphic composed for landscape.
+const vertical = makeDraft(docFromTimeline({
+  fps: 24, width: 1080, height: 1920, items: [], selectedId: null, assets: [],
+}));
+const verticalCtx: AgentContext = { ...ctx, getState: vertical.getState, getDoc: vertical.getDoc, commands: vertical.commands };
+const projectDefault = mgGeometry({}, verticalCtx);
+assert.strictEqual(projectDefault.width, 1080);
+assert.strictEqual(projectDefault.height, 1920);
+assert.strictEqual(projectDefault.fps, 24);
+assert.strictEqual(projectDefault.durationInFrames, 72);
+const explicit = mgGeometry({ width: 800, height: 600, durationInFrames: 40 }, verticalCtx);
+assert.strictEqual(explicit.width, 800);
+assert.strictEqual(explicit.height, 600);
+assert.strictEqual(explicit.durationInFrames, 40);
+
+console.log('mg-code-tools.check: ok, generated geometry follows the project canvas');
