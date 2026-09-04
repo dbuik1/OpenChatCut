@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { anchorDuckRanges, duckEnvelopeAt, duckGainFor, equalPowerGain } from './transitionAudio';
+import { anchorDuckRanges, clampTrackGainDb, duckEnvelopeAt, duckGainFor, equalPowerGain, trackGainFor } from './transitionAudio';
 
 // The property that matters: across the whole ramp the two sides of a crossfade
 // sum to constant power. A linear ramp fails this at the midpoint, where both
@@ -119,4 +119,14 @@ assert.deepEqual(
   [[100, 130]],
 );
 
-console.log('transitionAudio.verify: crossfade holds constant power, ducking ramps in and out');
+// Track gain: absent/zero is unity, dB maps linearly, out-of-range values are clamped rather than trusted.
+assert.equal(trackGainFor(undefined), 1);
+assert.equal(trackGainFor(0), 1);
+assert.ok(Math.abs(trackGainFor(-6) - 10 ** (-6 / 20)) < 1e-12);
+assert.ok(Math.abs(trackGainFor(6) - 10 ** (6 / 20)) < 1e-12);
+assert.equal(clampTrackGainDb(40), 12);
+assert.equal(clampTrackGainDb(-90), -60);
+assert.equal(clampTrackGainDb(Number.NaN), 0);
+assert.equal(trackGainFor(40), trackGainFor(12));
+
+console.log('transitionAudio.verify: crossfade holds constant power, ducking ramps in and out, track gain clamps');

@@ -20,7 +20,7 @@ import { GlTransitionVisibility } from './GlTransitionVisibility';
 import { updateReadyGlWindows } from './glTransitionVisibilityState';
 import { AudioClip, BackgroundFillLayer, ContinuousVideoAudio, MediaFill, SharedVideoVisualGroup, VisualClipSurface } from './TimelineMediaLayer';
 import { firstGlEffect } from '../gl/clipEffects';
-import { anchorDuckRanges, continuousVideoAudioGroups, duckEnvelopeAt, duckGainFor, shareableVisualItem } from './transitionAudio';
+import { anchorDuckRanges, continuousVideoAudioGroups, duckEnvelopeAt, duckGainFor, shareableVisualItem, trackGainFor } from './transitionAudio';
 import { ItemLayer, SolidLayer, TextLayer, WatermarkLayer } from './TimelineGraphicLayers';
 
 const GRID = 'repeating-conic-gradient(#242424 0% 25%, #1c1c1c 0% 50%) 50% / 40px 40px';
@@ -139,7 +139,7 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
     : visualTracks.indexOf(b.track) - visualTracks.indexOf(a.track));
   const audio = state.items.filter((it) => it.kind === 'audio' && it.src && !isHidden(it.track));
   const captionEntries = captionTrackEntries(state);
-  // Derived once per render, not per audio frame: duckGain is called from each
+  // Derived once per render, not per audio frame: trackGain is called from each
   // clip's volume callback for every frame it plays.
   const anchorRanges = useMemo(() => state.items
     .filter((item) => state.tracks?.[item.track]?.role === 'anchor'
@@ -148,12 +148,14 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
       && !!item.src)
     .flatMap((item) => anchorDuckRanges(item, state.fps)),
     [state.items, state.tracks, state.fps, forceMuted]);
-  const duckGain = (track: TimelineItem['track'], frame: number): number => {
+  // Track gain multiplies the clip's own volume; ducking then sits on top for followers.
+  const trackGain = (track: TimelineItem['track'], frame: number): number => {
     const config = state.tracks?.[track];
-    if (config?.role !== 'follower') return 1;
+    const gain = trackGainFor(config?.gainDb);
+    if (config?.role !== 'follower') return gain;
     const envelope = duckEnvelopeAt(frame, anchorRanges, state.fps);
-    if (envelope === 0) return 1;
-    return duckGainFor(config.audioRouting?.duckDepthDb ?? -12, envelope);
+    if (envelope === 0) return gain;
+    return gain * duckGainFor(config.audioRouting?.duckDepthDb ?? -12, envelope);
   };
   const fit: AspectFit = state.fit ?? 'contain';
   // Preview mounts each clip 1s in advance (freezes first frame + transparency): video elements seek/decode in advance, GL compiles in advance,
@@ -333,7 +335,7 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
               ? <SolidLayer item={item} canvasW={state.width} canvasH={state.height} borderRadius={borderRadius} />
               : <MediaFill item={item} frameOffset={-eb} fit={fillBackground ? 'contain' : fit}
                   muted={isMuted(item.track)} groupedAudio={groupedVideoIds.has(item.id)}
-                  gainAt={(frame) => duckGain(item.track, frame)} canvasW={state.width} canvasH={state.height}
+                  gainAt={(frame) => trackGain(item.track, frame)} canvasW={state.width} canvasH={state.height}
                   borderRadius={borderRadius} browserRenderer={browserRenderer}
                   onPreviewStatus={environment.isPlayer && item.id === selectedItemId && !selectedEffectStaticStatus
                     ? onSelectedPreviewStatus : undefined} />}
@@ -378,7 +380,7 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
           item={item}
           fps={state.fps}
           muted={isMuted(item.track)}
-          gainAt={(frame) => duckGain(item.track, frame)}
+          gainAt={(frame) => trackGain(item.track, frame)}
           transitions={state.transitions}
           premountFor={premountFrames}
           browserRenderer={browserRenderer}
@@ -389,7 +391,7 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
           key={`audio:${group[0]!.id}`}
           items={group}
           muted={isMuted(group[0]!.track)}
-          gainAt={(frame) => duckGain(group[0]!.track, frame)}
+          gainAt={(frame) => trackGain(group[0]!.track, frame)}
           premountFor={premountFrames}
           browserRenderer={browserRenderer}
         />

@@ -128,7 +128,7 @@ export function TrackContextMenu({
           <MenuItem label={t('翻译全部')} icon="text" chevron onClick={open(onOpenTranslate)} />
         </>
       ) : (
-        <MenuItem label={t('自动闪避')} icon="sliders" chevron onClick={open(onOpenDuck)} />
+        <MenuItem label={t('轨道音频')} icon="sliders" chevron onClick={open(onOpenDuck)} />
       )}
       <Separator />
       <MenuItem label={t('删除轨道')} icon="trash" disabled={deleteBlockedReason !== null} danger onClick={run(onDelete)} />

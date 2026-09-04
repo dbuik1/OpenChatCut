@@ -2,7 +2,7 @@
 import assert from 'node:assert';
 import { makeDraft } from '../../editor/store';
 import { reduce } from '../../editor/reduce';
-import { captionsOnTrack, timelineTrackIds, type TimelineState } from '../../editor/types';
+import { captionsOnTrack, resolveTrackId, timelineTrackIds, type TimelineState } from '../../editor/types';
 import { docFromTimeline } from '../../persist/projectStore';
 import type { AgentContext } from '../context';
 import { execTrackTool } from './track-tools';
@@ -55,6 +55,20 @@ assert.deepStrictEqual(await execTrackTool('edit_track', { action: 'tighten', tr
 await execTrackTool('edit_track', { action: 'update', trackId: 'A1', json: '{"locked":false}' }, ctx);
 const unlockedList = await execTrackTool('edit_track', { action: 'list' }, ctx) as { alias: string; locked: boolean }[];
 assert.strictEqual(unlockedList.find((track) => track.alias === 'A1')!.locked, false, 'unlock lands + list carries locked');
+
+// ── Gain: lands clamped, reports through list, unity is stored as absence, captions never carry it ──
+const gainRes = await execTrackTool('edit_track', { action: 'update', trackId: 'A1', json: '{"gainDb":30}' }, ctx) as { track: { gainDb: number } };
+assert.strictEqual(gainRes.track.gainDb, 12, 'gain clamps to the +12 dB ceiling');
+const gainList = await execTrackTool('edit_track', { action: 'list' }, ctx) as { alias: string; gainDb: number | null }[];
+assert.strictEqual(gainList.find((track) => track.alias === 'A1')!.gainDb, 12, 'list carries gainDb');
+await execTrackTool('edit_track', { action: 'update', trackId: 'A1', json: '{"gainDb":null}' }, ctx);
+const a1Id = resolveTrackId(draft.getState(), 'A1')!;
+assert.strictEqual(draft.getState().tracks?.[a1Id]?.gainDb, undefined, 'unity gain is stored as absence');
+const gainCaption = await execTrackTool('edit_track', { action: 'create', json: '{"trackType":"caption"}' }, ctx) as { created: { id: string }[] };
+const captionGain = await execTrackTool('edit_track', { action: 'update', trackId: gainCaption.created[0].id, json: '{"gainDb":-6}' }, ctx) as { track: { gainDb: number | null } };
+assert.strictEqual(captionGain.track.gainDb, null, 'caption tracks never carry gain');
+assert.strictEqual(draft.getState().tracks?.[gainCaption.created[0].id]?.gainDb, undefined);
+await execTrackTool('edit_track', { action: 'delete', trackId: gainCaption.created[0].id }, ctx);
 
 // Empty projects start with one video lane and no audio lane. Audio lanes
 // may all be removed; the final video lane remains protected.

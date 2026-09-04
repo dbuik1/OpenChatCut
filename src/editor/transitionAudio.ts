@@ -120,6 +120,20 @@ export function duckGainFor(depthDb: number, envelope: number): number {
   return 10 ** ((depthDb * envelope) / 20);
 }
 
+/** Track gain as a linear multiplier; the ceiling stops a runaway value from clipping every clip on the lane. */
+export const TRACK_GAIN_MIN_DB = -60;
+export const TRACK_GAIN_MAX_DB = 12;
+
+export function clampTrackGainDb(gainDb: number): number {
+  if (!Number.isFinite(gainDb)) return 0;
+  return Math.max(TRACK_GAIN_MIN_DB, Math.min(TRACK_GAIN_MAX_DB, gainDb));
+}
+
+export function trackGainFor(gainDb: number | undefined): number {
+  if (!gainDb) return 1;
+  return 10 ** (clampTrackGainDb(gainDb) / 20);
+}
+
 /**
  * The frames an anchor clip is actually speaking, as duck ranges.
  *

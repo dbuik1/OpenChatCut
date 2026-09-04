@@ -141,7 +141,9 @@ export function applyTrackAction(
         delete next.muted;
         delete next.role;
         delete next.audioRouting;
+        delete next.gainDb;
       }
+      if (next.gainDb === 0) delete next.gainDb;
       let trackOrder = timelineTrackIds(s);
       if (order !== undefined) {
         const kind = trackKind(s, a.track);

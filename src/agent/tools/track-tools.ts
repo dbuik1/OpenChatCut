@@ -1,6 +1,7 @@
 export { TRACK_TOOL_SCHEMAS, TRACK_TOOL_NAMES } from './schemas/track-tools';
 import type { AgentContext } from '../context';
 import { captionsOnTrack, resolveTrackId, timelineTrackIds, trackAlias, trackKind, type TimelineState, type TrackId, type TrackKind, type TrackRole, type TrackUpdate } from '../../editor/types';
+import { clampTrackGainDb } from '../../editor/transitionAudio';
 
 type Args = Record<string, unknown>;
 
@@ -31,6 +32,7 @@ function describe(state: TimelineState, id: TrackId) {
     locked: config.locked ?? false,
     role: config.role ?? null,
     audioRouting: config.audioRouting ?? null,
+    gainDb: kind === 'caption' ? null : config.gainDb ?? 0,
     clips: state.items.filter((item) => item.track === id).length,
   };
 }
@@ -95,7 +97,9 @@ export async function execTrackTool(name: string, args: Args, ctx: AgentContext)
       if (routing && (routing.duckDepthDb === null || typeof routing.duckDepthDb === 'number')) {
         patch.audioRouting = { duckDepthDb: routing.duckDepthDb === null ? null : Math.max(-60, Math.min(0, Number(routing.duckDepthDb))) };
       }
-      if (!Object.keys(patch).length) return { error: 'update json must include order, hidden, muted, locked, name, role, or audioRouting' };
+      if (data.gainDb === null) patch.gainDb = 0;
+      else if (typeof data.gainDb === 'number') patch.gainDb = clampTrackGainDb(data.gainDb);
+      if (!Object.keys(patch).length) return { error: 'update json must include order, hidden, muted, locked, name, role, audioRouting, or gainDb' };
       ctx.commands.updateTrack(id, patch);
       const after = ctx.getState();
       return { ok: true, track: describe(after, id), tracks: list(after) };

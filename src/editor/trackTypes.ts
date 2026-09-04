@@ -23,6 +23,9 @@ export interface TrackFlags {
   /** anchor speech triggers ducking; follower music ducks under anchors */
   role?: TrackRole;
   audioRouting?: { duckDepthDb?: number };
+  /** Track-wide level offset applied on top of clip volume and ducking;
+   * absent or 0 is unity. Never carried by caption tracks. */
+  gainDb?: number;
 }
 
 export type TrackUpdate = Partial<Omit<TrackFlags, 'kind' | 'role' | 'audioRouting' | 'captions'>> & {

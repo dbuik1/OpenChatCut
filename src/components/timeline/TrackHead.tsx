@@ -74,7 +74,7 @@ export function TrackHead({
         {!isCaption && <button style={flagBtn(muted)} title={muted ? t('取消静音') : t('静音轨道')} onClick={() => commands.toggleTrackFlag(trackId, 'muted')}><Icon name={muted ? 'volumeOff' : 'volume'} size={14} /></button>}
         <button style={{ ...flagBtn(false), color: locked ? theme.gold : theme.textMuted }} title={locked ? t('解锁轨道') : t('锁定轨道（禁止移动 / 裁剪 / 删除 / 落轨）')} onClick={() => commands.toggleTrackFlag(trackId, 'locked')}><Icon name={locked ? 'lock' : 'unlock'} size={14} /></button>
         {isCaption && <button data-caption-menu-trigger style={flagBtn(false)} title={t('字幕样式与翻译')} onClick={(e) => onToggleCaptionMenu(e.currentTarget.getBoundingClientRect())}><Icon name="chevronDown" size={12} /></button>}
-        {!isCaption && <button data-duck-menu-trigger style={{ ...flagBtn(false), color: config.role === 'anchor' || config.role === 'follower' ? theme.gold : theme.textMuted }} title={t('自动闪避（混音角色：主轨说话 / 跟随背景乐）')} onClick={(e) => onToggleDuckMenu(e.currentTarget.getBoundingClientRect())}><Icon name="sliders" size={13} /></button>}
+        {!isCaption && <button data-duck-menu-trigger style={{ ...flagBtn(false), color: config.role === 'anchor' || config.role === 'follower' ? theme.gold : theme.textMuted }} title={t('轨道音频（增益 / 自动闪避）')} onClick={(e) => onToggleDuckMenu(e.currentTarget.getBoundingClientRect())}><Icon name="sliders" size={13} /></button>}
         <button
           type="button"
           className="cc-track-fixed-action"
@@ -93,9 +93,38 @@ export function TrackHead({
   );
 }
 
-// Duck (auto-dodge) role menu is a track-head menu item, not a
-// permanent widget. Sets the per-track role (anchor speech / follower music) + duck depth;
-// the engine (TimelineComposition duckGain) already reacts to it.
+// Gain is one compact line: the readout doubles as the reset so unity is always one click away.
+function TrackGainRow({ trackId, gainDb, commands }: { trackId: TrackId; gainDb: number; commands: EditorCommands }) {
+  const t = useT();
+  // A drag dispatches one update per step; merging them into one undo record keeps
+  // a single slider drag from displacing real edits in the bounded history.
+  const beginGesture = () => {
+    commands.beginHistoryGesture();
+    const end = () => commands.endHistoryGesture();
+    window.addEventListener('pointerup', end, { once: true });
+    window.addEventListener('pointercancel', end, { once: true });
+  };
+  const label = `${gainDb > 0 ? '+' : ''}${gainDb} dB`;
+  return (
+    <div style={{ borderBottom: `0.5px solid ${theme.border}`, padding: '7px 10px 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: theme.textMuted }}>{t('轨道增益')}</span>
+        <button type="button" title={t('重置为 0 dB')} onClick={() => commands.updateTrack(trackId, { gainDb: 0 })}
+          style={{ background: 'none', border: 0, padding: 0, cursor: gainDb === 0 ? 'default' : 'pointer', fontSize: 11, fontVariantNumeric: 'tabular-nums', color: gainDb === 0 ? theme.textMuted : theme.textStrong }}>
+          {label}
+        </button>
+      </div>
+      <input type="range" min={-24} max={12} step={1} value={gainDb} aria-label={t('轨道增益')}
+        onChange={(e) => commands.updateTrack(trackId, { gainDb: Number(e.target.value) })}
+        onPointerDown={beginGesture} onKeyDown={commands.beginHistoryGesture} onKeyUp={commands.endHistoryGesture}
+        style={{ width: '100%', margin: 0 }} />
+    </div>
+  );
+}
+
+// Track audio drill is a track-head menu item, not a permanent widget. Sets the
+// track gain, the per-track duck role (anchor speech / follower music) and the
+// duck depth; the engine (TimelineComposition trackGain) already reacts to all three.
 function DuckMenu({ trackId, config, pos, commands, onClose, onBack }: {
   trackId: TrackId;
   config: TrackFlags;
@@ -107,7 +136,9 @@ function DuckMenu({ trackId, config, pos, commands, onClose, onBack }: {
   const t = useT();
   return (
     <div className="cc-caption-style-menu cc-duck-menu" style={{ position: 'fixed', left: pos.left, top: pos.top }} onPointerDown={(e) => e.stopPropagation()}>
-      <MenuDrillHeader title={t('自动闪避')} onBack={onBack} />
+      <MenuDrillHeader title={t('轨道音频')} onBack={onBack} />
+      <TrackGainRow trackId={trackId} gainDb={config.gainDb ?? 0} commands={commands} />
+      <div className="cc-caption-style-title">{t('自动闪避')}</div>
       <div className="cc-caption-style-list">
         {([
           { role: null, label: '关闭', hint: '不参与自动闪避' },

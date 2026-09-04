@@ -3,7 +3,7 @@ import type { TimelineState } from '../../editor/types';
 import { closeCaptionTrackGaps, trackClearPlan, trackContextMenuLabels } from './trackContextOperations';
 
 assert.deepEqual(trackContextMenuLabels('video').slice(0, 2), ['插入素材', '闭合缝隙']);
-assert.ok(trackContextMenuLabels('audio').includes('自动闪避'));
+assert.ok(trackContextMenuLabels('audio').includes('轨道音频'));
 assert.ok(trackContextMenuLabels('caption').includes('字幕样式'));
 assert.ok(!trackContextMenuLabels('caption').includes('静音轨道'));
 
