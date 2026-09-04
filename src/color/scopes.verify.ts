@@ -3,7 +3,7 @@
 // Overexposure (highlight overflow), teal-orange double cluster, segmented color cast with bluish shadows, and empty input.
 import assert from 'node:assert/strict';
 import { compareColorScopes } from '../agent/tools/color-scope-tools';
-import { analyzeRgbaPixels, describeScopeStats } from './scopes';
+import { analyzeRgbaPixels, analyzeScopeFields, describeScopeStats } from './scopes';
 
 const near = (a: number, b: number, eps: number): boolean => Math.abs(a - b) < eps;
 
@@ -85,4 +85,58 @@ function rgba(blocks: Array<[r: number, g: number, b: number, n: number]>): Uint
   assert.deepEqual(compareColorScopes(reference, reference).suggestions, [], '死区内不生成无意义建议');
 }
 
-console.log('scopes.verify: ok (灰阶/主色相/溢出/双簇/分段色偏/参考对比/空输入)');
+
+// ── Drawn scope fields: a horizontal grey ramp climbs column by column ──
+{
+  const width = 8;
+  const height = 4;
+  const pixels = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      const v = Math.round((255 * x) / (width - 1));
+      pixels[i] = v; pixels[i + 1] = v; pixels[i + 2] = v; pixels[i + 3] = 255;
+    }
+  }
+  const f = analyzeScopeFields(pixels, width, height, { columns: 8, bins: 16, vectorSize: 16 });
+  const litBin = (column: number): number =>
+    [...f.luma.slice(column * f.bins, (column + 1) * f.bins)].findIndex((v) => v > 0);
+  assert.equal(litBin(0), 0, 'black column sits on the floor of the trace');
+  assert.equal(litBin(7), f.bins - 1, 'white column sits on the ceiling of the trace');
+  for (let c = 1; c < 8; c += 1) {
+    assert.ok(litBin(c) > litBin(c - 1), `column ${c} reads brighter than ${c - 1}`);
+  }
+  // A neutral ramp has no chroma, so every sample lands on the vectorscope centre.
+  const centre = Math.round((f.vectorSize - 1) / 2);
+  assert.equal(f.vector[centre * f.vectorSize + centre], 1, 'neutral pixels land at the vectorscope origin');
+  const offCentre = [...f.vector].filter((v, i) => v > 0 && i !== centre * f.vectorSize + centre);
+  assert.equal(offCentre.length, 0, 'a neutral frame paints nothing off the vectorscope origin');
+}
+
+// ── Parade separates channels, and the vectorscope places red above neutral ──
+{
+  const width = 2;
+  const height = 1;
+  const pixels = new Uint8Array([255, 0, 0, 255, 255, 0, 0, 255]);
+  const f = analyzeScopeFields(pixels, width, height, { columns: 2, bins: 8, vectorSize: 65 });
+  const lit = (field: Float32Array): number => [...field.slice(0, f.bins)].findIndex((v) => v > 0);
+  assert.equal(lit(f.red), f.bins - 1, 'red channel reads full');
+  assert.equal(lit(f.green), 0, 'green channel reads zero');
+  assert.equal(lit(f.blue), 0, 'blue channel reads zero');
+  const centre = Math.round((f.vectorSize - 1) / 2);
+  const hit = [...f.vector].findIndex((v) => v > 0);
+  const hy = Math.floor(hit / f.vectorSize);
+  const hx = hit % f.vectorSize;
+  assert.ok(hy < centre, 'pure red sits above the vectorscope origin');
+  assert.ok(hx < centre, 'pure red sits left of the vectorscope origin');
+}
+
+// ── Degenerate frames return empty fields rather than throwing ──
+{
+  const f = analyzeScopeFields(new Uint8Array(0), 0, 0);
+  assert.ok(f.luma.every((v) => v === 0), 'an empty frame paints no trace');
+  const short = analyzeScopeFields(new Uint8Array(4), 8, 8);
+  assert.ok(short.vector.every((v) => v === 0), 'a truncated buffer paints no trace');
+}
+
+console.log('scopes.verify: ok (灰阶/主色相/溢出/双簇/分段色偏/参考对比/空输入/示波器场)');

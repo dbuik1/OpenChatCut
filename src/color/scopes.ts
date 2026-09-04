@@ -195,3 +195,99 @@ export function describeScopeStats(s: ColorScopeStats): string[] {
   }
   return lines;
 }
+
+/**
+ * Per-column distributions for the drawn scopes (waveform, RGB parade,
+ * vectorscope). Separate from ColorScopeStats because those are whole-frame
+ * summaries — a colourist reads where in the picture a value sits, which only a
+ * distribution carries.
+ */
+export interface ScopeFields {
+  /** Horizontal resolution: one bucket per output column. */
+  columns: number;
+  /** Vertical resolution of the waveform and parade traces. Bin 0 is black. */
+  bins: number;
+  /** Column-major intensity 0..1, length columns × bins, indexed [column * bins + bin]. */
+  luma: Float32Array;
+  red: Float32Array;
+  green: Float32Array;
+  blue: Float32Array;
+  /** Square Cb/Cr histogram 0..1, length vectorSize², indexed [y * vectorSize + x]. */
+  vector: Float32Array;
+  vectorSize: number;
+}
+
+/**
+ * Traces are normalised against a high percentile rather than the maximum: one
+ * saturated cell — a letterbox bar, a blown sky — otherwise scales every other
+ * cell to invisibility.
+ */
+const TRACE_NORMALISATION_PERCENTILE = 0.999;
+
+function normaliseInPlace(field: Float32Array): void {
+  const nonZero: number[] = [];
+  for (let i = 0; i < field.length; i += 1) if (field[i]! > 0) nonZero.push(field[i]!);
+  if (nonZero.length === 0) return;
+  nonZero.sort((a, b) => a - b);
+  const idx = Math.min(nonZero.length - 1, Math.floor(TRACE_NORMALISATION_PERCENTILE * (nonZero.length - 1)));
+  const ceiling = nonZero[idx]!;
+  if (ceiling <= 0) return;
+  for (let i = 0; i < field.length; i += 1) field[i] = Math.min(1, field[i]! / ceiling);
+}
+
+/**
+ * One pass over the pixels fills all five fields: a scope panel draws them
+ * together, and four passes over a decoded frame is the cost that makes a
+ * live scope too slow to keep up with the playhead.
+ */
+export function analyzeScopeFields(
+  data: Uint8Array | Uint8ClampedArray,
+  width: number,
+  height: number,
+  options?: { columns?: number; bins?: number; vectorSize?: number },
+): ScopeFields {
+  const columns = Math.max(1, Math.round(options?.columns ?? 256));
+  const bins = Math.max(2, Math.round(options?.bins ?? 128));
+  const vectorSize = Math.max(2, Math.round(options?.vectorSize ?? 128));
+  const luma = new Float32Array(columns * bins);
+  const red = new Float32Array(columns * bins);
+  const green = new Float32Array(columns * bins);
+  const blue = new Float32Array(columns * bins);
+  const vector = new Float32Array(vectorSize * vectorSize);
+  const fields: ScopeFields = { columns, bins, luma, red, green, blue, vector, vectorSize };
+  if (width < 1 || height < 1 || data.length < width * height * 4) return fields;
+
+  const topBin = bins - 1;
+  const binOf = (v: number): number => Math.min(topBin, Math.max(0, Math.round(v * topBin)));
+  const vectorMax = vectorSize - 1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      const r = data[i]! / 255;
+      const g = data[i + 1]! / 255;
+      const b = data[i + 2]! / 255;
+      const column = Math.min(columns - 1, Math.floor((x / width) * columns));
+      const base = column * bins;
+      const yLuma = LUMA_R * r + LUMA_G * g + LUMA_B * b;
+      luma[base + binOf(yLuma)] += 1;
+      red[base + binOf(r)] += 1;
+      green[base + binOf(g)] += 1;
+      blue[base + binOf(b)] += 1;
+      // Rec.709 chroma difference, ±0.5 full scale. Screen y runs downward, so
+      // Cr is negated to put red above neutral as a hardware vectorscope does.
+      const cb = (b - yLuma) / 1.8556;
+      const cr = (r - yLuma) / 1.5748;
+      const vx = Math.min(vectorMax, Math.max(0, Math.round((cb + 0.5) * vectorMax)));
+      const vy = Math.min(vectorMax, Math.max(0, Math.round((0.5 - cr) * vectorMax)));
+      vector[vy * vectorSize + vx] += 1;
+    }
+  }
+
+  normaliseInPlace(luma);
+  normaliseInPlace(red);
+  normaliseInPlace(green);
+  normaliseInPlace(blue);
+  normaliseInPlace(vector);
+  return fields;
+}
