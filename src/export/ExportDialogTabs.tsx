@@ -8,10 +8,12 @@ import {
   MIN_VIDEO_BITRATE_MBPS,
 } from './bitrate';
 import { ExportBitrateControl } from './ExportBitrateControl';
+import { EXPORT_LOUDNESS_TARGETS } from './loudnessTarget';
 import { ExportQaCard, InfoCard, Row, Segmented } from './ExportDialogParts';
 import {
   EXPORT_FPS,
   EXPORT_RESOLUTION_OPTIONS,
+  type ExportLoudnessModel,
   type ExportSubtitleSettings,
   type ExportVideoSettings,
 } from './useExportDialogModel';
@@ -32,12 +34,35 @@ const clampBitrate = (value: number): number => Math.max(
 
 interface VideoSettingsProps {
   video: ExportVideoSettings;
+  loudness: ExportLoudnessModel;
   busy: boolean;
   qualityMode: 'balanced' | 'master';
   setQualityMode: (mode: 'balanced' | 'master') => void;
 }
 
-function VideoSettings({ video, busy, qualityMode, setQualityMode }: VideoSettingsProps) {
+/** Off is the literal 0 so the segmented control has one value type; the model stores null for it. */
+const LOUDNESS_OFF = 0;
+
+function LoudnessRow({ loudness }: { loudness: ExportLoudnessModel }) {
+  const t = useT();
+  const options = [
+    { value: LOUDNESS_OFF, label: t('保持混音') },
+    ...EXPORT_LOUDNESS_TARGETS.map((target) => ({ value: target.lufs, label: `${t(target.label)} ${target.lufs}` })),
+  ];
+  return (
+    <>
+      <Row label={t('响度')}>
+        <Segmented options={options} value={loudness.target ?? LOUDNESS_OFF}
+          onChange={(value) => loudness.setTarget(value === LOUDNESS_OFF ? null : value)} />
+      </Row>
+      {loudness.target !== null && (
+        <p className="cc-export-footnote">{t('渲染后按 EBU R128 两遍归一到 {n} LUFS，真峰值不超过 −1 dBTP；仅本机渲染。', { n: loudness.target })}</p>
+      )}
+    </>
+  );
+}
+
+function VideoSettings({ video, loudness, busy, qualityMode, setQualityMode }: VideoSettingsProps) {
   const t = useT();
   return (
     <>
@@ -91,6 +116,7 @@ function VideoSettings({ video, busy, qualityMode, setQualityMode }: VideoSettin
           />
         </Row>
       )}
+      <LoudnessRow loudness={loudness} />
     </>
   );
 }
@@ -120,18 +146,23 @@ function QaSettings({ enabled, busy, qa, onToggle }: QaSettingsProps) {
 
 interface VideoTabProps extends VideoSettingsProps, QaSettingsProps {}
 
-function VideoTab({ video, busy, qualityMode, setQualityMode, enabled, qa, onToggle }: VideoTabProps) {
+function VideoTab({ video, loudness, busy, qualityMode, setQualityMode, enabled, qa, onToggle }: VideoTabProps) {
   return (
     <>
-      <VideoSettings video={video} busy={busy} qualityMode={qualityMode} setQualityMode={setQualityMode} />
+      <VideoSettings video={video} loudness={loudness} busy={busy} qualityMode={qualityMode} setQualityMode={setQualityMode} />
       <QaSettings enabled={enabled} busy={busy} qa={qa} onToggle={onToggle} />
     </>
   );
 }
 
-function AudioTab() {
+function AudioTab({ loudness }: { loudness: ExportLoudnessModel }) {
   const t = useT();
-  return <InfoCard icon="music" title={t('MP3 音轨')} text={t('提取时间线中的完整混音，视频画面不会写入文件。')} />;
+  return (
+    <>
+      <InfoCard icon="music" title={t('MP3 音轨')} text={t('提取时间线中的完整混音，视频画面不会写入文件。')} />
+      <LoudnessRow loudness={loudness} />
+    </>
+  );
 }
 
 function MotionGraphicsTab({ count }: { count: number }) {
@@ -345,7 +376,7 @@ export interface ExportTabContentProps extends VideoTabProps, XmlTabProps {
 
 export function ExportTabContent(props: ExportTabContentProps) {
   if (props.tab === 'video') return <VideoTab {...props} />;
-  if (props.tab === 'audio') return <AudioTab />;
+  if (props.tab === 'audio') return <AudioTab loudness={props.loudness} />;
   if (props.tab === 'mg') return <MotionGraphicsTab count={props.mgCount} />;
   if (props.tab === 'subtitles') return <SubtitlesTab state={props.state} subtitles={props.subtitles} />;
   if (props.tab === 'jianying') return <JianyingTab state={props.state} base={props.base} />;

@@ -14,6 +14,7 @@ import {
   type ExportFailureStage,
 } from '../../src/export/exportFailure.ts';
 import type { ExportPlan } from './export-plan.ts';
+import { normalizeExportLoudness } from './export-loudness.ts';
 import {
   createRenderProgress,
   exportOutputSize,
@@ -60,6 +61,7 @@ export async function renderExportPlan(
 ): Promise<H264EncoderOutcome | undefined> {
   signal?.throwIfAborted();
   const retimed = plan.retimeFps ? `${filepath}.retimed.${plan.media.ext}` : null;
+  const normalized = plan.targetLufs !== undefined ? `${filepath}.loudnorm.${plan.media.ext}` : null;
   let failureStage: ExportFailureStage = 'render';
   try {
     update({ phase: 'preparing', progress: 4, processedFrames: 0, totalFrames: plan.totalFrames });
@@ -98,10 +100,22 @@ export async function renderExportPlan(
       await rename(retimed, filepath);
       signal?.throwIfAborted();
     }
+    if (normalized && plan.targetLufs !== undefined) {
+      failureStage = 'encode';
+      update({ phase: 'finalizing', progress: 96, processedFrames: plan.totalFrames });
+      const loudness = await normalizeExportLoudness(filepath, normalized, plan.targetLufs, plan.media.ext, signal);
+      signal?.throwIfAborted();
+      // A silent export has nothing to normalise; the rendered file stands.
+      if (loudness.applied) {
+        await unlink(filepath).catch(() => {});
+        await rename(normalized, filepath);
+      }
+      signal?.throwIfAborted();
+    }
     update({ phase: 'finalizing', progress: 99, processedFrames: plan.totalFrames });
     return outcome;
   } catch (error) {
-    const cleanupStatus = await cleanupExportOutputs([filepath, retimed]);
+    const cleanupStatus = await cleanupExportOutputs([filepath, retimed, normalized]);
     const existing = exportFailureFrom(error);
     if (existing) {
       throw new ExportFailureError({ ...existing, cleanupStatus, targetPath: filepath });

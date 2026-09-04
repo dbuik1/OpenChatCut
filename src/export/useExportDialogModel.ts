@@ -136,6 +136,14 @@ export interface ExportDialogModel {
   qualityMode: QualityMode;
   setQualityMode: (mode: QualityMode) => void;
   range: ExportRangeModel;
+  loudness: ExportLoudnessModel;
+}
+
+export interface ExportLoudnessModel {
+  /** null leaves the mix as rendered. */
+  target: number | null;
+  setTarget: Dispatch<SetStateAction<number | null>>;
+  available: boolean;
 }
 
 /** Only the media tabs render a range; a caption file or an NLE project is
@@ -233,12 +241,16 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
   const [useMarked, setUseMarked] = useState(true);
   const rangeAvailable = !!marked && RANGEABLE_TABS.includes(tab);
   const activeRange = rangeAvailable && useMarked && marked ? marked : undefined;
+  const [loudnessTarget, setLoudnessTarget] = useState<number | null>(null);
+  const loudnessAvailable = RANGEABLE_TABS.includes(tab);
+  const activeLoudness = loudnessAvailable && loudnessTarget !== null ? loudnessTarget : undefined;
   const workflow = useExportWorkflow({
     state, project, timelineId: project.activeTimelineId, projectId, projectName, base, tab, codec: video.codec, resolution: video.resolution,
     fps: video.fps, requestedVideoBitrate: video.requestedBitrate,
     subtitleFormat: subtitles.format, subtitleCaptions: subtitles.captions,
     nleFormat, includeMg: includeAvailableMg, mgItems, onClose,
     ...(activeRange ? { frameRange: activeRange } : {}),
+    ...(activeLoudness !== undefined ? { targetLufs: activeLoudness } : {}),
   }, exportJobs);
   const name = outputName(base, tab, video, subtitles, nleFormat, t('{n} 个透明 MOV 文件', { n: mgItems.length }));
   const qualityTag = qualityMode === 'master' ? ` · ${t('画质优先')}` : '';
@@ -251,7 +263,8 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
   const rangeTag = activeRange
     ? ` · ${t('标记范围')} ${fmt(activeRange.endFrameExclusive - activeRange.startFrame, state.fps)}`
     : '';
-  const videoSummary = `${codecLabel} · ${video.dimensions.width}×${video.dimensions.height} · ${video.fps} fps · ${rateLabel}${qualityTag}${rangeTag}`;
+  const loudnessTag = activeLoudness !== undefined ? ` · ${activeLoudness} LUFS` : '';
+  const videoSummary = `${codecLabel} · ${video.dimensions.width}×${video.dimensions.height} · ${video.fps} fps · ${rateLabel}${qualityTag}${rangeTag}${loudnessTag}`;
   const disabled = !!workflow.busy
     || (tab === 'subtitles' && !subtitles.captions)
     || (tab === 'mg' && mgItems.length === 0);
@@ -260,5 +273,6 @@ export function useExportDialogModel({ state, project, projectId, projectName, e
     mgItems, base, outputName: name, videoSummary, workflow, disabled,
     qualityMode, setQualityMode,
     range: { marked, available: rangeAvailable, useMarked, setUseMarked, active: activeRange },
+    loudness: { target: loudnessTarget, setTarget: setLoudnessTarget, available: loudnessAvailable },
   };
 }

@@ -17,6 +17,13 @@ export default {
   '导出剪映草稿': 'Export JianYing Draft',
   // Marked-range export
   '只导出标记范围': 'Marked range only',
+  '响度': 'Loudness',
+  '保持混音': 'As mixed',
+  '流媒体': 'Streaming',
+  '播客': 'Podcast',
+  '广播': 'Broadcast',
+  '渲染后按 EBU R128 两遍归一到 {n} LUFS，真峰值不超过 −1 dBTP；仅本机渲染。': 'After rendering, a two-pass EBU R128 normalisation brings the file to {n} LUFS with true peaks under −1 dBTP. Local renderer only.',
+  '浏览器快导不支持响度目标': 'Browser fast export cannot apply a loudness target',
   '导出标记范围': 'Export marked range',
   '输出类型': 'Output type',
   '本机渲染': 'Local render',

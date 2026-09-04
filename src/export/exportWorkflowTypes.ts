@@ -85,6 +85,8 @@ export interface UseExportWorkflowOptions {
    * path renders the whole timeline only, so a range forces the local renderer.
    */
   frameRange?: { startFrame: number; endFrameExclusive: number };
+  /** Integrated loudness the finished file is normalised to; a server-only pass, so it forces the local renderer. */
+  targetLufs?: number;
   onClose: () => void;
 }
 

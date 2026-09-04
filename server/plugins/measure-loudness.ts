@@ -157,6 +157,14 @@ function runLoudnorm(
   });
 }
 
+/** Whole-file measurement for a finished export; a missing audio stream is an answer, not a failure. */
+export async function measureFileLoudness(inputPath: string): Promise<{ measurement: LoudnessMeasurement | null; noAudio: boolean; stderr: string }> {
+  const { stderr } = await runLoudnorm(inputPath, 0, null);
+  const measurement = parseLoudnormJson(stderr);
+  const noAudio = !measurement && /Stream map .* matches no streams|does not contain any stream/i.test(stderr);
+  return { measurement, noAudio, stderr };
+}
+
 function positiveNumber(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;

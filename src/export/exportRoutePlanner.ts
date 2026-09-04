@@ -106,14 +106,16 @@ export function chooseSupportedRoute(browser: BrowserExportInspection, server: E
 }
 
 /**
- * `rangeLimited` marks an export bounded by the marked range. The browser fast
- * path always renders the whole timeline, so a range is reported as an
- * unsupported browser route rather than a preference — that also stops the
- * server route from silently falling back to a full-length browser render.
+ * `rangeLimited` marks an export bounded by the marked range and
+ * `loudnessTarget` one that is normalised after rendering. The browser fast
+ * path renders the whole timeline and nothing else, so either is reported as
+ * an unsupported browser route rather than a preference — that also stops the
+ * server route from silently falling back to a browser render that would drop
+ * the constraint.
  */
 export async function planVideoExportRoute(
   options: BrowserExportOptions,
-  { rangeLimited = false }: { rangeLimited?: boolean } = {},
+  { rangeLimited = false, loudnessTarget = false }: { rangeLimited?: boolean; loudnessTarget?: boolean } = {},
 ): Promise<ExportRoutePlan> {
   const [inspected, capabilities] = await Promise.all([
     inspectBrowser(options),
@@ -121,7 +123,9 @@ export async function planVideoExportRoute(
   ]);
   const browser: BrowserExportInspection = rangeLimited
     ? { status: 'unsupported', reason: '浏览器快导只能导出整条时间线', issues: [] }
-    : inspected;
+    : loudnessTarget
+      ? { status: 'unsupported', reason: '浏览器快导不支持响度目标', issues: [] }
+      : inspected;
   const server = options.codec === 'h264' ? capabilities.h264 ?? unknownServerEngine() : unknownServerEngine();
   const browserEngineInfo = browserEngine(browser.status === 'supported' ? browser.powerEfficient : undefined);
   // ProRes mezzanine is Remotion/server-only (not WebCodecs).

@@ -10,6 +10,7 @@ import {
   type ExportResolution,
 } from '../../src/export/mediaSettings.ts';
 import { MAX_VIDEO_BITRATE_BPS, MIN_VIDEO_BITRATE_BPS } from '../../src/export/bitrate.ts';
+import { MAX_EXPORT_LUFS, MIN_EXPORT_LUFS, isValidExportLoudnessTarget } from '../../src/export/loudnessTarget.ts';
 import { sanitizeFileName } from '../file-name.ts';
 
 export { EXPORT_FPS_OPTIONS, EXPORT_RESOLUTIONS, exportScale } from '../../src/export/mediaSettings.ts';
@@ -30,6 +31,8 @@ export type ExportRequest = {
   resolution?: ExportResolution;
   fps?: number;
   videoBitrate?: number;
+  /** Integrated loudness to normalise the finished file to (two-pass loudnorm); absent leaves the mix as rendered. */
+  targetLufs?: number;
 };
 
 export type ExportTimeline = {
@@ -58,6 +61,7 @@ export interface ExportPlan {
   scale: number;
   retimeFps: number | undefined;
   videoBitrate: number | undefined;
+  targetLufs: number | undefined;
 }
 
 class ExportRequestError extends Error {}
@@ -168,6 +172,9 @@ export function planExport(body: ExportRequest | null): ExportPlan {
     throw new ExportRequestError('prores mezzanine export does not accept videoBitrate');
   }
   validateVideoParams(body, format);
+  if (body?.targetLufs !== undefined && !isValidExportLoudnessTarget(body.targetLufs)) {
+    throw new ExportRequestError(`targetLufs must be a number between ${MIN_EXPORT_LUFS} and ${MAX_EXPORT_LUFS}`);
+  }
   const totalFrames = nestedDuration === undefined
     ? exportDuration(state)
     : Math.max(fps, nestedDuration);
@@ -194,5 +201,6 @@ export function planExport(body: ExportRequest | null): ExportPlan {
     scale: exportScale(state, body?.resolution),
     retimeFps,
     videoBitrate: format === 'video' && codec !== 'prores' ? body?.videoBitrate : undefined,
+    targetLufs: body?.targetLufs,
   };
 }

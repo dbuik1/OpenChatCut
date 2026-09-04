@@ -227,7 +227,7 @@ export async function withExportPermit<T>(
   }
 }
 
-function runFfmpeg(args: string[], signal?: AbortSignal): Promise<void> {
+export function runFfmpeg(args: string[], signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawnMediaProcess(ffmpegBin(), [...ffmpegThreadArgs(), ...args], { stdio: ['ignore', 'ignore', 'pipe'], signal });
     let stderr = '';
@@ -240,7 +240,7 @@ function runFfmpeg(args: string[], signal?: AbortSignal): Promise<void> {
       if (error) reject(error); else resolve();
     };
     const timer = setTimeout(() => {
-      timeoutError = new Error('ffmpeg fps retime timed out');
+      timeoutError = new Error('ffmpeg post-processing timed out');
       child.kill('SIGKILL');
     }, FFMPEG_TIMEOUT_MS);
     child.stderr?.on('data', (chunk: Buffer) => {

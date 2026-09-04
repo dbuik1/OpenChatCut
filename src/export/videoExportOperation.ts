@@ -297,7 +297,7 @@ async function exportVideo(context: VideoExportContext, ownerSignal?: AbortSigna
   context.setEngineReason(null);
   try {
     const options = browserOptions(context, controller.signal);
-    const plan = await planVideoExportRoute(options, { rangeLimited: !!context.options.frameRange });
+    const plan = await planVideoExportRoute(options, { rangeLimited: !!context.options.frameRange, loudnessTarget: context.options.targetLufs !== undefined });
     controller.signal.throwIfAborted();
     setPlannedRoute(context, plan);
     if (plan.route === 'browser') await runBrowserThenServer(context, controller, plan);
