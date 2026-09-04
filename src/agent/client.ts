@@ -159,6 +159,45 @@ function generationChoice(): AgentModelChoice | undefined {
   ));
 }
 
+/**
+ * The Codex backend has no completions endpoint, so a plain text generation
+ * runs as one toolless read-only turn. Without this every non-conversational
+ * generation - highlight selection, generated component code, caption
+ * translation, prompt enhancement - would fall through to the AI SDK path and
+ * fail on an install that has no API key, which is every Codex-only install.
+ */
+async function generateWithCodex(
+  choice: AgentModelChoice,
+  options: { system?: string; prompt?: string; messages?: readonly unknown[]; maxOutputTokens: number },
+): Promise<string> {
+  const { runCodexOneShot } = await import('./codex/one-shot');
+  const prompt = options.prompt ?? codexPromptFromMessages(options.messages);
+  if (!prompt.trim()) throw new Error('Text generation needs a prompt.');
+  return runCodexOneShot({
+    label: 'text generation',
+    system: options.system ?? '',
+    prompt,
+    projectId: 'unsaved-project',
+    maxOutputTokens: options.maxOutputTokens,
+    ...(choice.requestModel ? { model: choice.requestModel } : {}),
+    ...(choice.reasoningEffort ? { reasoningEffort: choice.reasoningEffort } : {}),
+  });
+}
+
+/** Flatten a message list into one prompt; a turn takes prompt text, not history. */
+function codexPromptFromMessages(messages: readonly unknown[] | undefined): string {
+  if (!messages?.length) return '';
+  return normalizeLlmMessages(messages)
+    .map((message) => (typeof message.content === 'string'
+      ? message.content
+      : message.content
+        .map((part) => ('text' in part && typeof part.text === 'string' ? part.text : ''))
+        .filter(Boolean)
+        .join('\n')))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 // A fixed 60s total budget silently capped what these calls could produce:
 // MG/shader generation asks for up to 64k output tokens, and most providers
 // stream well under 100 tok/s, so large generations failed as "timeout" no
@@ -181,6 +220,10 @@ export async function generateAgentText(options: {
   maxOutputTokens: number;
 }): Promise<string> {
   const choice = generationChoice();
+  if (!choice) {
+    const active = getActiveAgentModelChoice();
+    if (active?.backend === 'codex') return generateWithCodex(active, options);
+  }
   const provider = choice?.provider ?? PROVIDER;
   const model = choice?.model ?? MODEL;
   const apiMode = choice?.openAiApiMode ?? OPENAI_API_MODE;
