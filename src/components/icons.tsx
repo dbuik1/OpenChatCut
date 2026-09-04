@@ -12,7 +12,7 @@ export type IconName =
   | 'download' | 'film' | 'clipboard' | 'plug' | 'github' | 'mail' | 'database'
   | 'music' | 'video' | 'image' | 'swap' | 'star' | 'pencil' | 'x' | 'diamond'
   | 'search' | 'upload' | 'folder' | 'folderPlus' | 'grid' | 'list' | 'sort' | 'filter' | 'more' | 'bug'
-  | 'palette' | 'wand' | 'tracking' | 'qrCode' | 'info';
+  | 'palette' | 'wand' | 'tracking' | 'qrCode' | 'info' | 'roll' | 'slide';
 
 // stroke path(s) per icon; a few are fill-based (play/pause/cursor/bookmark)
 const FILL = new Set<IconName>(['play', 'pause', 'cursor', 'bookmark']);
@@ -90,6 +90,10 @@ const P: Record<IconName, string> = {
   video: 'm16 10 4.4-2.65A1 1 0 0 1 22 8.2v7.6a1 1 0 0 1-1.6.85L16 14 M14 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
   image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M8.5 8.5m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M21 15l-5-5L5 21',
   swap: 'M8 3 4 7l4 4 M4 7h16 M16 21l4-4-4-4 M20 17H4',
+  // two flush clips with the shared cut pulled sideways
+  roll: 'M3 7h8v10H3z M13 7h8v10h-8z M12 4v16 M9 12l3-3 3 3',
+  // a clip held between two neighbours, arrows showing it slides between them
+  slide: 'M2 9h4v8H2z M18 9h4v8h-4z M8 7h8v12H8z M5 3h14 M8 1 5 3l3 2 M16 1l3 2-3 2',
   star: 'M11.5 2.6a.5.5 0 0 1 1 0l2.5 5.1 5.6.8a.5.5 0 0 1 .3.85l-4 3.9 1 5.6a.5.5 0 0 1-.75.53L12 16.7l-5 2.63a.5.5 0 0 1-.73-.53l1-5.6-4.1-3.9a.5.5 0 0 1 .3-.85l5.6-.8z',
   pencil: 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
   x: 'M18 6 6 18 M6 6l12 12',

@@ -35,6 +35,8 @@ export type Action =
   | { type: 'move'; id: string; track?: TrackId; startFrame?: number }
   | { type: 'retime'; id: string; startFrame?: number; durationInFrames?: number; srcInFrame?: number; ripple?: boolean }
   | { type: 'slip'; id: string; deltaInFrames: number }
+  | { type: 'roll'; id: string; edge: 'start' | 'end'; deltaInFrames: number }
+  | { type: 'slide'; id: string; deltaInFrames: number }
   | { type: 'setVolume'; id: string; volume: number }
   | { type: 'setFade'; id: string; fadeInFrames?: number; fadeOutFrames?: number }
   | { type: 'setTransform'; id: string; patch: ClipTransform }
@@ -98,7 +100,7 @@ export type Action =
   | { type: 'setFullState'; state: TimelineState };
 
 export const TRANSITION_RECONCILING_ACTIONS = new Set<Action['type']>([
-  'add', 'move', 'retime', 'slip', 'setSpeed', 'replaceMedia', 'relinkTimelineItem', 'duplicate', 'remove', 'split', 'clear',
+  'add', 'move', 'retime', 'slip', 'roll', 'slide', 'setSpeed', 'replaceMedia', 'relinkTimelineItem', 'duplicate', 'remove', 'split', 'clear',
   'track.tighten', 'toggleWord', 'deleteWords', 'cleanScript', 'setGapCap',
   'setTranscriptPlayOrder', 'reorderTrackItems', 'clearEdits', 'addTransition',
   'setTransition', 'setFullState',
@@ -159,7 +161,7 @@ export type Dispatch = (a: Action | BatchAction | HistoryControlAction) => void;
 /** dispatch at the project level: per-timeline + project actions + history control */
 export type ProjectDispatch = (a: AnyAction | HistoryControlAction) => void;
 
-export const MUTATING = new Set(['add', 'updateProps', 'relinkTimelineItem', 'move', 'retime', 'slip', 'setVolume', 'setFade', 'setTransform', 'setFilters', 'setZoom', 'setEffects', 'setSpeed', 'replaceMedia', 'reframeKeyframe', 'removeReframeKeyframe', 'setKeyframe', 'removeKeyframe', 'clearKeyframes', 'addTransition', 'setTransition', 'removeTransition', 'addMarker', 'updateMarker', 'removeMarker', 'duplicate', 'remove', 'split', 'clear', 'addAsset', 'setCanvas', 'toggleTrack', 'track.create', 'track.update', 'track.delete', 'track.tighten', 'setCaptions', 'updateCaptions', 'setCaptionsHidden', 'updateWatermark', 'setItemTranscript', 'setItemVariants', 'toggleWord', 'deleteWords', 'cleanScript', 'setGapCap', 'setTranscriptPlayOrder', 'reorderTrackItems', 'clearEdits', 'fixTranscriptWord', 'renameSpeaker', 'setItemDenoise', 'setFullState',
+export const MUTATING = new Set(['add', 'updateProps', 'relinkTimelineItem', 'move', 'retime', 'slip', 'roll', 'slide', 'setVolume', 'setFade', 'setTransform', 'setFilters', 'setZoom', 'setEffects', 'setSpeed', 'replaceMedia', 'reframeKeyframe', 'removeReframeKeyframe', 'setKeyframe', 'removeKeyframe', 'clearKeyframes', 'addTransition', 'setTransition', 'removeTransition', 'addMarker', 'updateMarker', 'removeMarker', 'duplicate', 'remove', 'split', 'clear', 'addAsset', 'setCanvas', 'toggleTrack', 'track.create', 'track.update', 'track.delete', 'track.tighten', 'setCaptions', 'updateCaptions', 'setCaptionsHidden', 'updateWatermark', 'setItemTranscript', 'setItemVariants', 'toggleWord', 'deleteWords', 'cleanScript', 'setGapCap', 'setTranscriptPlayOrder', 'reorderTrackItems', 'clearEdits', 'fixTranscriptWord', 'renameSpeaker', 'setItemDenoise', 'setFullState',
   // project-level (tl.switch is navigation → deliberately NOT here, so it makes no history step)
   'tl.create', 'tl.duplicate', 'tl.delete', 'tl.rename', 'tl.retarget', 'tl.setHidden', 'tl.setDoc',
   'pool.createFolder', 'pool.renameFolder', 'pool.deleteFolder', 'pool.moveAssets', 'pool.updateAsset', 'pool.setTranscription', 'pool.relinkAsset', 'pool.canonicalizeAsset', 'pool.removeAsset', 'design.set', 'design.patch', 'setBackgroundFill'])

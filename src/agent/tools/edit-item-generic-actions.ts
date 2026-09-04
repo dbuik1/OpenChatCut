@@ -8,13 +8,16 @@ import type {
   MediaRelinkResult,
 } from '../../editor/types';
 import type { SlipResult } from '../../editor/slip';
-import { slipFailureToOpResult, type OpResult } from './edit-item-generic-result';
+import type { NeighbourTrimResult, RollEdge } from '../../editor/rollSlide';
+import { neighbourTrimFailureToOpResult, neighbourTrimPlanToOpResult, slipFailureToOpResult, type OpResult } from './edit-item-generic-result';
 
 /** Editor command subset the generic committer needs (satisfied by EditorCommands). */
 export interface GenericCommands {
   moveItem: (id: string, to: { track?: string; startFrame?: number }) => void;
   setItemTiming: (id: string, timing: { startFrame?: number; durationInFrames?: number; srcInFrame?: number }) => void;
   slipItem: (id: string, deltaInFrames: number) => SlipResult;
+  rollEdit: (id: string, edge: RollEdge, deltaInFrames: number) => NeighbourTrimResult;
+  slideItem: (id: string, deltaInFrames: number) => NeighbourTrimResult;
   updateItemProps: (id: string, patch: Record<string, unknown>) => void;
   setItemVolume: (id: string, volume: number) => void;
   setItemFade: (id: string, fade: { fadeInFrames?: number; fadeOutFrames?: number }) => void;
@@ -76,6 +79,17 @@ export function applyGeneric(plan: OpResult, commands: GenericCommands): OpResul
       ...plan,
       srcInFrame: committed.srcInFrame,
       sourceWindow: committed.sourceWindow,
+      status: plan.clamped ? 'clamped' : 'applied',
+    };
+  }
+  if (plan.plan === 'roll' || plan.plan === 'slide') {
+    const committed = plan.plan === 'roll'
+      ? commands.rollEdit(id, plan.edge as RollEdge, Number(plan.appliedDeltaInFrames))
+      : commands.slideItem(id, Number(plan.appliedDeltaInFrames));
+    if (!committed.ok) return neighbourTrimFailureToOpResult(committed);
+    return {
+      ...plan,
+      ...neighbourTrimPlanToOpResult(committed),
       status: plan.clamped ? 'clamped' : 'applied',
     };
   }

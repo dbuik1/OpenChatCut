@@ -9,13 +9,14 @@ import { isValidEasing } from '../../editor/keyframes';
 import { validateBackgroundFillUpdate } from './edit-item-background-fill';
 import { getKeyframePropertyDefinition, KEYFRAME_PROPS, supportsKeyframeProperty } from '../../editor/keyframeRegistry';
 import { planSlip } from '../../editor/slip';
+import { planRoll, planSlide } from '../../editor/rollSlide';
 import { rejectUnknownFields } from './edit-item-fields';
 import { flexCropMergePatch } from '../../editor/flexCrop';
 import { clampNum, parseFiltersArg, parseTransformArg } from './edit-item-visual';
-import { validateMediaSourceUpdate } from './edit-item-media-ops';
+import { SUPPORTED_UPDATE_OPERATIONS, validateMediaSourceUpdate } from './edit-item-media-ops';
 import { validateSourceFrameUpdate, validateSourceWindow } from './edit-item-source-window';
 import { validatePoolAssetReplacement } from './edit-item-pool-replacement';
-import { slipFailureToOpResult, type OpResult } from './edit-item-generic-result';
+import { neighbourTrimFailureToOpResult, neighbourTrimPlanToOpResult, slipFailureToOpResult, type OpResult } from './edit-item-generic-result';
 export { didYouMean, rejectUnknownFields } from './edit-item-fields';
 export { validateMediaSourceUpdate } from './edit-item-media-ops';
 export { applyGeneric, type GenericCommands } from './edit-item-generic-actions';
@@ -287,16 +288,50 @@ export function validateGenericUpdate(
   return plan;
 }
 
+const NEIGHBOUR_TRIM_UPDATE_KEYS: Record<string, true> = {
+  type: true, itemId: true, id: true, operation: true, edge: true, deltaInFrames: true,
+};
+
+/** roll: {operation:"roll", itemId, edge:"start"|"end", deltaInFrames}; slide: {operation:"slide", itemId, deltaInFrames}. */
+function validateNeighbourTrimUpdate(state: TimelineState, entry: Record<string, unknown>): OpResult {
+  const operation = entry.operation as 'roll' | 'slide';
+  const unknown = rejectUnknownFields(entry, NEIGHBOUR_TRIM_UPDATE_KEYS);
+  if (unknown) return { error: unknown, code: 'unknown-field' };
+  const itemRef = entry.itemId ?? entry.id;
+  const item = findItem(state.items, itemRef);
+  if (!item) {
+    return { ok: false, error: `item not found: ${String(itemRef ?? '')}`, code: 'unknown-item' };
+  }
+  const deltaInFrames = finiteNum(entry.deltaInFrames);
+  if (deltaInFrames === undefined) {
+    return { ok: false, error: `${operation} needs a finite deltaInFrames`, code: 'invalid-delta' };
+  }
+  if (operation === 'slide') {
+    if (entry.edge !== undefined) return { ok: false, error: 'slide takes no edge; it moves the whole clip', code: 'unknown-field' };
+    const result = planSlide(state, item.id, deltaInFrames);
+    if (!result.ok) return neighbourTrimFailureToOpResult(result);
+    return { ...neighbourTrimPlanToOpResult(result), kind: item.kind, plan: 'slide', status: result.clamped ? 'clamped' : 'planned' };
+  }
+  const edge = entry.edge === 'start' || entry.edge === 'end' ? entry.edge : undefined;
+  if (!edge) return { ok: false, error: 'roll needs edge: "start" or "end" (which cut of the clip to roll)', code: 'invalid-edge' };
+  const result = planRoll(state, item.id, edge, deltaInFrames);
+  if (!result.ok) return neighbourTrimFailureToOpResult(result);
+  return { ...neighbourTrimPlanToOpResult(result), kind: item.kind, edge, plan: 'roll', status: result.clamped ? 'clamped' : 'planned' };
+}
+
 export function validateSlipUpdate(state: TimelineState, entry: Record<string, unknown>): OpResult {
   if (entry.operation !== undefined && entry.operation !== 'slip') {
     if (entry.operation === 'replace_media' || entry.operation === 'relink_media') {
       return validateMediaSourceUpdate(state, entry);
     }
+    if (entry.operation === 'roll' || entry.operation === 'slide') {
+      return validateNeighbourTrimUpdate(state, entry);
+    }
     return {
       ok: false,
       error: `update operation not supported: ${String(entry.operation)}`,
       code: 'unknown-operation',
-      supported: ['slip', 'replace_media', 'relink_media'],
+      supported: SUPPORTED_UPDATE_OPERATIONS,
     };
   }
   const unknown = rejectUnknownFields(entry, SLIP_UPDATE_KEYS);

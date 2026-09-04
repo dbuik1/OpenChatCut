@@ -12,6 +12,7 @@ import { upsertKeyframe } from '../../editor/keyframes';
 import { getKeyframePropertyDefinition } from '../../editor/keyframeRegistry';
 import { rateStretchItem } from '../../editor/rateStretch';
 import { remainingSourceFrames, sourceFramesToTimelineFrames, sourceWindowForTimelineRange } from '../../editor/sourceLimit';
+import { planRoll, planSlide } from '../../editor/rollSlide';
 import {
   collectTimelineSnapPoints, snapDraggedEdges, sortTimelineSnapPoints,
   type SnapHold, type SnapPoint,
@@ -192,6 +193,10 @@ export function commitTimelineDragGesture(
 ) {
   if (drag.mode === 'slip') {
     if (Math.abs(drag.deltaF) >= 1e-6) commands.slipItem(drag.id, drag.deltaF);
+  } else if (drag.mode === 'roll-left' || drag.mode === 'roll-right') {
+    if (Math.abs(drag.deltaF) >= 1e-6) commands.rollEdit(drag.id, drag.mode === 'roll-left' ? 'start' : 'end', drag.deltaF);
+  } else if (drag.mode === 'slide') {
+    if (Math.abs(drag.deltaF) >= 1e-6) commands.slideItem(drag.id, drag.deltaF);
   } else if (drag.mode === 'move') commitMoveGesture(state, commands, drag);
   else commitTrimGesture(state, commands, drag, editMode);
 }
@@ -288,8 +293,10 @@ export function useTimelinePointer(deps: PointerDeps) {
     if (mode === 'slip') return { deltaF: rawDelta, snapAt: null };
     if (!snapping) return { deltaF: rawDelta, snapAt: null };
     const points = gestureSnapPoints.current;
+    // A roll snaps the moving cut; a slide snaps the moving clip's edges.
+    const snapMode = mode === 'roll-left' ? 'trim-left' : mode === 'roll-right' ? 'trim-right' : mode === 'slide' ? 'move' : mode;
     const result = snapDraggedEdges({
-      mode, baseStart, baseDuration: baseDur, rawDelta, points,
+      mode: snapMode, baseStart, baseDuration: baseDur, rawDelta, points,
       thresholdFrames: SNAP_PX / px, hold: snapHold.current,
       dynamicPlayheadFrame: playheadRef.current,
     });
@@ -365,6 +372,16 @@ export function useTimelinePointer(deps: PointerDeps) {
       return;
     }
     const snapped = applySnap(currentDrag.mode, currentDrag.baseStart, currentDrag.baseDur, rawDelta);
+    if (currentDrag.mode === 'roll-left' || currentDrag.mode === 'roll-right' || currentDrag.mode === 'slide') {
+      // The planner owns the bounds so the preview never shows a result the commit clamps away.
+      const plan = currentDrag.mode === 'slide'
+        ? planSlide(state, currentDrag.id, snapped.deltaF)
+        : planRoll(state, currentDrag.id, currentDrag.mode === 'roll-left' ? 'start' : 'end', snapped.deltaF);
+      const deltaF = plan.ok ? plan.appliedDeltaInFrames : 0;
+      const snapAt = plan.ok && !plan.clamped ? snapped.snapAt : null;
+      setDrag({ ...currentDrag, deltaF, targetTrack: currentDrag.baseTrack, snapAt }, publish);
+      return;
+    }
     const cap = currentDrag.mode === 'trim-right'
       ? trimRightCap(currentDrag.id, currentDrag.baseDur)
       : Infinity;

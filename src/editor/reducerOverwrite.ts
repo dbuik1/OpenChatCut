@@ -193,7 +193,7 @@ export function applyOverwriteLaneAction(
 }
 
 export const OVERLAP_GUARDED_ACTIONS: ReadonlySet<Action['type']> = new Set([
-  'add', 'relinkTimelineItem', 'move', 'retime', 'setSpeed', 'remove',
+  'add', 'relinkTimelineItem', 'move', 'retime', 'roll', 'slide', 'setSpeed', 'remove',
   'track.tighten', 'toggleWord', 'deleteWords', 'cleanScript', 'setGapCap',
   'setTranscriptPlayOrder', 'reorderTrackItems', 'clearEdits', 'setFullState',
 ]);

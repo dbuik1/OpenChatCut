@@ -241,8 +241,8 @@ export function fmtRuler(frames: number, fps: number): string {
   return `${mm}:${String(ss).padStart(2, '0')}`;
 }
 
-export type DragMode = 'move' | 'trim-left' | 'trim-right' | 'slip';
-export type EditMode = 'selection' | 'blade' | 'trim' | 'slip' | 'pen' | 'rate-stretch';
+export type DragMode = 'move' | 'trim-left' | 'trim-right' | 'slip' | 'roll-left' | 'roll-right' | 'slide';
+export type EditMode = 'selection' | 'blade' | 'trim' | 'slip' | 'roll' | 'slide' | 'pen' | 'rate-stretch';
 export interface Drag {
   id: string; mode: DragMode; baseStart: number; baseDur: number; baseTrack: TrackId;
   baseSrcIn: number; startX: number; deltaF: number; targetTrack: TrackId; snapAt: number | null;

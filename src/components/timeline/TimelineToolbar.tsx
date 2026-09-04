@@ -159,6 +159,18 @@ export function TimelineToolbar({
           onClick={() => invokeAction('interaction-mode-slip', undefined, 'toolbar')}
         />
         <TB
+          icon="roll"
+          title={t('滚动模式：拖动两段相接片段之间的剪辑点，总时长不变')}
+          active={editMode === 'roll'}
+          onClick={() => invokeAction('interaction-mode-roll', undefined, 'toolbar')}
+        />
+        <TB
+          icon="slide"
+          title={t('滑动模式：整段片段在相邻片段之间移动，相邻片段自动伸缩')}
+          active={editMode === 'slide'}
+          onClick={() => invokeAction('interaction-mode-slide', undefined, 'toolbar')}
+        />
+        <TB
           icon="rateStretch"
           title={editMode === 'rate-stretch'
             ? t('退出比率拉伸，返回选择模式')

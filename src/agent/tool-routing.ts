@@ -11,12 +11,12 @@ interface RoutingGroup {
 // tools are never exposed for it.
 const EDIT_VERBS = [
   'edit', 'add', 'insert', 'create', 'update', 'modify', 'adjust', 'apply', 'reorder',
-  'delete', 'remove', 'trim', 'split', 'move', 'retime', 'slip',
+  'delete', 'remove', 'trim', 'split', 'move', 'retime', 'slip', 'roll', 'slide',
   'cut', 'crop', 'duplicate', 'resize', 'rotate', 'extend', 'shorten', 'stretch',
   'speed up', 'slow down', 'swap', 'replace', 'join', 'merge', 'mute', 'reverse', 'freeze',
   'clear', 'empty', 'wipe', 'link', 'unlink',
   '编辑', '加', '添加', '新增', '插入', '创建', '修改', '调整', '设置', '应用', '排列', '排序', '重排',
-  '删除', '移除', '裁剪', '分割', '移动', '变速', '滑动',
+  '删除', '移除', '裁剪', '分割', '移动', '变速', '滑动', '滚动',
   '剪', '剪切', '裁切', '复制', '缩放', '旋转', '延长', '缩短', '加速', '减速',
   '交换', '替换', '拼接', '合并', '静音', '倒放', '定格',
   '清空', '清除', '关联', '链接', '解除关联',
@@ -37,12 +37,12 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
   {
     mutating: true,
     requestKeywords: [
-      'trim', 'split', 'move clip', 'delete clip', 'remove clip', 'retime', 'slip edit',
+      'trim', 'split', 'move clip', 'delete clip', 'remove clip', 'retime', 'slip edit', 'roll edit', 'roll the cut', 'slide edit', 'slide clip',
       'background fill', 'blur background', 'edit timeline',
       'undo', 'redo',
       'start over', 'start again', 'clear everything', 'delete everything', 'remove everything',
       'link group', 'linked clips',
-      '剪辑', '裁剪', '分割', '移动片段', '删除片段', '移除片段', '变速', '滑动编辑',
+      '剪辑', '裁剪', '分割', '移动片段', '删除片段', '移除片段', '变速', '滑动编辑', '滚动编辑', '滚动剪辑点',
       '背景填充', '模糊背景', '虚化背景', '撤销', '重做',
       '重新开始', '全部删除', '全部清空', '关联组',
     ],

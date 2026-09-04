@@ -25,6 +25,9 @@ function findItem(items: TimelineItem[], id: unknown): TimelineItem | null {
   return items.find((it) => it.id === q || it.id.startsWith(q)) ?? null;
 }
 
+/** Every `operation` an edit_item update accepts; the rejection message lists them. */
+export const SUPPORTED_UPDATE_OPERATIONS = ['slip', 'roll', 'slide', 'replace_media', 'relink_media'] as const;
+
 /** Clip-level replace_media (bake shell) or relink_media (file-backed only). */
 export function validateMediaSourceUpdate(state: TimelineState, entry: Record<string, unknown>): OpResult {
   const op = String(entry.operation ?? '');
@@ -33,7 +36,7 @@ export function validateMediaSourceUpdate(state: TimelineState, entry: Record<st
       ok: false,
       error: `update operation not supported: ${op}`,
       code: 'unknown-operation',
-      supported: ['slip', 'replace_media', 'relink_media'],
+      supported: SUPPORTED_UPDATE_OPERATIONS,
     };
   }
   const unknown = rejectUnknownFields(entry, MEDIA_OP_UPDATE_KEYS);

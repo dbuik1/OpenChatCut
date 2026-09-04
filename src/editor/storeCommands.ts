@@ -6,6 +6,7 @@ import type { Tpl } from '../types';
 import type { AtomicAction } from './reduce';
 import type { SequenceGraphErrorDetails } from './sequenceGraph';
 import type { SlipResult } from './slip';
+import type { NeighbourTrimResult, RollEdge } from './rollSlide';
 import type {
   AspectFit,
   ClipEffect,
@@ -100,6 +101,10 @@ export interface EditorCommands {
   moveItem: (id: string, to: { track?: TrackId; startFrame?: number }) => void;
   setItemTiming: (id: string, timing: { startFrame?: number; durationInFrames?: number; srcInFrame?: number; ripple?: boolean }) => void;
   slipItem: (id: string, deltaInFrames: number) => SlipResult;
+  /** Roll the cut at one edge of a clip with its flush neighbour; positive moves the cut later. */
+  rollEdit: (id: string, edge: RollEdge, deltaInFrames: number) => NeighbourTrimResult;
+  /** Slide a clip between its flush neighbours, keeping its content and duration. */
+  slideItem: (id: string, deltaInFrames: number) => NeighbourTrimResult;
   setItemVolume: (id: string, volume: number) => void;
   setItemFade: (id: string, fade: { fadeInFrames?: number; fadeOutFrames?: number }) => void;
   setItemTransform: (id: string, patch: ClipTransform) => void;

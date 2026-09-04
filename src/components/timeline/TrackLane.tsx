@@ -14,6 +14,7 @@ import { getKeyframePropertyDefinition } from '../../editor/keyframeRegistry';
 import { rateStretchGeometry } from '../../editor/rateStretch';
 import { sourceWindowForTimelineRange } from '../../editor/sourceLimit';
 import { planSlip } from '../../editor/slip';
+import { flushNeighbours, planRoll, planSlide, plannedGeometry } from '../../editor/rollSlide';
 import type { EditorCommands } from '../../editor/store';
 import { hasLibraryDrag, parseLibraryDrag, type LibraryDragPayload } from '../../library/drag';
 import { ALL_FX, FX_EFFECTS, LUT_EFFECTS } from '../../gl/fx/effects';
@@ -154,6 +155,15 @@ export function TrackLane({
     trackId,
   ), [indexes, previewPinnedItemIds, trackId, visibleWindow]);
   const transitions = useMemo(() => indexes.transitionsByTrack.get(trackId) ?? [], [indexes, trackId]);
+  // A roll or slide rewrites the neighbours too, so the whole lane previews from one plan.
+  const neighbourTrimPlan = useMemo(() => {
+    if (!drag || !items.some((item) => item.id === drag.id)) return null;
+    if (drag.mode === 'slide') return planSlide(state, drag.id, drag.deltaF);
+    if (drag.mode === 'roll-left' || drag.mode === 'roll-right') {
+      return planRoll(state, drag.id, drag.mode === 'roll-left' ? 'start' : 'end', drag.deltaF);
+    }
+    return null;
+  }, [drag, items, state]);
   const visibleTransitions = useMemo(() => transitions.filter((transition) => {
     const incoming = indexes.itemById.get(transition.incomingItemId);
     if (!incoming) return false;
@@ -257,15 +267,18 @@ export function TrackLane({
         const moveDelta = captionInitiatedMove
           ? captionInitiatedDelta
           : dragging && drag && (drag.mode === 'move' || drag.mode === 'trim-left') ? drag.deltaF : 0;
-        const start = stretch?.startFrame ?? (it.startFrame + moveDelta);
+        const planned = plannedGeometry(neighbourTrimPlan, it.id);
+        const start = planned?.startFrame ?? stretch?.startFrame ?? (it.startFrame + moveDelta);
         const durTrim = drag?.id === it.id && drag.mode === 'trim-left' ? -drag.deltaF
           : drag?.id === it.id && drag.mode === 'trim-right' ? drag.deltaF : 0;
-        const dur = stretch?.durationInFrames ?? Math.max(1, it.durationInFrames + durTrim);
+        const dur = planned?.durationInFrames ?? stretch?.durationInFrames ?? Math.max(1, it.durationInFrames + durTrim);
         const mediaIntersection = intersectFrameRange(start, dur, visibleWindow);
         const liveSlip = drag?.id === it.id && drag.mode === 'slip'
           ? planSlip(state, it.id, drag.deltaF)
           : null;
-        const renderSrcIn = liveSlip?.ok
+        const renderSrcIn = planned
+          ? planned.srcInFrame
+          : liveSlip?.ok
           ? liveSlip.srcInFrame
           : drag?.id === it.id && drag.mode === 'trim-left' && !stretch
             ? sourceWindowForTimelineRange(
@@ -277,14 +290,25 @@ export function TrackLane({
         const renderPlaybackRate = stretch?.playbackRate ?? (it.playbackRate ?? 1);
         const canRateStretch = it.kind === 'video' || it.kind === 'audio';
         const canSlip = it.kind === 'video' || it.kind === 'audio';
+        // Roll needs a flush neighbour at the edge; slide needs one on either side.
+        const rollAt = editMode === 'roll' && !locked ? flushNeighbours(items, it) : null;
+        const canRollLeft = !!rollAt?.previous && planRoll(state, it.id, 'start', 0).ok;
+        const canRollRight = !!rollAt?.next && planRoll(state, it.id, 'end', 0).ok;
+        const canSlide = editMode === 'slide' && !locked && planSlide(state, it.id, 0).ok;
         const audioMuted = muted && (it.kind === 'audio' || it.kind === 'video');
-        const showHandles = !pickMode && editMode !== 'blade' && editMode !== 'pen' && editMode !== 'slip'
+        const showHandles = !pickMode && editMode !== 'blade' && editMode !== 'pen' && editMode !== 'slip' && editMode !== 'slide'
           && (editMode !== 'rate-stretch' || canRateStretch);
+        const showLeftHandle = showHandles && (editMode !== 'roll' || canRollLeft);
+        const showRightHandle = showHandles && (editMode !== 'roll' || canRollRight);
+        const handleFill = editMode === 'trim' || editMode === 'rate-stretch' || editMode === 'roll'
+          ? themeAlpha.accent(0.5) : selected ? themeAlpha.shadow(0.25) : 'transparent';
         const isLibOver = libDropTarget === it.id;
         const itemIndex = itemIndexById.get(it.id) ?? 0;
         const overlapSpans = topClipOverlapSpans(start, dur, items.slice(0, itemIndex));
         let clipTitle = it.name;
         if (editMode === 'slip' && !canSlip) clipTitle = t('此类型没有可滑移的源区间');
+        else if (editMode === 'roll' && !locked && !canRollLeft && !canRollRight) clipTitle = t('两侧都没有相接的片段，没有可滚动的剪辑点');
+        else if (editMode === 'slide' && !locked && !canSlide) clipTitle = t('没有相接的片段，无法滑动；请改用移动');
         else if (audioMuted) clipTitle = `${it.name} · ${t('轨道已静音')}`;
         return (
           <div
@@ -306,6 +330,19 @@ export function TrackLane({
                   e.stopPropagation();
                   commands.selectItem(it.id);
                 }
+                return;
+              }
+              if (editMode === 'slide') {
+                if (canSlide) startDrag(e, it.id, 'slide', it.startFrame, it.durationInFrames, it.track, it.srcInFrame ?? 0);
+                else {
+                  e.stopPropagation();
+                  commands.selectItem(it.id);
+                }
+                return;
+              }
+              if (editMode === 'roll') { // roll lives on the edge handles; the body only selects
+                e.stopPropagation();
+                commands.selectItem(it.id);
                 return;
               }
               if (editMode === 'blade') { // blade mode: click cuts the clip here
@@ -368,7 +405,7 @@ export function TrackLane({
               display: 'flex', alignItems: 'flex-end', padding: '0 8px 5px', gap: 6, overflow: 'hidden', whiteSpace: 'nowrap',
               transform: dragging && dragOffsetY ? `translate3d(0, ${dragOffsetY}px, 0)` : undefined,
               zIndex: dragging ? 10 : undefined,
-              cursor: pickMode ? 'copy' : locked ? 'not-allowed' : editMode === 'slip' ? canSlip ? 'ew-resize' : 'not-allowed' : editMode === 'blade' || editMode === 'pen' ? 'crosshair' : 'grab', userSelect: 'none', touchAction: 'none',
+              cursor: pickMode ? 'copy' : locked ? 'not-allowed' : editMode === 'slip' ? canSlip ? 'ew-resize' : 'not-allowed' : editMode === 'slide' ? canSlide ? 'ew-resize' : 'not-allowed' : editMode === 'roll' ? 'default' : editMode === 'blade' || editMode === 'pen' ? 'crosshair' : 'grab', userSelect: 'none', touchAction: 'none',
             }}
           >
             {(it.kind === 'audio' || it.kind === 'video') && (
@@ -454,11 +491,11 @@ export function TrackLane({
               );
             })()}
             {/* trim handles (hidden in blade / pen / selection-pick modes) */}
-            {showHandles && <div onPointerDown={(e) => startDrag(e, it.id, 'trim-left', it.startFrame, it.durationInFrames, it.track, it.srcInFrame ?? 0)}
-              style={{ position: 'absolute', left: 0, top: 0, width: 8, height: '100%', cursor: 'ew-resize', background: editMode === 'trim' || editMode === 'rate-stretch' ? themeAlpha.accent(0.5) : selected ? themeAlpha.shadow(0.25) : 'transparent' }} />}
+            {showLeftHandle && <div onPointerDown={(e) => startDrag(e, it.id, editMode === 'roll' ? 'roll-left' : 'trim-left', it.startFrame, it.durationInFrames, it.track, it.srcInFrame ?? 0)}
+              style={{ position: 'absolute', left: 0, top: 0, width: 8, height: '100%', cursor: 'ew-resize', background: handleFill }} />}
             <span className={`cc-clip-label${it.kind === 'audio' ? ' audio' : ''}`}>{it.name}</span>
-            {showHandles && <div onPointerDown={(e) => startDrag(e, it.id, 'trim-right', it.startFrame, it.durationInFrames, it.track, it.srcInFrame ?? 0)}
-              style={{ position: 'absolute', right: 0, top: 0, width: 8, height: '100%', cursor: 'ew-resize', background: editMode === 'trim' || editMode === 'rate-stretch' ? themeAlpha.accent(0.5) : selected ? themeAlpha.shadow(0.25) : 'transparent' }} />}
+            {showRightHandle && <div onPointerDown={(e) => startDrag(e, it.id, editMode === 'roll' ? 'roll-right' : 'trim-right', it.startFrame, it.durationInFrames, it.track, it.srcInFrame ?? 0)}
+              style={{ position: 'absolute', right: 0, top: 0, width: 8, height: '100%', cursor: 'ew-resize', background: handleFill }} />}
           </div>
         );
       })}

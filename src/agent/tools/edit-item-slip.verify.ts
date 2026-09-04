@@ -109,7 +109,7 @@ const state: TimelineState = {
 
 {
   const unknownOperation = validateSlipUpdate(state, {
-    operation: 'roll', itemId: clip.id, deltaInFrames: 1,
+    operation: 'ripple', itemId: clip.id, deltaInFrames: 1,
   });
   assert.deepEqual(
     {
@@ -117,7 +117,7 @@ const state: TimelineState = {
       code: unknownOperation.code,
       supported: unknownOperation.supported,
     },
-    { ok: false, code: 'unknown-operation', supported: ['slip', 'replace_media', 'relink_media'] },
+    { ok: false, code: 'unknown-operation', supported: ['slip', 'roll', 'slide', 'replace_media', 'relink_media'] },
   );
 }
 

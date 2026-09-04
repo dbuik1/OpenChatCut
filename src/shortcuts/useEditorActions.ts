@@ -86,6 +86,8 @@ function editingActions(deps: EditorActionDeps): ActionBindings {
     'interaction-mode-selection': () => tl()?.setEditMode('selection'),
     'interaction-mode-trim': () => tl()?.setEditMode('trim'),
     'interaction-mode-slip': () => tl()?.setEditMode('slip'),
+    'interaction-mode-roll': () => tl()?.setEditMode('roll'),
+    'interaction-mode-slide': () => tl()?.setEditMode('slide'),
     'interaction-mode-rate-stretch': () => tl()?.setEditMode('rate-stretch'),
     'interaction-mode-blade': () => tl()?.setEditMode('blade'),
     'interaction-mode-pen': () => tl()?.setEditMode('pen'),

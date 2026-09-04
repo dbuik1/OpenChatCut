@@ -40,6 +40,14 @@ function recorder(relinkResult: MediaRelinkResult = { ok: true, changed: true })
         clamped: false,
       };
     },
+    rollEdit: (id, edge, deltaInFrames) => {
+      calls.push(['rollEdit', id, edge, deltaInFrames]);
+      return { ok: true, operation: 'roll', itemId: id, requestedDeltaInFrames: deltaInFrames, appliedDeltaInFrames: deltaInFrames, minDeltaInFrames: deltaInFrames, maxDeltaInFrames: deltaInFrames, clamped: false, patches: [] };
+    },
+    slideItem: (id, deltaInFrames) => {
+      calls.push(['slideItem', id, deltaInFrames]);
+      return { ok: true, operation: 'slide', itemId: id, requestedDeltaInFrames: deltaInFrames, appliedDeltaInFrames: deltaInFrames, minDeltaInFrames: deltaInFrames, maxDeltaInFrames: deltaInFrames, clamped: false, patches: [] };
+    },
     updateItemProps: rec('updateItemProps'), setItemVolume: rec('setItemVolume'),
     setItemFade: rec('setItemFade'), setItemKeyframe: rec('setItemKeyframe'),
     setItemFilters: rec('setItemFilters'), setItemTransform: rec('setItemTransform'),

@@ -167,3 +167,18 @@ commitTimelineDragGesture(state, commands, {
 assert.equal(calls.length, 1, 'slip release commits exactly one editor operation');
 assert.equal(calls[0]?.method, 'slipItem');
 assert.deepEqual(calls[0]?.args, ['clip-a', 7]);
+
+for (const [mode, method, expectedArgs] of [
+  ['roll-left', 'rollEdit', ['clip-a', 'start', -4]],
+  ['roll-right', 'rollEdit', ['clip-a', 'end', -4]],
+  ['slide', 'slideItem', ['clip-a', -4]],
+] as const) {
+  calls.length = 0;
+  commitTimelineDragGesture(state, commands, { ...drag, mode, deltaF: -4 }, mode === 'slide' ? 'slide' : 'roll');
+  assert.equal(calls.length, 1, `${mode} release commits exactly one editor operation`);
+  assert.equal(calls[0]?.method, method);
+  assert.deepEqual(calls[0]?.args, expectedArgs);
+  calls.length = 0;
+  commitTimelineDragGesture(state, commands, { ...drag, mode, deltaF: 0 }, mode === 'slide' ? 'slide' : 'roll');
+  assert.equal(calls.length, 0, `a ${mode} release without movement commits nothing`);
+}

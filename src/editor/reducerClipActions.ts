@@ -6,6 +6,7 @@ import { scaleItemKeyframes, upsertKeyframe } from './keyframes';
 import { timelineFramesToSourceFrames } from './sourceLimit';
 import { coerceKeyframeValue, supportsKeyframeProperty } from './keyframeRegistry';
 import { planSlip } from './slip';
+import { applyNeighbourTrimPlan, planRoll, planSlide } from './rollSlide';
 import { createMediaSourceRevision } from './mediaSourceRevision';
 import { isTimelineMediaAssetKind } from './mediaTypes';
 import { setBackgroundFillState } from './backgroundFill';
@@ -128,6 +129,14 @@ export function applyClipAction(s: TimelineState, a: Action): TimelineState | un
           && item.startFrame >= member.startFrame + member.durationInFrames))
         .map((item) => [item.id, deltaEnd]));
       return applyRippleShifts(grouped, shifts, linkedIds) ?? s;
+    }
+    case 'roll': {
+      const plan = planRoll(s, a.id, a.edge, a.deltaInFrames);
+      return plan.ok ? applyNeighbourTrimPlan(s, plan) : s;
+    }
+    case 'slide': {
+      const plan = planSlide(s, a.id, a.deltaInFrames);
+      return plan.ok ? applyNeighbourTrimPlan(s, plan) : s;
     }
     case 'slip': {
       const plan = planSlip(s, a.id, a.deltaInFrames);

@@ -9,6 +9,7 @@ import {
   sequenceReferenceError,
 } from './sequenceGraph';
 import { planSlip } from './slip';
+import { planRoll, planSlide } from './rollSlide';
 import { sourceFramesToTimelineFrames } from './sourceLimit';
 import type { EditorCommands } from './storeCommands';
 import {
@@ -348,6 +349,20 @@ export function buildCommands(dispatch: ProjectDispatch, getDoc: () => ProjectDo
         const result = planSlip(activeEditorState(getDoc()), id, deltaInFrames);
         if (result.ok && Math.abs(result.appliedDeltaInFrames) >= 1e-6) {
           dispatch({ type: 'slip', id, deltaInFrames: result.appliedDeltaInFrames });
+        }
+        return result;
+      },
+      rollEdit: (id, edge, deltaInFrames) => {
+        const result = planRoll(activeEditorState(getDoc()), id, edge, deltaInFrames);
+        if (result.ok && Math.abs(result.appliedDeltaInFrames) >= 1e-6) {
+          dispatch({ type: 'roll', id, edge, deltaInFrames: result.appliedDeltaInFrames });
+        }
+        return result;
+      },
+      slideItem: (id, deltaInFrames) => {
+        const result = planSlide(activeEditorState(getDoc()), id, deltaInFrames);
+        if (result.ok && Math.abs(result.appliedDeltaInFrames) >= 1e-6) {
+          dispatch({ type: 'slide', id, deltaInFrames: result.appliedDeltaInFrames });
         }
         return result;
       },
