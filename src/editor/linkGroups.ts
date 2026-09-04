@@ -154,7 +154,12 @@ export function retimeItemWithGroups(
     if (!ids.has(item.id) || item.id === id) continue;
     const nextStart = item.startFrame + startDelta;
     const nextDuration = item.durationInFrames + endDelta - startDelta;
-    const nextSrcIn = (item.srcInFrame ?? 0) + timelineFramesToSourceFrames(item, sourceTimelineDelta);
+    // Whole source frame: the linked clip may run at a different speed, so the
+    // converted delta is fractional and would otherwise store an in-point that
+    // addresses no decoded frame.
+    const nextSrcIn = Math.round(
+      (item.srcInFrame ?? 0) + timelineFramesToSourceFrames(item, sourceTimelineDelta),
+    );
     if (nextStart < 0 || nextDuration < 1 || nextSrcIn < 0) return null;
     replacements.set(item.id, {
       ...item,

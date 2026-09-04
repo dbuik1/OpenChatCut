@@ -119,7 +119,14 @@ export function planSlip(
   const requestedSourceDelta = wordDriven
     ? requested
     : timelineFramesToSourceFrames(item, requested);
-  const srcInFrame = Math.max(0, Math.min(maxSrcInFrame, currentSrcInFrame + requestedSourceDelta));
+  // A source in-point addresses a decoded frame, so it has to be whole. Speed
+  // conversion produces a fractional one, which then reaches read_project and
+  // the reducer as a number the rest of the system treats as a real frame
+  // index. Round inside the whole-frame handle range rather than at the edges.
+  const srcInFrame = Math.max(0, Math.min(
+    Math.floor(maxSrcInFrame),
+    Math.round(currentSrcInFrame + requestedSourceDelta),
+  ));
   const appliedSourceDelta = srcInFrame - currentSrcInFrame;
   const appliedDeltaInFrames = wordDriven
     ? appliedSourceDelta
@@ -149,7 +156,10 @@ export function planSlip(
     sourceWindow,
     minDeltaInFrames,
     maxDeltaInFrames,
-    clamped: Math.abs(appliedDeltaInFrames - requested) > EPSILON,
+    // Landing on a whole source frame moves the applied delta by up to half a
+    // frame either way. Only a difference larger than that means a handle
+    // limit was actually reached, which is what the boundary notice reports.
+    clamped: Math.abs(appliedDeltaInFrames - requested) > 0.5 + EPSILON,
   };
 }
 

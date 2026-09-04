@@ -241,4 +241,15 @@ for (const [rate, expectedSrcIn] of [
   assert.equal(undone.present.timelines[0]!.items[0]!.durationInFrames, 60);
 }
 
+// A speed-adjusted slip lands on a whole source frame. Rounding to reach one
+// is not a source boundary, so it must not raise the boundary notice.
+{
+  const plan = planSlip(stateOf(item(1.5)), 'clip-a', 1);
+  assert.equal(plan.ok, true);
+  if (plan.ok) {
+    assert.equal(Number.isInteger(plan.srcInFrame), true, 'source in-point is a whole frame');
+    assert.equal(plan.clamped, false, 'rounding to a whole frame is not a boundary');
+  }
+}
+
 console.log('slip.verify: media rates, edited transcript stream bounds, source-only placement, cancel preview, and single-step undo ok');
