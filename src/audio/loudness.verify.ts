@@ -1,8 +1,13 @@
-// Runnable contract check: `npx tsx src/audio/loudness.check.ts`
-// 只测纯函数(DOM-free);analyzeClipLoudness 依赖 fetch/OfflineAudioContext,
-// node 环境下不可达,不在此处调用。
+// 只测纯函数(DOM-free);measureClipLoudness 依赖 fetch,node 环境下不可达,
+// 不在此处调用——但它抛出的错误类型是纯的,可以在这里断言。
 import assert from 'node:assert';
-import { integratedLoudnessFromSamples, gainForTarget } from './loudness';
+import {
+  ClipLoudnessError,
+  clipLoudnessRange,
+  gainForTarget,
+  integratedLoudnessFromSamples,
+  isNoAudioLoudnessError,
+} from './loudness';
 
 const SAMPLE_RATE = 48000;
 
@@ -43,5 +48,34 @@ assert.ok(gainForTarget(0, -60) >= 0.05, 'gain must clamp to the min');
 // 非法输入(NaN/Infinity)不能让增益跟着炸
 assert.ok(Number.isFinite(gainForTarget(NaN, -14)), 'gain must stay finite for NaN current');
 assert.ok(Number.isFinite(gainForTarget(-14, Infinity)), 'gain must stay finite for Infinite target');
+
+// ── A silent clip is not a failed measurement ────────────────────────────────
+// Both leave the volume untouched, so without the distinction a user whose
+// b-roll carries no audio track is told that loudness measurement is failing.
+assert.equal(isNoAudioLoudnessError(new ClipLoudnessError('source has no audio track: x.mp4', true)), true);
+assert.equal(isNoAudioLoudnessError(new ClipLoudnessError('ffmpeg exited 1', false)), false);
+assert.equal(isNoAudioLoudnessError(new Error('source has no audio track')), false,
+  'the flag is carried by the error type, never sniffed out of a message');
+
+// ── The measured window is the clip's trimmed range, not the whole file ──────
+// Measuring the whole recording gives a short excerpt the whole recording's
+// loudness, so the corrective gain lands on the wrong material.
+const trimmed = clipLoudnessRange(
+  { src: '/media/uploads/a.mp4', srcInFrame: 300, playbackRate: 1, durationInFrames: 150 },
+  30,
+);
+assert.ok(trimmed, 'a clip with a source has a measurable range');
+assert.equal(trimmed.startSeconds, 10, 'srcInFrame 300 @30fps starts the window at 10s');
+assert.equal(trimmed.durationSeconds, 5, '150 frames @30fps is a 5s window');
+
+// Voice isolation replaces the audio that plays, so it is what gets measured.
+const denoised = clipLoudnessRange(
+  { src: '/media/uploads/a.mp4', denoisedSrc: '/media/uploads/a.denoised.wav', srcInFrame: 0, playbackRate: 1, durationInFrames: 30 },
+  30,
+);
+assert.equal(denoised?.src, '/media/uploads/a.denoised.wav');
+
+assert.equal(clipLoudnessRange({ src: '', srcInFrame: 0, playbackRate: 1, durationInFrames: 30 }, 30), null);
+assert.equal(clipLoudnessRange({ src: '/media/uploads/a.mp4', srcInFrame: 0, playbackRate: 1, durationInFrames: 30 }, 0), null);
 
 console.log('loudness.check: ok');

@@ -1,6 +1,6 @@
 export { LOUDNESS_TOOL_SCHEMAS, LOUDNESS_TOOL_NAMES } from './schemas/loudness-tools';
 import type { AgentContext } from '../context';
-import { clipLoudnessRange, gainForTarget, measureClipLoudness } from '../../audio/loudness';
+import { clipLoudnessRange, gainForTarget, isNoAudioLoudnessError, measureClipLoudness } from '../../audio/loudness';
 
 // normalize_loudness - Normalize loudness (target default -14 LUFS, streaming platform standard).
 // The naming style is the same as isolate_voice/edit_captions(verb_noun).
@@ -42,7 +42,7 @@ export async function execLoudnessTool(name: string, args: Args, ctx: AgentConte
   }
 
   const normalized: { itemId: string; measuredLufs: number; gain: number }[] = [];
-  const skipped: { itemId: string; note: string }[] = [];
+  const skipped: { itemId: string; note: string; noAudio?: boolean }[] = [];
 
   const fps = ctx.getState().fps;
   for (const item of items) {
@@ -57,7 +57,11 @@ export async function execLoudnessTool(name: string, args: Args, ctx: AgentConte
       ctx.commands.setItemVolume(item.id, gain); // Reuse existing commands without adding reducer actions
       normalized.push({ itemId: item.id, measuredLufs: integratedLufs, gain });
     } catch (e) {
-      skipped.push({ itemId: item.id, note: `响度测量失败: ${e instanceof Error ? e.message : String(e)}` });
+      // A clip with no audio track is a fact about the selection, not a
+      // measurement that went wrong, and retrying it will never succeed.
+      skipped.push(isNoAudioLoudnessError(e)
+        ? { itemId: item.id, note: 'no audio track', noAudio: true }
+        : { itemId: item.id, note: `响度测量失败: ${e instanceof Error ? e.message : String(e)}` });
     }
   }
 

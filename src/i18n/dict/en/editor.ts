@@ -29,5 +29,6 @@ export default {
   '圆形擦除转场': 'Circle Wipe',
   '人声分离失败，未修改任何片段。': 'Voice isolation failed; no clips were modified.',
   '响度测量失败，未修改任何片段。': 'Loudness measurement failed; no clips were modified.',
+  '所选片段没有音轨，无法做响度归一。': 'The selected clip has no audio track, so there is no loudness to normalize.',
   '所选片段的源素材已变化，旧的人声分离结果已丢弃。请重试。': 'Source media changed; the previous voice separation result was discarded. Retry.',
 } as Record<string, string>;

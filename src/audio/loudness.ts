@@ -62,6 +62,29 @@ export interface ClipLoudnessRange {
 }
 
 /**
+ * A measurement that could not be made, carrying whether the cause was the
+ * clip rather than the measurement.
+ *
+ * A silent clip and a broken measurement both leave the volume untouched, but
+ * only one of them is worth retrying, and only one means the selection was
+ * wrong. Collapsing them into one message tells a user whose b-roll has no
+ * audio track that loudness measurement is failing.
+ */
+export class ClipLoudnessError extends Error {
+  readonly noAudio: boolean;
+
+  constructor(message: string, noAudio: boolean) {
+    super(message);
+    this.name = 'ClipLoudnessError';
+    this.noAudio = noAudio;
+  }
+}
+
+export function isNoAudioLoudnessError(error: unknown): boolean {
+  return error instanceof ClipLoudnessError && error.noAudio;
+}
+
+/**
  * The source-media window a clip actually plays, in seconds.
  *
  * Measuring the whole file gives a short excerpt of a long recording the whole
@@ -100,10 +123,13 @@ export async function measureClipLoudness(range: ClipLoudnessRange): Promise<Cli
     body: JSON.stringify(range),
   });
   const body = (await res.json().catch(() => null)) as
-    | (Partial<ClipLoudness> & { ok?: boolean; error?: string })
+    | (Partial<ClipLoudness> & { ok?: boolean; error?: string; noAudio?: boolean })
     | null;
   if (!res.ok || !body?.ok || typeof body.integratedLufs !== 'number') {
-    throw new Error(body?.error ?? `loudness measurement failed (HTTP ${res.status})`);
+    throw new ClipLoudnessError(
+      body?.error ?? `loudness measurement failed (HTTP ${res.status})`,
+      body?.noAudio === true,
+    );
   }
   return {
     integratedLufs: body.integratedLufs,
