@@ -445,7 +445,11 @@ export function timelineToFcpxml(
     .map((info) => motionGraphicResourceXml(info, fps, formatId));
   const resourcesXml = [formatXml, ...assetXmls, ...motionGraphicXmls].join('\n    ');
 
-  const sortedItems = [...state.items].sort((a, b) => {
+  const adjustmentCount = state.items.filter((item) => item.kind === 'adjustment').length;
+  const adjustmentWarning = adjustmentCount > 0
+    ? xmlComment(`WARNING: ${adjustmentCount} adjustment layer(s) omitted; their filters have no portable FCPXML form. Re-create the grade on an adjustment layer in the NLE.`)
+    : '';
+  const sortedItems = state.items.filter((item) => item.kind !== 'adjustment').sort((a, b) => {
     const laneDiff = laneOf(b.track) - laneOf(a.track);
     return laneDiff !== 0 ? laneDiff : a.startFrame - b.startFrame;
   });
@@ -456,7 +460,7 @@ export function timelineToFcpxml(
     .map((item) => itemToSpineElement(
       item, fps, laneOf(item.track), assets, renderedMotionGraphics, isBackgroundFillActive(state, item),
     ));
-  const spineChildren = [backgroundFillWarning, ...itemXml].filter(Boolean).join('\n        ');
+  const spineChildren = [backgroundFillWarning, adjustmentWarning, ...itemXml].filter(Boolean).join('\n        ');
 
   const backgroundGap = `<gap name="Background" offset="${rationalTime(0, fps)}" duration="${rationalTime(total, fps)}">\n        ${spineChildren}\n      </gap>`;
   const eventName = nle === 'fcp_xml_resolve' ? 'OpenChatCut Export (Resolve)' : 'OpenChatCut Export';

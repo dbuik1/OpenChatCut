@@ -22,17 +22,17 @@ export { validateMediaSourceUpdate } from './edit-item-media-ops';
 export { applyGeneric, type GenericCommands } from './edit-item-generic-actions';
 
 export const GENERIC_ITEM_KINDS: ReadonlySet<string> = new Set([
-  'video', 'image', 'audio', 'gif', 'svg', 'motion-graphic', 'text', 'solid',
+  'video', 'image', 'audio', 'gif', 'svg', 'motion-graphic', 'text', 'solid', 'adjustment',
 ]);
 
 /** Pool-asset kinds that edit_item.adds can place as a clip.
  *  motion-graphic: pool assets from submit_motion_graphic / create_motion_graphic_from_code
  *  (library MG still uses library:motion-graphic:* via validateMgAdd).
- *  text/solid are authored via validateAuthoredAdd (no assetId). */
+ *  text/solid/adjustment are authored via validateAuthoredAdd (no assetId). */
 export const GENERIC_ADD_KINDS: ReadonlySet<string> = new Set(['video', 'image', 'gif', 'svg', 'audio', 'motion-graphic']);
 
 /** Authored non-pool clips agents can create without an assetId. */
-export const AUTHORED_ADD_KINDS: ReadonlySet<string> = new Set(['text', 'solid']);
+export const AUTHORED_ADD_KINDS: ReadonlySet<string> = new Set(['text', 'solid', 'adjustment']);
 
 const finiteNum = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined;
@@ -226,7 +226,7 @@ export function validateGenericUpdate(
   }
   if (entry.filters !== undefined) {
     const visual = it.kind === 'video' || it.kind === 'image' || it.kind === 'gif' || it.kind === 'svg'
-      || it.kind === 'text' || it.kind === 'solid' || it.kind === 'motion-graphic';
+      || it.kind === 'text' || it.kind === 'solid' || it.kind === 'motion-graphic' || it.kind === 'adjustment';
     if (!visual) return { error: `filters not supported on ${it.kind} clips` };
     const parsed = parseFiltersArg(entry.filters);
     if (parsed.error) return { error: parsed.error };
@@ -234,6 +234,12 @@ export function validateGenericUpdate(
   }
   if (entry.transform !== undefined) {
     if (it.kind === 'audio') return { error: 'transform is not supported on audio clips' };
+    if (it.kind === 'adjustment' && entry.transform && typeof entry.transform === 'object') {
+      // The layer has no picture to place; opacity is the only transform
+      // field with meaning, as the strength of its grade.
+      const stray = Object.keys(entry.transform as object).find((key) => key !== 'opacity');
+      if (stray) return { error: `transform.${stray} does not apply to an adjustment layer (only opacity, its grade strength)` };
+    }
     const parsed = parseTransformArg(entry.transform, { width: state.width, height: state.height });
     if (parsed.error) return { error: parsed.error };
     const patch = { ...parsed.transform };
@@ -387,6 +393,28 @@ export function validateAuthoredAdd(
   if (unknown) return { error: unknown };
   if (entry.assetId !== undefined) {
     return { error: `${type} is authored — do not pass assetId; set text/color/name props directly` };
+  }
+  if (type === 'adjustment') {
+    // Placement is decided at commit: the topmost clear video track, else a
+    // new one above, so the grade always sits over footage.
+    for (const key of ['text', 'fontSize', 'color', 'fontWeight', 'align']) {
+      if (entry[key] !== undefined) return { error: `${key} does not apply to an adjustment layer; set filters with an update after placing it` };
+    }
+    const startFrameRaw = finiteNum(entry.startFrame) ?? finiteNum(entry.fromFrame);
+    const durationRaw = finiteNum(entry.durationInFrames);
+    const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined;
+    const explicitTrack = entry.track ?? entry.trackId;
+    const track = explicitTrack !== undefined ? resolveTrackId(state, explicitTrack, 'video') : undefined;
+    if (explicitTrack !== undefined && !track) return { error: `track not found: ${String(explicitTrack)}` };
+    return {
+      ok: true,
+      kind: 'adjustment',
+      plan: 'addAdjustment',
+      ...(track ? { track } : {}),
+      ...(name ? { name } : {}),
+      ...(startFrameRaw !== undefined ? { startFrame: Math.max(0, Math.round(startFrameRaw)) } : {}),
+      ...(durationRaw !== undefined && durationRaw > 0 ? { durationInFrames: Math.round(durationRaw) } : {}),
+    };
   }
   const track = resolveTrackId(state, entry.track ?? entry.trackId ?? 'V1', 'video')
     ?? defaultTrackId(state, 'video');

@@ -45,6 +45,8 @@ interface MediaPoolToolbarProps {
   watchBusy: boolean;
   onMobileUpload: (restoreFocus: () => void) => void;
   onAddSolid: () => void;
+  canAddAdjustment?: boolean;
+  onAddAdjustment?: () => void;
   onCreateFolder: (restoreFocus: () => void) => void;
   onViewChange: () => void;
   onMenuChange: (menu: MediaToolbarMenu) => void;
@@ -207,6 +209,7 @@ function ActionsMenu(props: MenuProps) {
   const popover = open && <div ref={props.lifecycle.menuRef} role="dialog" aria-label={t('更多操作')} className="cc-media-popover cc-media-actions-menu cc-media-toolbar-menu-fixed" style={props.lifecycle.actionsStyle}>
     <button onClick={() => runModal(props.onMobileUpload)}><Icon name="qrCode" size={15} />{t('手机传素材')}</button>
     {props.canAddSolid && <button onClick={() => run(props.onAddSolid, true)}><span className="cc-media-solid-icon">{t('色')}</span>{t('添加纯色')}</button>}
+    {props.canAddAdjustment && props.onAddAdjustment && <button title={t('在播放头处添加调整图层，其滤镜作用于下方所有视频轨道')} onClick={() => run(props.onAddAdjustment!, true)}><Icon name="sliders" size={15} />{t('添加调整图层')}</button>}
     <button onClick={() => runModal(props.onCreateFolder)}><Icon name="folderPlus" size={16} />{t('新建文件夹')}</button>
     <DirectoryImportActions
       onPickFolder={props.onPickFolder}

@@ -182,7 +182,7 @@ export function ClipContextMenu({ item, transitions, x, y, playhead, commands, t
   // Baking renders the clip through a one-item sub-timeline that carries no project,
   // so a nested-sequence clip has nothing to resolve its referenced timeline against
   // and the render aborts. Flatten the sequence into its own timeline first.
-  const canBakeToVideo = item.kind !== 'audio' && item.kind !== 'sequence';
+  const canBakeToVideo = item.kind !== 'audio' && item.kind !== 'sequence' && item.kind !== 'adjustment';
   const bakeHint = item.kind === 'sequence'
     ? t('嵌套序列不能直接转为视频，请先在该序列时间线中导出，再把成片放回本时间线')
     : undefined;

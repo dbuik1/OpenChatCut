@@ -148,7 +148,7 @@ export function sourceRevisionForTimelineItem(
   const sourceAsset = sourceAssetId
     ? assets.find((asset) => asset.id === sourceAssetId)
     : assets.find((asset) => asset.src === src);
-  const mediaKind = item.kind === 'text' || item.kind === 'solid' || item.kind === 'sequence'
+  const mediaKind = item.kind === 'text' || item.kind === 'solid' || item.kind === 'sequence' || item.kind === 'adjustment'
     ? undefined
     : item.kind;
   return sourceRevisionOf(sourceAsset ?? {

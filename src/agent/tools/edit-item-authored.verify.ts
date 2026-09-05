@@ -9,7 +9,7 @@ import {
 import { makeDraft } from '../../editor/store';
 import { docFromTimeline } from '../../persist/projectStore';
 
-assert.ok(AUTHORED_ADD_KINDS.has('text') && AUTHORED_ADD_KINDS.has('solid'));
+assert.ok(AUTHORED_ADD_KINDS.has('text') && AUTHORED_ADD_KINDS.has('solid') && AUTHORED_ADD_KINDS.has('adjustment'));
 assert.ok(!GENERIC_ADD_KINDS.has('text') && !GENERIC_ADD_KINDS.has('solid'));
 
 const state = {
@@ -43,6 +43,18 @@ assert.equal(solidPlan.plan, 'addSolid');
 assert.equal(solidPlan.color, '#101010');
 
 assert.ok(validateAuthoredAdd(state, { type: 'text', assetId: 'x', text: 'a' }).error);
+
+// An adjustment layer is authored with timing only; the track is chosen at commit.
+const adjustmentPlan = validateAuthoredAdd(state, { type: 'adjustment', fromFrame: 30, durationInFrames: 90, name: 'look' });
+assert.equal(adjustmentPlan.error, undefined, String(adjustmentPlan.error));
+assert.equal(adjustmentPlan.plan, 'addAdjustment');
+assert.equal(adjustmentPlan.track, undefined, 'no track until commit picks a clear one');
+assert.equal(adjustmentPlan.startFrame, 30);
+assert.equal(adjustmentPlan.durationInFrames, 90);
+assert.equal(validateAuthoredAdd(state, { type: 'adjustment', track: 'V1' }).track, 'V1');
+assert.ok(validateAuthoredAdd(state, { type: 'adjustment', track: 'V9' }).error, 'unknown explicit track rejects');
+assert.ok(validateAuthoredAdd(state, { type: 'adjustment', color: '#fff' }).error, 'text/solid fields reject');
+assert.ok(validateAuthoredAdd(state, { type: 'adjustment', assetId: 'x' }).error);
 assert.equal(validateGenericAdd(state, [] as MediaAsset[], { type: 'text', text: 'via generic' }).plan, 'addText');
 
 // Commit via editor commands (same surface agent commit uses).
@@ -72,5 +84,15 @@ const solidId = draft.commands.addSolidItem({
   name: String(solidPlan.name),
 });
 assert.equal(draft.getState().items.find((entry) => entry.id === solidId)?.kind, 'solid');
+
+const adjustmentId = draft.commands.addAdjustmentItem({
+  startFrame: Number(adjustmentPlan.startFrame),
+  durationInFrames: Number(adjustmentPlan.durationInFrames),
+  name: String(adjustmentPlan.name),
+});
+const adjustment = draft.getState().items.find((entry) => entry.id === adjustmentId);
+assert.equal(adjustment?.kind, 'adjustment');
+assert.equal(adjustment?.name, 'look');
+assert.equal(adjustment?.durationInFrames, 90);
 
 console.log('edit-item-authored.verify: ok');

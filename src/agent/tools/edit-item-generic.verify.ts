@@ -10,7 +10,7 @@ import {
 } from './edit-item-generic';
 
 // GENERIC_ITEM_KINDS covers edit_item types except effect/transition additions.
-for (const k of ['video', 'image', 'audio', 'gif', 'svg', 'motion-graphic', 'text', 'solid']) {
+for (const k of ['video', 'image', 'audio', 'gif', 'svg', 'motion-graphic', 'text', 'solid', 'adjustment']) {
   assert.ok(GENERIC_ITEM_KINDS.has(k), `GENERIC_ITEM_KINDS missing ${k}`);
 }
 assert.ok(!GENERIC_ITEM_KINDS.has('effect') && !GENERIC_ITEM_KINDS.has('transition'), 'effect/transition are library adds, not generic');

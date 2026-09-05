@@ -37,6 +37,7 @@ const ITEM_KINDS: Record<TimelineItem['kind'], true> = {
   svg: true,
   solid: true,
   sequence: true,
+  adjustment: true,
 };
 const LEGACY_BACKGROUND_FILL_PRESETS = ['soft', 'medium', 'strong', 'maximum'] as const;
 

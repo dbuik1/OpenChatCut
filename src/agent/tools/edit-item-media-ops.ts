@@ -61,7 +61,7 @@ export function validateMediaSourceUpdate(state: TimelineState, entry: Record<st
       note: 'Replaces the clip with a video shell at the same track/start/duration (MG/text bake path); effects/transform are dropped.',
     };
   }
-  if (item.kind === 'motion-graphic' || item.kind === 'text' || item.kind === 'solid') {
+  if (item.kind === 'motion-graphic' || item.kind === 'text' || item.kind === 'solid' || item.kind === 'adjustment') {
     return { error: 'relink_media is for file-backed clips (video/audio/image/gif/svg); use replace_media to bake MG/text into video' };
   }
   const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined;

@@ -84,6 +84,19 @@ export interface EditorCommands {
     name?: string;
     ripple?: boolean;
   }) => string;
+  /**
+   * Adjustment layer: grades every video track below it for its range. Lands
+   * on the topmost video track when nothing there overlaps the range, else on
+   * a new track above it, so the grade always has footage beneath. Returns
+   * the new item id.
+   */
+  addAdjustmentItem: (at?: {
+    track?: TrackId;
+    startFrame?: number;
+    durationInFrames?: number;
+    name?: string;
+    ripple?: boolean;
+  }) => string;
   /** Authored text clip. Returns the new item id. */
   addTextClip: (at?: {
     track?: TrackId;

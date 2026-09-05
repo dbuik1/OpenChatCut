@@ -4,6 +4,8 @@ export default {
   '搜索': 'Cerca',
   '上传素材': 'Carica media',
   '添加纯色': 'Aggiungi colore pieno',
+  '添加调整图层': 'Aggiungi livello di regolazione',
+  '在播放头处添加调整图层，其滤镜作用于下方所有视频轨道': 'Aggiunge un livello di regolazione alla testina; i suoi filtri gradano tutte le tracce video sottostanti',
   '添加纯色片段': 'Aggiungi clip a colore pieno',
   '新建文件夹': 'Nuova cartella',
   '素材排序': 'Ordina media',

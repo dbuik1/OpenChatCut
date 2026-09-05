@@ -109,7 +109,7 @@ assert.deepEqual(
   'timeline-head clamp adjusts the effective delta so the right edge remains fixed',
 );
 
-for (const kind of ['image', 'gif', 'svg', 'motion-graphic', 'text', 'solid'] as const) {
+for (const kind of ['image', 'gif', 'svg', 'motion-graphic', 'text', 'solid', 'adjustment'] as const) {
   calls.length = 0;
   const extensibleState: TimelineState = {
     ...state,
@@ -132,7 +132,7 @@ for (const kind of ['image', 'gif', 'svg', 'motion-graphic', 'text', 'solid'] as
 // A source-free clip must not extend past the nearest preceding same-track clip's
 // right edge: the preview and commit clamp there instead of bouncing on release
 // (an overlapping retime would be rolled back by the reducer's overlap guard).
-for (const kind of ['image', 'gif', 'svg', 'motion-graphic', 'text', 'solid'] as const) {
+for (const kind of ['image', 'gif', 'svg', 'motion-graphic', 'text', 'solid', 'adjustment'] as const) {
   calls.length = 0;
   const collidingState: TimelineState = {
     ...state,

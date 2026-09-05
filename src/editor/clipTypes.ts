@@ -139,7 +139,7 @@ export interface TimelineItem extends TranscriptCarrier {
   startFrame: number;
   durationInFrames: number;
   name: string;
-  kind: 'motion-graphic' | 'audio' | 'video' | 'image' | 'text' | 'gif' | 'svg' | 'solid' | 'sequence';
+  kind: 'motion-graphic' | 'audio' | 'video' | 'image' | 'text' | 'gif' | 'svg' | 'solid' | 'sequence' | 'adjustment';
   // motion-graphic fields:
   templateId?: string;
   code?: string;

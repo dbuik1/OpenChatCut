@@ -20,6 +20,7 @@ export function commitPlan(ctx: AgentContext, plan: OpResult, ripple = false): O
   if (name === 'replacePoolAsset') return commitPoolAssetReplacement(ctx, plan);
   if (name === 'addText') return commitTextPlan(ctx, plan, ripple);
   if (name === 'addSolid') return commitSolidPlan(ctx, plan, ripple);
+  if (name === 'addAdjustment') return commitAdjustmentPlan(ctx, plan, ripple);
   if (name === 'genericUpdate' || name === 'genericDelete' || name === 'slip'
     || name === 'roll' || name === 'slide'
     || name === 'replaceMedia' || name === 'relinkMedia') {
@@ -214,6 +215,30 @@ function commitTextPlan(ctx: AgentContext, plan: OpResult, ripple: boolean): OpR
       fontSize: plan.fontSize,
     },
     ripple,
+  };
+}
+
+function commitAdjustmentPlan(ctx: AgentContext, plan: OpResult, ripple: boolean): OpResult {
+  const itemId = ctx.commands.addAdjustmentItem({
+    track: plan.track as string | undefined,
+    startFrame: plan.startFrame as number | undefined,
+    durationInFrames: plan.durationInFrames as number | undefined,
+    name: plan.name as string | undefined,
+    ripple,
+  });
+  const placed = ctx.getState().items.find((item) => item.id === itemId);
+  return {
+    ok: true,
+    kind: 'adjustment',
+    placed: {
+      itemId,
+      name: plan.name ?? '调整图层',
+      track: placed?.track ?? plan.track,
+      startFrame: plan.startFrame ?? 'appended',
+      durationInFrames: placed?.durationInFrames ?? plan.durationInFrames,
+    },
+    ripple,
+    note: 'Grades every video track below it for its range; set filters (brightness/contrast/saturate/blur) with an update. effects[] are not available on adjustment layers.',
   };
 }
 

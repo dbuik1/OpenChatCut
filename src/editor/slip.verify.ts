@@ -182,7 +182,7 @@ for (const [rate, expectedSrcIn] of [
 }
 
 {
-  for (const kind of ['image', 'text', 'motion-graphic', 'solid', 'gif', 'svg', 'sequence'] as const) {
+  for (const kind of ['image', 'text', 'motion-graphic', 'solid', 'gif', 'svg', 'sequence', 'adjustment'] as const) {
     const unsupportedItem = item(1, { kind });
     const unsupported = planSlip(stateOf(unsupportedItem), unsupportedItem.id, 1);
     assert.deepEqual(

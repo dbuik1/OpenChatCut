@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AbsoluteFill, Sequence, getRemotionEnvironment, useCurrentFrame } from 'remotion';
 import { CaptionsLayer } from '../captions/CaptionsLayer';
 import { GlTransition } from '../gl/GlTransition';
@@ -16,6 +16,8 @@ import { TimelineReadinessGate } from './TimelineReadinessGate';
 import { timelineReadinessKey } from './timelineReadinessKey';
 import { isBackgroundFillActive } from './backgroundFill';
 import { ClipWrapper } from './TimelineClipWrapper';
+import { AdjustmentLayer } from './TimelineAdjustmentLayer';
+import { foldAdjustmentLayers, type AdjustmentTrackLayer } from './adjustment';
 import { GlTransitionVisibility } from './GlTransitionVisibility';
 import { updateReadyGlWindows } from './glTransitionVisibilityState';
 import { AudioClip, BackgroundFillLayer, ContinuousVideoAudio, MediaFill, SharedVideoVisualGroup, VisualClipSurface } from './TimelineMediaLayer';
@@ -290,6 +292,94 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
   });
   const sharedVisualIds = new Set(sharedVisualGroups.flatMap((group) => group.map((item) => item.id)));
 
+  const renderSharedGroup = (group: TimelineItem[]): ReactNode => (
+    <SharedVideoVisualGroup
+      key={`sv:${group[0]!.id}`}
+      group={group}
+      fit={fit}
+      muted={isMuted(group[0]!.track)}
+      canvasW={state.width}
+      canvasH={state.height}
+      premountFor={premountFrames}
+      browserRenderer={browserRenderer}
+    />
+  );
+  const renderItem = (item: TimelineItem): ReactNode => {
+    const eb = extendBefore.get(item.id) ?? 0;
+    const ea = extendAfter.get(item.id) ?? 0;
+    const entrance = entranceOf.get(item.id);
+    // Captions off hides on-screen text clips too (render-layer only).
+    const captionsOff = state.captionsHidden === true
+      || (state.captionsHidden === undefined && captionEntries.length > 0 && captionEntries.every((entry) => !entry.captions?.enabled));
+    const hiddenByCaptions = captionsOff && previewTextEditFields(item) !== null;
+    const fillBackground = isBackgroundFillActive(state, item);
+    const foreground = (
+      <ClipWrapper item={item} frameOffset={-eb} hiddenByCaptions={hiddenByCaptions}>
+        {(borderRadius) => item.kind === 'sequence'
+          ? <VisualClipSurface item={item} fit={fit} canvasW={state.width} canvasH={state.height} borderRadius={borderRadius}>
+              <NestedSequenceLayer item={item} project={project} parentWidth={state.width} parentHeight={state.height} fit={fit} frameOffset={-eb} browserRenderer={browserRenderer} sequenceLimits={sequenceLimits} muted={isMuted(item.track)} />
+            </VisualClipSurface>
+          : item.kind === 'motion-graphic'
+          ? <ItemLayer item={item} canvasW={state.width} canvasH={state.height} fit={fit} borderRadius={borderRadius} />
+          : item.kind === 'text'
+          ? <TextLayer item={item} canvasW={state.width} canvasH={state.height} fit={fit} />
+          : item.kind === 'solid'
+          ? <SolidLayer item={item} canvasW={state.width} canvasH={state.height} borderRadius={borderRadius} />
+          : <MediaFill item={item} frameOffset={-eb} fit={fillBackground ? 'contain' : fit}
+              muted={isMuted(item.track)} groupedAudio={groupedVideoIds.has(item.id)}
+              gainAt={(frame) => trackGain(item.track, frame)} canvasW={state.width} canvasH={state.height}
+              borderRadius={borderRadius} browserRenderer={browserRenderer}
+              onPreviewStatus={environment.isPlayer && item.id === selectedItemId && !selectedEffectStaticStatus
+                ? onSelectedPreviewStatus : undefined} />}
+      </ClipWrapper>
+    );
+    const content = (
+      <>
+        {fillBackground && <BackgroundFillLayer item={item} frameOffset={-eb} canvasW={state.width}
+          canvasH={state.height} browserRenderer={browserRenderer} />}
+        {foreground}
+      </>
+    );
+    return (
+      <Sequence key={item.id} from={item.startFrame - eb} durationInFrames={item.durationInFrames + eb + ea} premountFor={premountFrames} name={item.name}>
+        <GlTransitionVisibility itemId={item.id} sequenceFrom={item.startFrame - eb}
+          windows={glVisibilityWindows} readyWindows={readyGlWindows}>
+          {entrance
+            ? <PreviewTransitionIn type={entrance.type} frames={entrance.frames} dir={entrance.dir} line={entrance.line} isolated={entrance.isolated}>{content}</PreviewTransitionIn>
+            : content}
+        </GlTransitionVisibility>
+      </Sequence>
+    );
+  };
+  // GLSL transition windows: painted over both clips of their track, beneath captions.
+  const renderGlWindow = (w: GlWindow): ReactNode => (
+    <Sequence key={w.key} from={w.from} durationInFrames={w.L} premountFor={premountFrames} name={`tr:${w.type}`}>
+      <GlTransition
+        type={w.type} direction={w.direction} L={w.L} windowStart={w.from}
+        outgoing={w.outgoing} incoming={w.incoming} trimOut={w.trimOut} trimIn={w.trimIn}
+        width={state.width} height={state.height} fit={fit}
+        outgoingBackgroundFill={isBackgroundFillActive(state, w.outgoing)}
+        incomingBackgroundFill={isBackgroundFillActive(state, w.incoming)}
+        customFrag={w.customFrag} customUniforms={w.customUniforms}
+        previewTargetId={w.previewTargetId} onPreviewStatus={w.previewTargetId ? onSelectedPreviewStatus : undefined}
+        onReadyChange={(ready) => setGlWindowReady(w.key, ready)}
+      />
+    </Sequence>
+  );
+  // Paint tracks bottom-up. An adjustment layer wraps everything painted
+  // before it, so its grade covers the tracks below and nothing beside it.
+  const trackLayers: AdjustmentTrackLayer<ReactNode>[] = [...visualTracks].reverse().map((track) => ({
+    adjustments: ordered.filter((item) => item.kind === 'adjustment' && item.track === track),
+    content: [
+      ...sharedVisualGroups.filter((group) => group[0]!.track === track).map(renderSharedGroup),
+      ...ordered.filter((item) => item.track === track && item.kind !== 'adjustment' && !sharedVisualIds.has(item.id)).map(renderItem),
+      ...glWindows.filter((w) => w.outgoing.track === track).map(renderGlWindow),
+    ],
+  }));
+  const paintOrder = foldAdjustmentLayers(trackLayers, (adjustment, below) => (
+    <AdjustmentLayer key={`adj:${adjustment.id}`} item={adjustment}>{below}</AdjustmentLayer>
+  ));
+
   return (
     <AbsoluteFill style={{ background: transparent ? undefined : GRID }}>
       {staticPreviewStatuses.map((status) => (
@@ -299,81 +389,7 @@ function TimelineContent({ state, project, transparent, browserRenderer = false,
           listener={onSelectedPreviewStatus}
         />
       ))}
-      {sharedVisualGroups.map((group) => (
-        <SharedVideoVisualGroup
-          key={`sv:${group[0]!.id}`}
-          group={group}
-          fit={fit}
-          muted={isMuted(group[0]!.track)}
-          canvasW={state.width}
-          canvasH={state.height}
-          premountFor={premountFrames}
-          browserRenderer={browserRenderer}
-        />
-      ))}
-      {ordered.map((item) => {
-        if (sharedVisualIds.has(item.id)) return null;
-        const eb = extendBefore.get(item.id) ?? 0;
-        const ea = extendAfter.get(item.id) ?? 0;
-        const entrance = entranceOf.get(item.id);
-        // Captions off hides on-screen text clips too (render-layer only).
-        const captionsOff = state.captionsHidden === true
-          || (state.captionsHidden === undefined && captionEntries.length > 0 && captionEntries.every((entry) => !entry.captions?.enabled));
-        const hiddenByCaptions = captionsOff && previewTextEditFields(item) !== null;
-        const fillBackground = isBackgroundFillActive(state, item);
-        const foreground = (
-          <ClipWrapper item={item} frameOffset={-eb} hiddenByCaptions={hiddenByCaptions}>
-            {(borderRadius) => item.kind === 'sequence'
-              ? <VisualClipSurface item={item} fit={fit} canvasW={state.width} canvasH={state.height} borderRadius={borderRadius}>
-                  <NestedSequenceLayer item={item} project={project} parentWidth={state.width} parentHeight={state.height} fit={fit} frameOffset={-eb} browserRenderer={browserRenderer} sequenceLimits={sequenceLimits} muted={isMuted(item.track)} />
-                </VisualClipSurface>
-              : item.kind === 'motion-graphic'
-              ? <ItemLayer item={item} canvasW={state.width} canvasH={state.height} fit={fit} borderRadius={borderRadius} />
-              : item.kind === 'text'
-              ? <TextLayer item={item} canvasW={state.width} canvasH={state.height} fit={fit} />
-              : item.kind === 'solid'
-              ? <SolidLayer item={item} canvasW={state.width} canvasH={state.height} borderRadius={borderRadius} />
-              : <MediaFill item={item} frameOffset={-eb} fit={fillBackground ? 'contain' : fit}
-                  muted={isMuted(item.track)} groupedAudio={groupedVideoIds.has(item.id)}
-                  gainAt={(frame) => trackGain(item.track, frame)} canvasW={state.width} canvasH={state.height}
-                  borderRadius={borderRadius} browserRenderer={browserRenderer}
-                  onPreviewStatus={environment.isPlayer && item.id === selectedItemId && !selectedEffectStaticStatus
-                    ? onSelectedPreviewStatus : undefined} />}
-          </ClipWrapper>
-        );
-        const content = (
-          <>
-            {fillBackground && <BackgroundFillLayer item={item} frameOffset={-eb} canvasW={state.width}
-              canvasH={state.height} browserRenderer={browserRenderer} />}
-            {foreground}
-          </>
-        );
-        return (
-          <Sequence key={item.id} from={item.startFrame - eb} durationInFrames={item.durationInFrames + eb + ea} premountFor={premountFrames} name={item.name}>
-            <GlTransitionVisibility itemId={item.id} sequenceFrom={item.startFrame - eb}
-              windows={glVisibilityWindows} readyWindows={readyGlWindows}>
-              {entrance
-                ? <PreviewTransitionIn type={entrance.type} frames={entrance.frames} dir={entrance.dir} line={entrance.line} isolated={entrance.isolated}>{content}</PreviewTransitionIn>
-                : content}
-            </GlTransitionVisibility>
-          </Sequence>
-        );
-      })}
-      {/* GLSL transition windows: painted over both clips, beneath captions */}
-      {glWindows.map((w) => (
-        <Sequence key={w.key} from={w.from} durationInFrames={w.L} premountFor={premountFrames} name={`tr:${w.type}`}>
-          <GlTransition
-            type={w.type} direction={w.direction} L={w.L} windowStart={w.from}
-            outgoing={w.outgoing} incoming={w.incoming} trimOut={w.trimOut} trimIn={w.trimIn}
-            width={state.width} height={state.height} fit={fit}
-            outgoingBackgroundFill={isBackgroundFillActive(state, w.outgoing)}
-            incomingBackgroundFill={isBackgroundFillActive(state, w.incoming)}
-            customFrag={w.customFrag} customUniforms={w.customUniforms}
-            previewTargetId={w.previewTargetId} onPreviewStatus={w.previewTargetId ? onSelectedPreviewStatus : undefined}
-            onReadyChange={(ready) => setGlWindowReady(w.key, ready)}
-          />
-        </Sequence>
-      ))}
+      {paintOrder}
       {audio.map((item) => (
         <AudioClip
           key={item.id}

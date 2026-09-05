@@ -67,6 +67,7 @@ interface MediaPoolPanelProps {
   onRelinkAsset?: (id: string, next: MediaAssetRelinkPatch) => void;
   /** Add a solid-color clip. */
   onAddSolid?: () => void;
+  /** Add an adjustment layer at the playhead. */ onAddAdjustment?: () => void;
   /** Start (or retry) ASR for one asset from the pool UI. */
   onTranscribe: (asset: MediaAsset) => void;
 }
@@ -74,7 +75,7 @@ interface MediaPoolPanelProps {
 export function MediaPoolPanel({
   semanticScopeId, assets, folders, fps, usedAssetIds, offlineAssetIds, onAssetLoadError,
   onImport, onImportMobile, directoryImport, directoryImportError, onAddAsset, onAddAssetsToTimeline, onAddAssetsToChat, onCreateFolder, onRenameFolder,
-  onDeleteFolder, onMoveAssets, onRenameAsset, onRenameAssets, onSetFavorite, onSetAssetsFavorite, onRemoveAsset, onRemoveAssets, onPasteAssets, onRelinkAsset, onAddSolid, onTranscribe,
+  onDeleteFolder, onMoveAssets, onRenameAsset, onRenameAssets, onSetFavorite, onSetAssetsFavorite, onRemoveAsset, onRemoveAssets, onPasteAssets, onRelinkAsset, onAddSolid, onAddAdjustment, onTranscribe,
 }: MediaPoolPanelProps) {
   const t = useT();
   const musicAnalysis = useMusicAnalysisCards(assets);
@@ -362,7 +363,7 @@ export function MediaPoolPanel({
         menu={menu}
         busy={busy || watchBusy}
         uploadRatio={uploadRatio}
-        canAddSolid={!!onAddSolid}
+        canAddSolid={!!onAddSolid} canAddAdjustment={!!onAddAdjustment}
         semanticOpenRequest={semanticOpenRequest}
         onQueryChange={setQuery}
         onSemanticResults={onSemanticResults}
@@ -371,7 +372,7 @@ export function MediaPoolPanel({
         onWatchFolder={canWatchDirectory ? () => void startWatch() : undefined} onStopWatch={() => void stopWatch()}
         watchingFolder={activeWatch?.directoryName ?? null} watchBusy={watchBusy}
         onMobileUpload={(restoreFocus) => { modalFocus.remember(restoreFocus); setMobileUploadOpen(true); }}
-        onAddSolid={() => onAddSolid?.()}
+        onAddSolid={() => onAddSolid?.()} onAddAdjustment={() => onAddAdjustment?.()}
         onCreateFolder={createFolder}
         onViewChange={() => setView(toggleMediaView)}
         onMenuChange={setMenu}

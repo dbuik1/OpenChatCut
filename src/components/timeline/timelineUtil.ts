@@ -21,6 +21,7 @@ export const CLIP_COLOR: Record<TimelineItem['kind'], string> = {
   video: theme.clipVideo, image: theme.clipVideo, gif: theme.clipVideo, svg: theme.clipVideo,
   solid: '#4a5568',
   sequence: '#5b4b8a',
+  adjustment: '#3d6b6a',
   audio: theme.clipAudio,
   'motion-graphic': theme.clipMg, text: theme.clipText,
 };

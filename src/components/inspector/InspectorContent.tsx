@@ -147,7 +147,7 @@ function BasicTab({ panel, item, schema, playheadLocal }: InspectorContentProps)
         </>
       )}
       {item.kind === 'text' && panel.selectedItems.every((entry) => entry.kind === 'text') && <><SectionLabel>{t('文字')}</SectionLabel><TextControl item={item} mixed={(key) => isMixed(panel, (entry) => entry.props?.[key])} onPropChange={panel.onItemPropChange} /></>}
-      {panel.selectedItems.every((entry) => entry.kind !== 'audio') && <><SectionLabel onReset={() => panel.onResetItemKeyframes(transformProps)} resetDisabled={resetDisabled && !transformProps.some((prop) => isMixed(panel, (entry) => getKeyframePropertyDefinition(prop).getBaseValue(entry))) && !isMixed(panel, (entry) => entry.transform?.crop)}>{t('变换')}</SectionLabel><TransformControl item={item} mixed={(prop) => {
+      {panel.selectedItems.every((entry) => entry.kind !== 'audio' && entry.kind !== 'adjustment') && <><SectionLabel onReset={() => panel.onResetItemKeyframes(transformProps)} resetDisabled={resetDisabled && !transformProps.some((prop) => isMixed(panel, (entry) => getKeyframePropertyDefinition(prop).getBaseValue(entry))) && !isMixed(panel, (entry) => entry.transform?.crop)}>{t('变换')}</SectionLabel><TransformControl item={item} mixed={(prop) => {
         const definition = getKeyframePropertyDefinition(prop);
         return isMixed(panel, (entry) => entry.keyframes?.[prop] ?? definition.getBaseValue(entry));
       }} mixedCrop={(edge: FlexCropEdge) => isMixed(panel, (entry) => entry.transform?.crop?.[edge] ?? 0)} onChange={panel.onItemTransformChange} onCropChange={panel.onItemCropChange} canvasWidth={panel.canvasWidth} canvasHeight={panel.canvasHeight} onReset={panel.onResetItemKeyframes} kf={{
@@ -172,7 +172,7 @@ function VideoTab({ panel, item, playheadLocal }: InspectorContentProps) {
   const effectsMixed = isMixed(panel, (entry) => entry.effects ?? []);
   return (
     <>
-      {panel.backgroundFillAvailable && panel.onItemBackgroundFillChange && (
+      {item.kind !== 'adjustment' && panel.backgroundFillAvailable && panel.onItemBackgroundFillChange && (
         <>
           <SectionLabel>{t('画布')}</SectionLabel>
           <BackgroundFillControl
@@ -289,6 +289,7 @@ function InspectorHint({ item, count }: { item: TimelineItem; count: number }) {
     gif: 'GIF',
     svg: 'SVG',
     solid: '纯色',
+    adjustment: '调整图层',
     text: '文字',
     'motion-graphic': '动效图形',
     sequence: t('嵌套序列'),
@@ -298,7 +299,9 @@ function InspectorHint({ item, count }: { item: TimelineItem; count: number }) {
     <div className="cc-insp-scope">
       {count > 1 && <strong>{t('已选择 {n} 个片段', { n: count })}</strong>}
       <span className="cc-insp-scope-kind">{t(labels[item.kind] ?? '片段')}</span>
-      <span>{sourceBacked
+      <span>{item.kind === 'adjustment'
+        ? t('滤镜作用于此范围内下方所有视频轨道的合成画面；不透明度即强度。')
+        : sourceBacked
         ? t('仅作用于当前时间线片段，不修改媒体池中的源文件。')
         : t('仅作用于当前时间线片段。')}</span>
     </div>

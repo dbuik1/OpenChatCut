@@ -300,6 +300,8 @@ export default {
   '音频转场': 'Audio Transition',
   '淡入淡出': 'Fade',
   '纯色': 'Solid',
+  '调整图层': 'Adjustment layer',
+  '滤镜作用于此范围内下方所有视频轨道的合成画面；不透明度即强度。': 'Its filters grade the composite of every video track below it for this range; opacity is the strength.',
   '填充颜色': 'Fill Color',
   '该模板无可编辑属性。': 'This template has no editable properties.',
 

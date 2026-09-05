@@ -17,6 +17,8 @@ import {
   activeTimeline,
   defaultTrackId,
   resolveTrackId,
+  timelineTrackIds,
+  trackKind,
 } from './types';
 import type {
   Marker,
@@ -25,6 +27,7 @@ import type {
   ProjectDoc,
   Timeline,
   TimelineItem,
+  TimelineState,
   TrackId,
   TrackKind,
 } from './types';
@@ -64,6 +67,21 @@ export function buildCommands(dispatch: ProjectDispatch, getDoc: () => ProjectDo
     // action. Any command that does not use dispatchWithTracks/placeItem still
     // gets it flushed as part of its next batch.
     pendingTrackCreates.push({ type: 'track.create', track: { id, kind } });
+    return id;
+  };
+  // An adjustment layer grades the tracks below it and nothing beside it, so
+  // it goes on the topmost video track only when that track is clear for the
+  // range; otherwise a fresh track above keeps the grade over the footage.
+  const pickAdjustmentTrack = (state: TimelineState, startFrame: number, durationInFrames: number): TrackId => {
+    const videoTracks = timelineTrackIds(state).filter((id) => trackKind(state, id) === 'video');
+    const top = videoTracks[0];
+    if (!top) return pickTrack(undefined, 'video');
+    const endFrame = startFrame + durationInFrames;
+    const clear = !state.items.some((item) => item.track === top
+      && item.startFrame < endFrame && item.startFrame + item.durationInFrames > startFrame);
+    if (clear) return top;
+    const id = uid('track');
+    pendingTrackCreates.push({ type: 'track.create', track: { id, kind: 'video' } });
     return id;
   };
   const placeItem = (
@@ -179,6 +197,29 @@ export function buildCommands(dispatch: ProjectDispatch, getDoc: () => ProjectDo
             props: { color: at?.color ?? '#1a1a1a' },
           },
         }, 'Add solid');
+        return id;
+      },
+      addAdjustmentItem: (at) => {
+        const id = uid('item');
+        const state = activeTimeline(getDoc());
+        const durationInFrames = at?.durationInFrames ?? Math.round(5 * state.fps);
+        const track = at?.track
+          ? pickTrack(at.track, 'video')
+          : pickAdjustmentTrack(state, at?.startFrame ?? 0, durationInFrames);
+        dispatchWithTracks({
+          type: 'add',
+          startFrame: at?.startFrame,
+          ripple: at?.ripple,
+          item: {
+            id,
+            track,
+            durationInFrames,
+            kind: 'adjustment',
+            name: at?.name ?? '调整图层',
+            width: state.width,
+            height: state.height,
+          },
+        }, 'Add adjustment layer');
         return id;
       },
       setDesignStyle: (style) => dispatch({ type: 'design.set', style }),

@@ -5,6 +5,8 @@ export default {
   '搜索': 'Search',
   '上传素材': 'Upload media',
   '添加纯色': 'Add solid color',
+  '添加调整图层': 'Add adjustment layer',
+  '在播放头处添加调整图层，其滤镜作用于下方所有视频轨道': 'Add an adjustment layer at the playhead; its filters grade every video track below it',
   '添加纯色片段': 'Add a solid-color clip',
   '色': 'C',
   '新建文件夹': 'New folder',

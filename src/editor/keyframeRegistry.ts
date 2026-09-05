@@ -14,8 +14,11 @@ export interface KeyframePropertyDefinition {
   format: (value: number) => string;
 }
 
-const visual = (item: TimelineItem) => item.kind !== 'audio';
-const roundableVisual = (item: TimelineItem) => item.kind !== 'audio' && item.kind !== 'text';
+// An adjustment layer has no picture of its own to move, scale or round; its
+// opacity is the strength of the grade it applies to the tracks below.
+const visual = (item: TimelineItem) => item.kind !== 'audio' && item.kind !== 'adjustment';
+const fadeable = (item: TimelineItem) => item.kind !== 'audio';
+const roundableVisual = (item: TimelineItem) => item.kind !== 'audio' && item.kind !== 'text' && item.kind !== 'adjustment';
 const audible = (item: TimelineItem) => item.kind === 'audio' || item.kind === 'video';
 const compact = (value: number) => String(Number(value.toFixed(2)));
 const percent = (value: number) => `${compact(value)}%`;
@@ -68,7 +71,7 @@ export const KEYFRAME_PROPERTY_REGISTRY: Record<KeyframeProp, KeyframePropertyDe
   },
   opacity: {
     id: 'opacity', label: '透明', valueRange: [0, 1], editorRange: [0, 1],
-    step: 0.01, defaultValue: 1, supports: visual,
+    step: 0.01, defaultValue: 1, supports: fadeable,
     getBaseValue: (item) => item.transform?.opacity ?? 1,
     toTransformPatch: (opacity) => ({ opacity }),
     format: (value) => `${compact(value * 100)}%`,
