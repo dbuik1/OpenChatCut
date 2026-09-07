@@ -131,4 +131,33 @@ assert.equal((await currentService.check('manual')).phase, 'current');
 assert.equal(currentService.install().phase, 'current', 'install is forbidden before an update is downloaded');
 assert.equal(currentFake.installCalls, 0);
 
-console.log('update-service.verify: explicit check, download, retry, progress, and install lifecycle OK');
+const autoFake = new FakeUpdater();
+let autoDownloadPreference = true;
+const autoService = new DesktopUpdateService(autoFake as unknown as AppUpdater, {
+  enabled: true,
+  currentVersion: '0.1.9',
+  autoDownload: () => autoDownloadPreference,
+});
+assert.equal(autoFake.autoDownload, false, 'background downloads go through the service, never the updater flag');
+assert.equal(autoFake.autoInstallOnAppQuit, false, 'a background download must not install on quit');
+const autoPhases: string[] = [];
+autoService.subscribe((next) => { autoPhases.push(next.phase); });
+await autoService.check('auto');
+await delay(0);
+assert.equal(autoFake.downloadCalls, 1, 'an update found with the preference on downloads without a click');
+assert.equal(autoService.getState().phase, 'downloaded');
+assert.ok(autoPhases.indexOf('available') < autoPhases.indexOf('downloading'), 'the renderer sees the update before the download starts');
+assert.equal(autoFake.installCalls, 0, 'installing stays an explicit action');
+
+autoDownloadPreference = false;
+const optOutFake = new FakeUpdater();
+const optOutService = new DesktopUpdateService(optOutFake as unknown as AppUpdater, {
+  enabled: true,
+  currentVersion: '0.1.9',
+  autoDownload: () => autoDownloadPreference,
+});
+assert.equal((await optOutService.check('auto')).phase, 'available');
+await delay(0);
+assert.equal(optOutFake.downloadCalls, 0, 'the preference off leaves the download to the user');
+
+console.log('update-service.verify: explicit check, download, retry, progress, background download preference, and install lifecycle OK');

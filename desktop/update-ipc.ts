@@ -12,6 +12,7 @@ const { autoUpdater } = electronUpdater;
 
 interface DesktopUpdateIpcOptions {
   readonly enabled: boolean;
+  readonly autoDownload: () => boolean;
 }
 
 function publishUpdateState(state: DesktopUpdateState): void {
@@ -26,6 +27,7 @@ export function installDesktopUpdateIpc(
 ): DesktopUpdateService {
   const service = new DesktopUpdateService(autoUpdater, {
     enabled: options.enabled,
+    autoDownload: options.autoDownload,
     currentVersion: app.getVersion(),
   });
   service.subscribe(publishUpdateState);

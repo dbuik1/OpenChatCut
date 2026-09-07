@@ -1,11 +1,25 @@
-# Desktop release workflow. It only runs when manually dispatched.
-# Run it against a branch to build Actions artifacts, or against a v* tag to
-# publish a GitHub Release with installers and SHA-256 checksums.
+# Desktop release workflow.
+# Pushing a v* tag builds the Windows installer and publishes a GitHub Release
+# carrying it, its blockmap and latest-x64.yml, which is the feed the shipped
+# Windows app polls for updates. Dispatch it by hand against a branch to build
+# Actions artifacts without releasing, or with platforms=all against a v* tag
+# to release installers for every platform.
 # GitHub automatically adds source archives to every release.
 name: desktop
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: Platforms to package (a tag release carries only these)
+        type: choice
+        default: windows
+        options:
+          - windows
+          - all
 
 permissions:
   contents: read
@@ -18,7 +32,30 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
+      # Only the Windows installer packages by default: it is the one build
+      # with a self-updating audience. The other platforms package on an
+      # explicit platforms=all dispatch.
+      - name: Choose platforms
+        id: platforms
+        shell: bash
+        env:
+          RELEASE_PLATFORMS: ${{ (github.event_name == 'workflow_dispatch' && inputs.platforms == 'all') && 'all' || 'windows' }}
+        run: |
+          set -euo pipefail
+          mac_arm64='{"name":"macOS-arm64","os":"macos-latest","script":"desktop:dist","artifact":"release/*.dmg\nrelease/*.zip\nrelease/latest-arm64-mac.yml\nrelease/*.blockmap"}'
+          mac_x64='{"name":"macOS-x64","os":"macos-15-intel","script":"desktop:dist:mac-x64","artifact":"release/*.dmg\nrelease/*.zip\nrelease/latest-x64-mac.yml\nrelease/*.blockmap"}'
+          windows='{"name":"Windows-x64","os":"windows-latest","script":"desktop:dist:win","artifact":"release/*.exe\nrelease/latest-x64.yml\nrelease/*.blockmap"}'
+          linux='{"name":"Linux-x64","os":"ubuntu-latest","script":"desktop:dist:linux","artifact":"release/*.AppImage\nrelease/latest-x64-linux.yml\nrelease/*.blockmap"}'
+          if [[ "$RELEASE_PLATFORMS" == all ]]; then
+            legs="[$mac_arm64,$mac_x64,$windows,$linux]"
+          else
+            legs="[$windows]"
+          fi
+          jq -e . <<<"{\"include\":$legs}" > /dev/null
+          echo "matrix={\"include\":$legs}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -50,38 +87,7 @@ jobs:
     needs: validate
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: macOS-arm64
-            os: macos-latest
-            script: desktop:dist
-            artifact: |
-              release/*.dmg
-              release/*.zip
-              release/latest-arm64-mac.yml
-              release/*.blockmap
-          - name: macOS-x64
-            os: macos-15-intel
-            script: desktop:dist:mac-x64
-            artifact: |
-              release/*.dmg
-              release/*.zip
-              release/latest-x64-mac.yml
-              release/*.blockmap
-          - name: Windows-x64
-            os: windows-latest
-            script: desktop:dist:win
-            artifact: |
-              release/*.exe
-              release/latest-x64.yml
-              release/*.blockmap
-          - name: Linux-x64
-            os: ubuntu-latest
-            script: desktop:dist:linux
-            artifact: |
-              release/*.AppImage
-              release/latest-x64-linux.yml
-              release/*.blockmap
+      matrix: ${{ fromJSON(needs.validate.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -301,6 +307,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      RELEASE_PLATFORMS: ${{ (github.event_name == 'workflow_dispatch' && inputs.platforms == 'all') && 'all' || 'windows' }}
     steps:
       - name: Download installers
         uses: actions/download-artifact@v7
@@ -314,6 +321,13 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED_VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$RELEASE_PLATFORMS" == windows ]]; then
+            test "$(find release-files -type f | wc -l | tr -d ' ')" = 3
+            test -f release-files/latest-x64.yml
+            test -f "release-files/OpenChatCut-${EXPECTED_VERSION}-x64.exe"
+            test -f "release-files/OpenChatCut-${EXPECTED_VERSION}-x64.exe.blockmap"
+            exit 0
+          fi
           test "$(find release-files -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.AppImage' \) | wc -l | tr -d ' ')" = 4
           test "$(find release-files -type f -name '*.zip' | wc -l | tr -d ' ')" = 2
           test "$(find release-files -type f -name '*.yml' | wc -l | tr -d ' ')" = 4

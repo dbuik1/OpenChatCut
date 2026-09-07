@@ -8,6 +8,10 @@ import type {
 export interface DesktopUpdateServiceOptions {
   readonly enabled: boolean;
   readonly currentVersion: string;
+  /** Read at the moment an update is found, so a changed preference applies
+   *  without a restart. Installing stays an explicit action: the installer is
+   *  unsigned and a quit must never turn into a SmartScreen prompt. */
+  readonly autoDownload?: () => boolean;
 }
 
 export interface DesktopUpdateSupportContext {
@@ -60,6 +64,10 @@ export class DesktopUpdateService {
         currentVersion: this.options.currentVersion,
         latestVersion: releaseVersion(info),
       });
+      if (this.options.autoDownload?.()) {
+        // The renderer sees the available state before the download begins.
+        void Promise.resolve().then(() => this.download());
+      }
     });
     this.updater.on('update-not-available', (info: UpdateInfo) => {
       this.publish({

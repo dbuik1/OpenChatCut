@@ -355,6 +355,8 @@ async function boot(): Promise<void> {
       smoke: SMOKE,
       platform: process.platform,
     }),
+    // Unset means on: a fresh install downloads updates in the background.
+    autoDownload: () => getKey('AUTO_DOWNLOAD_UPDATES' as never) !== '0',
   });
   installDirectoryWatchIpc(origin);
   if (diagnosticsLog) installDiagnosticsIpc(origin, diagnosticsLog);

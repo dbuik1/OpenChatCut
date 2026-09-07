@@ -3,8 +3,10 @@ import type {
   DesktopUpdateState,
 } from '../../shared/desktop-update';
 
-export const UPSTREAM_LATEST_RELEASE_URL = 'https://api.github.com/repos/0xsline/OpenChatCut/releases/latest';
-export const UPSTREAM_RELEASES_URL = 'https://github.com/0xsline/OpenChatCut/releases/latest';
+// The fork's releases, matching the electron-updater feed: sending a user to
+// upstream would install a build without this fork's patches.
+export const UPSTREAM_LATEST_RELEASE_URL = 'https://api.github.com/repos/dbuik1/OpenChatCut/releases/latest';
+export const UPSTREAM_RELEASES_URL = 'https://github.com/dbuik1/OpenChatCut/releases/latest';
 
 export const CURRENT_APP_VERSION =
   typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';

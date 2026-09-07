@@ -267,6 +267,18 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
                 ] },
             ] },
         ] },
+      { key: 'updates', title: '软件更新', hint: '桌面版启动时检查本项目的新版本。',
+        vendors: [
+          { key: 'updates/auto', vendor: 'localdisk', title: '自动更新', kind: 'settings',
+            note: 'Windows 与 Linux 桌面版每次启动都会检查更新。开启后发现新版本即在后台下载，下载完成后提示重启安装，不会自行重启。macOS 版请前往发布页下载。',
+            fields: [
+              { name: 'AUTO_DOWNLOAD_UPDATES', label: '自动下载更新', kind: 'select', defaultLabel: '发现新版本即下载',
+                options: [
+                  { value: '1', label: '发现新版本即下载' },
+                  { value: '0', label: '仅提示，手动下载' },
+                ] },
+            ] },
+        ] },
       { key: 'diagnostics', title: '诊断', hint: '错误与崩溃记录，只保存在本机。',
         vendors: [
           { key: 'diagnostics/logs', vendor: 'localdisk', title: '日志', kind: 'settings',
