@@ -6,7 +6,6 @@ import { probeTemplate } from '../../template-sandbox';
 import { generateAgentText } from '../client';
 import { designStyleHint } from '../systemPrompt';
 import { execCoreDataTool } from './core-data-tools';
-import { execEditItemTool } from './edit-item-tools';
 import { execJianyingExport } from './jianying-export-tool';
 
 type Args = Record<string, unknown>;
@@ -46,7 +45,7 @@ function searchTools(args: Args, schemas: readonly AgentToolSchema[]): unknown {
   };
 }
 
-function execTemplateCatalog(name: string, args: Args, ctx: AgentContext): unknown {
+async function execTemplateCatalog(name: string, args: Args, ctx: AgentContext): Promise<unknown> {
   if (name === 'list_templates') {
     const category = args.category ? String(args.category).toLowerCase() : null;
     if (category) return ctx.templates.filter((template) => template.category.toLowerCase() === category).map((template) => template.name);
@@ -78,6 +77,10 @@ function execTemplateCatalog(name: string, args: Args, ctx: AgentContext): unkno
     const poolAsset = (ctx.getDoc().assets ?? []).find((asset) => asset.kind === 'motion-graphic'
       && (asset.id === query || asset.id.startsWith(query) || asset.name === raw));
     if (poolAsset) {
+      // Loaded on demand: edit-item-tools reaches the GLSL effect sources, which
+      // only a bundler resolves, and every caller of this module would otherwise
+      // pay that import even when no pool asset is ever placed.
+      const { execEditItemTool } = await import('./edit-item-tools');
       return execEditItemTool('edit_item', {
         adds: [{
           type: 'motion-graphic', assetId: poolAsset.id, track: args.track ?? 'V1',
