@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-09-09
+
 ### Changed / 变更
 - Glitch effect rebuilt: bursts gate the damage so the picture is clean between hits, with band and block displacement, colour split, static, scanlines and occasional inversion, each on its own slider. / 故障闪烁效果重做：突发式触发，条带与方块错位、色彩分离、静态噪点、扫描线与偶发反色各有独立滑块。
 - Brightness, contrast and saturation go to 400% (was 200%); the scale slider reaches 500%. / 亮度、对比、饱和上限提高到 400%，缩放滑块可达 500%。
