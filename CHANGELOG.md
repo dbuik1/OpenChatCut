@@ -8,7 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.14] - 2026-09-09
+
+### Added / 新增
+
+- Adjustment layers. An `adjustment` item on a video track draws nothing of its own; its filters grade the composited picture of every video track beneath it for the frames it covers, in the preview and in both export routes. Opacity, fades and the opacity keyframe act as the grade's strength. Add one from the media pool toolbar at the playhead, from the inspector, or by asking the agent; it lands on the topmost video track when that range is clear, otherwise on a new track above. GL effects, transforms other than opacity, and blend modes are not available on it, and FCPXML export omits it with a warning comment.
+  新增调整图层。视频轨上的 `adjustment` 条目本身不绘制任何内容，其滤镜作用于所覆盖帧范围内下方所有视频轨的合成画面，预览与两条导出路径一致。不透明度、淡入淡出与不透明度关键帧即为调色强度。可在媒体池工具栏于播放头处添加、在检查器中添加，或直接让 Agent 添加；顶层视频轨在该范围内空闲时落在顶层，否则新建一条更高的轨道。GL 特效、不透明度以外的变换与混合模式暂不可用；FCPXML 导出会略过它并写入警告注释。
+- Updates download in the background. The Windows and Linux desktop apps already checked this project's releases at launch; when a newer version is found they now download it without a click and then offer "Restart and install". The app never restarts on its own. Settings › Interface › Software updates turns the automatic download off, leaving the notice and a manual download.
+  更新在后台自动下载。Windows 与 Linux 桌面版启动时本就会检查本项目的新版本；现在发现新版本后会直接下载，完成后提示「重启并安装」，应用不会自行重启。可在「设置 › 界面 › 软件更新」关闭自动下载，只保留提示与手动下载。
+- Pushing a `v<version>` tag builds the Windows installer and publishes the GitHub release the updater reads. A manual workflow dispatch with `platforms=all` still builds every platform.
+  推送 `v<版本号>` 标签即构建 Windows 安装包并发布更新器所读取的 GitHub Release。手动运行工作流并选择 `platforms=all` 仍会构建全部平台。
+
 ### Changed / 变更
+
+- The release page the browser build and macOS build point to is now this fork's, matching the desktop updater's feed.
+  浏览器版与 macOS 版指向的发布页改为本分支仓库，与桌面更新器读取的源一致。
 
 - Interface scale now reaches 250%. The ceiling was 150%, which is not enough magnification for a low-vision user, and the desktop clamp silently discarded anything above it — so there was no way to go further even by editing the stored value. 175%, 200% and 250% join the list.
   界面缩放上限提高到 250%。此前上限为 150%，对低视力用户而言放大倍数不足，而桌面端的钳制会静默丢弃超出部分——即便直接修改保存值也无法再放大。现新增 175%、200%、250% 三档。
