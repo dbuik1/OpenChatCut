@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed / 变更
+- Glitch effect rebuilt: bursts gate the damage so the picture is clean between hits, with band and block displacement, colour split, static, scanlines and occasional inversion, each on its own slider. / 故障闪烁效果重做：突发式触发，条带与方块错位、色彩分离、静态噪点、扫描线与偶发反色各有独立滑块。
+- Brightness, contrast and saturation go to 400% (was 200%); the scale slider reaches 500%. / 亮度、对比、饱和上限提高到 400%，缩放滑块可达 500%。
+
+### Fixed / 修复
+- The agent could not add an intro, outro, logo or other clip named by its role: the request reached no timeline tool and the agent reported the timeline-editing tool as unavailable. Such nouns now route to the editing tools, and a Q&A-mode refusal names the mode switch. / 智能体无法按角色名（片头、片尾、角标等）添加片段，并误报时间线工具不可用；现已正确路由，问答模式下会提示切换模式。
+- `add_motion_graphic` accepts a template id or a media-pool motion graphic's asset id, and a failed lookup lists the nearest names instead of the whole catalogue. / `add_motion_graphic` 支持模板 id 与素材池动态图形 id，找不到时列出最接近的名称。
+
 ## [0.2.14] - 2026-09-09
 
 ### Added / 新增

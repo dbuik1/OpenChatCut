@@ -25,7 +25,7 @@ export const CORE_TOOL_SCHEMAS: AgentToolSchema[] = [
     input_schema: {
       type: 'object',
       properties: {
-        templateName: { type: 'string', description: 'Template name (fuzzy match against list_templates).' },
+        templateName: { type: 'string', description: 'Catalog template name or id (fuzzy name match against list_templates; ids as returned by browse_library or read_timeline). A media-pool motion graphic (a create_motion_graphic assetId) is also accepted and placed as that asset.' },
         track: { type: 'string', description: 'Current video-track alias or stable id (default V1).' },
         startFrame: { type: 'number', description: 'Optional exact start frame; omit to append.' },
         ripple: { type: 'boolean', description: 'Insert-edit: push same-track clips at/after startFrame right to make room.' },

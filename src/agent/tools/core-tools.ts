@@ -6,6 +6,7 @@ import { probeTemplate } from '../../template-sandbox';
 import { generateAgentText } from '../client';
 import { designStyleHint } from '../systemPrompt';
 import { execCoreDataTool } from './core-data-tools';
+import { execEditItemTool } from './edit-item-tools';
 import { execJianyingExport } from './jianying-export-tool';
 
 type Args = Record<string, unknown>;
@@ -60,16 +61,62 @@ function execTemplateCatalog(name: string, args: Args, ctx: AgentContext): unkno
       .slice(0, 15)
       .map((template) => ({ name: template.name, category: template.category }));
   }
-  const query = String(args.templateName ?? '').toLowerCase();
-  const matches = ctx.templates.filter((template) => template.name.toLowerCase().includes(query));
-  if (!matches.length) return { error: `no template matching "${args.templateName}"`, available: ctx.templates.map((template) => template.name) };
-  const template = matches[0];
+  const raw = String(args.templateName ?? '').trim();
+  if (!raw) return { error: 'templateName is required', hint: 'a catalog template name or id from list_templates / search_templates / browse_library' };
+  // Discovery tools hand back ids (browse_library returns library:motion-graphic:<id>,
+  // read_timeline a templateId), so an id must resolve here exactly as a name does.
+  const query = raw.replace(/^library:motion-graphic:/, '');
+  const lower = query.toLowerCase();
+  const startFrame = typeof args.startFrame === 'number' ? args.startFrame : undefined;
+  const template = ctx.templates.find((item) => item.id === query || item.name.toLowerCase() === lower)
+    ?? (query.length >= 8 ? ctx.templates.find((item) => item.id.startsWith(query)) : undefined)
+    ?? ctx.templates.find((item) => item.name.toLowerCase().includes(lower));
+  if (!template) {
+    // A generated or imported motion graphic is a media-pool asset, not a
+    // catalog template. Place it through edit_item's validated add so it takes
+    // the same draft/replay path as any other pool asset.
+    const poolAsset = (ctx.getDoc().assets ?? []).find((asset) => asset.kind === 'motion-graphic'
+      && (asset.id === query || asset.id.startsWith(query) || asset.name === raw));
+    if (poolAsset) {
+      return execEditItemTool('edit_item', {
+        adds: [{
+          type: 'motion-graphic', assetId: poolAsset.id, track: args.track ?? 'V1',
+          ...(startFrame !== undefined ? { startFrame } : {}),
+        }],
+        ripple: args.ripple === true,
+      }, ctx);
+    }
+    return {
+      error: `no template matching "${raw}"`,
+      nearest: nearestTemplateNames(ctx, lower),
+      hint: 'add_motion_graphic takes a catalog template name or id (search_templates, browse_library category=motion-graphics). A media-pool motion graphic (a create_motion_graphic assetId) is placed with edit_item adds:[{type:"motion-graphic",assetId}].',
+    };
+  }
   const state = ctx.getState();
   const track = resolveTrackId(state, args.track ?? 'V1', 'video') ?? defaultTrackId(state, 'video');
   if (!track) return { error: 'no video track; create one with edit_track first' };
-  const startFrame = typeof args.startFrame === 'number' ? args.startFrame : undefined;
   ctx.commands.addMotionGraphic(template, { track, startFrame, ripple: args.ripple === true });
-  return { ok: true, added: template.name, trackId: track, track: trackAlias(ctx.getState(), track) };
+  return { ok: true, added: template.name, templateId: template.id, trackId: track, track: trackAlias(ctx.getState(), track) };
+}
+
+/** The closest catalog names to a failed lookup, so the retry needs no second search. */
+function nearestTemplateNames(ctx: AgentContext, lower: string, limit = 8): string[] {
+  const tokens = lower.split(/[\s_-]+/).filter((token) => token.length > 1);
+  return ctx.templates
+    .map((item) => {
+      const name = item.name.toLowerCase();
+      const category = item.category.toLowerCase();
+      let score = 0;
+      for (const token of tokens) {
+        if (name.includes(token)) score += 2;
+        else if (category.includes(token)) score += 1;
+      }
+      return { name: item.name, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((entry) => entry.name);
 }
 
 async function generateMgCode(
