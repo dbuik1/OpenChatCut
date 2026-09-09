@@ -71,6 +71,23 @@ assert.deepEqual(
   'bare provider names do not activate speech tools without TTS/transcription intent',
 );
 
+// A request that names a piece of the video by its role, with no editor noun,
+// must still reach the timeline tools: "add the outro" once exposed nothing and
+// the model told the user the timeline-editing tool was unavailable.
+for (const prompt of [
+  'add the outro',
+  'Add an outro at the end',
+  'put the intro at the start',
+  'drop the logo on the timeline',
+  'append the end card',
+  '加个片尾',
+  '把片头放到开头',
+]) {
+  const roleRouted = new ToolActivation(catalog, [{ role: 'user', content: prompt }]);
+  assert.ok(roleRouted.names().includes('edit_item'), `${prompt} exposes edit_item`);
+  assert.ok(roleRouted.names().includes('edit_track'), `${prompt} exposes edit_track`);
+}
+
 const routed = new ToolActivation(catalog, [{ role: 'user', content: '把 V1 轨道片段移动并剪辑一下' }]);
 assert.ok(routed.names().includes('edit_item'));
 assert.ok(routed.names().includes('edit_track'));

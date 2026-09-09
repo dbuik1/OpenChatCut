@@ -147,7 +147,7 @@ async function prepareServerRunPayload(
   }
   const payload = buildServerRunPayload(environment.projectId, content, sendOptions, {
     history: modelMessages,
-    systemPrompt: buildAgentSystemPrompt(ctx, settings),
+    systemPrompt: buildAgentSystemPrompt(ctx, { settings, askOnly: sendOptions.askOnly === true }),
     provider: choice.provider,
     model: choice.model,
     backend: choice.backend,

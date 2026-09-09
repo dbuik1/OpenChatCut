@@ -394,7 +394,7 @@ export async function runAgent(
     return conv;
   }
   const toolsAvailable = active.capabilities.supportsTools.value;
-  const system = buildAgentSystemPrompt(ctx, { toolsAvailable });
+  const system = buildAgentSystemPrompt(ctx, { toolsAvailable, askOnly: opts?.askOnly === true });
   const toolCatalog = !toolsAvailable ? [] : opts?.askOnly ? ASK_MODE_TOOL_SCHEMAS : TOOL_SCHEMAS;
   const activation = new ToolActivation(toolCatalog, conv);
   try {

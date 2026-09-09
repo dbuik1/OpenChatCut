@@ -90,8 +90,8 @@ function throwIfToolAborted(signal: AbortSignal | undefined, state: ToolBoundary
   throw new ToolBoundaryError('Tool execution was stopped.', outcome);
 }
 
-export function buildCodexSystemPrompt(ctx: AgentContext): string {
-  return buildAgentSystemPrompt(ctx);
+export function buildCodexSystemPrompt(ctx: AgentContext, askOnly = false): string {
+  return buildAgentSystemPrompt(ctx, { askOnly });
 }
 async function prepareToolBoundary(
   schema: AgentToolSchema,
@@ -387,7 +387,7 @@ export async function runCodexAgent(
         state,
         { ...opts, requestIndex: requestCount },
         onEvent,
-        buildCodexSystemPrompt(ctx),
+        buildCodexSystemPrompt(ctx, opts.askOnly === true),
         (next) => { state = next; },
       );
       return completedMessages(conv, state, onEvent);

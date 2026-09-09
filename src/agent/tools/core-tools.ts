@@ -41,7 +41,7 @@ function searchTools(args: Args, schemas: readonly AgentToolSchema[]): unknown {
     activatedTools: results.map((tool) => tool.name),
     note: results.length
       ? 'Matching schemas are active for the next model step. Call tools by exact name.'
-      : 'No tools matched; try export / caption / stock / video / voice.',
+      : 'No tools matched; search by operation, not by asset role: clip / track / timeline / export / caption / stock / video / voice.',
   };
 }
 
