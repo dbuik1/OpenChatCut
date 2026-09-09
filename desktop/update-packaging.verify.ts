@@ -157,7 +157,7 @@ for (const metadata of ['latest-arm64-mac.yml', 'latest-x64-mac.yml', 'latest-x6
   assert.ok(workflow.includes(`release/${metadata}`), `desktop jobs must upload ${metadata}`);
 }
 assert.doesNotMatch(workflow, /release\/\*\.yml/, 'debug YAML must not leak into release artifacts');
-assert.match(workflow, /EXPECTED_VERSION="\$\{GITHUB_REF_NAME#v\}"/, 'release gate must derive its package version');
+assert.match(workflow, /EXPECTED_VERSION="\$\{RELEASE_TAG#v\}"/, 'release gate must derive its package version from the validated release tag');
 assert.match(workflow, /release\/\*\.blockmap/, 'desktop jobs must upload differential download metadata');
 assert.match(workflow, /-name '\*\.zip'.* = 2/, 'release aggregation must retain both macOS update archives');
 for (const blockmap of [
@@ -301,7 +301,7 @@ assert.match(
 assert.match(workflow, /sha256sum "\$asset"/, 'release verification must hash each local asset');
 assert.match(
   workflow,
-  /gh release view "\$GITHUB_REF_NAME"[\s\S]*?--json isDraft,assets/,
+  /gh release view "\$RELEASE_TAG"[\s\S]*?--json isDraft,assets/,
   'draft asset verification must use the release command that can read draft releases',
 );
 assert.match(
