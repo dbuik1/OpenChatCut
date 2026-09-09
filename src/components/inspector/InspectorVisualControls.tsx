@@ -92,11 +92,11 @@ export function FilterControl({ item, mixed, onChange, autoGrade }: {
           )}
         </div>
       )}
-      <SliderRow label={t('亮度')} val={fl.brightness ?? 1} min={0} max={2} step={0.05} fmt={`${compactNumber((fl.brightness ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.brightness}
+      <SliderRow label={t('亮度')} val={fl.brightness ?? 1} min={0} max={4} step={0.05} fmt={`${compactNumber((fl.brightness ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.brightness}
         onReset={() => onChange({ brightness: 1 })} resetDisabled={Math.abs((fl.brightness ?? 1) - 1) < 1e-6} onChange={(v) => onChange({ brightness: v })} />
-      <SliderRow label={t('对比')} val={fl.contrast ?? 1} min={0} max={2} step={0.05} fmt={`${compactNumber((fl.contrast ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.contrast}
+      <SliderRow label={t('对比')} val={fl.contrast ?? 1} min={0} max={4} step={0.05} fmt={`${compactNumber((fl.contrast ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.contrast}
         onReset={() => onChange({ contrast: 1 })} resetDisabled={Math.abs((fl.contrast ?? 1) - 1) < 1e-6} onChange={(v) => onChange({ contrast: v })} />
-      <SliderRow label={t('饱和')} val={fl.saturate ?? 1} min={0} max={2} step={0.05} fmt={`${compactNumber((fl.saturate ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.saturate}
+      <SliderRow label={t('饱和')} val={fl.saturate ?? 1} min={0} max={4} step={0.05} fmt={`${compactNumber((fl.saturate ?? 1) * 100)}%`} inputScale={100} mixed={mixed?.saturate}
         onReset={() => onChange({ saturate: 1 })} resetDisabled={Math.abs((fl.saturate ?? 1) - 1) < 1e-6} onChange={(v) => onChange({ saturate: v })} />
       <SliderRow label={t('模糊')} val={fl.blur ?? 0} min={0} max={30} step={1} fmt={`${compactNumber(fl.blur ?? 0)}px`} mixed={mixed?.blur}
         onReset={() => onChange({ blur: 0 })} resetDisabled={(fl.blur ?? 0) === 0} onChange={(v) => onChange({ blur: v })} />

@@ -24,7 +24,7 @@ const compact = (value: number) => String(Number(value.toFixed(2)));
 const percent = (value: number) => `${compact(value)}%`;
 const scaleRange = {
   valueRange: [0, 10] as const,
-  editorRange: [0.1, 3] as const,
+  editorRange: [0.1, 5] as const,
   step: 0.05,
   defaultValue: 1,
   format: (value: number) => `${compact(value * 100)}%`,

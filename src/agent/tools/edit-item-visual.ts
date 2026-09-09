@@ -20,7 +20,7 @@ export function parseFiltersArg(raw: unknown): { filters?: ClipFilters; error?: 
       if (n < 0 || n > 30) return { error: 'filters.blur must be 0..30 (px)' };
       out.blur = Math.round(n * 10) / 10;
     } else {
-      if (n < 0 || n > 2) return { error: `filters.${key} must be 0..2 (1 = normal)` };
+      if (n < 0 || n > 4) return { error: `filters.${key} must be 0..4 (1 = normal)` };
       out[key] = Math.round(n * 1000) / 1000;
     }
   }
