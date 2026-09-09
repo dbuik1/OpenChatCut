@@ -1,8 +1,10 @@
 # Desktop release workflow.
 # Pushing a v* tag builds the Windows installer and publishes a GitHub Release
 # carrying it, its blockmap and latest-x64.yml, which is the feed the shipped
-# Windows app polls for updates. Dispatch it by hand against a branch to build
-# Actions artifacts without releasing, or with platforms=all against a v* tag
+# Windows app polls for updates. A manual run with release=true does the same
+# from any ref, tagging v<package.json version> at that commit itself, for a
+# maintainer whose credentials can push branches but not tags. Dispatch it
+# without the switch to build Actions artifacts only, or with platforms=all
 # to release installers for every platform.
 # GitHub automatically adds source archives to every release.
 name: desktop
@@ -20,6 +22,10 @@ on:
         options:
           - windows
           - all
+      release:
+        description: Publish a release for the package.json version at this ref
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.platforms.outputs.matrix }}
+      release_tag: ${{ steps.release.outputs.tag }}
     steps:
       # Only the Windows installer packages by default: it is the one build
       # with a self-updating audience. The other platforms package on an
@@ -68,15 +75,20 @@ jobs:
           ONNXRUNTIME_NODE_INSTALL: 'skip'
       - name: Install ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Verify release version
-        if: startsWith(github.ref, 'refs/tags/v')
+      # The release tag is v<package.json version>: checked against the pushed
+      # tag, or derived for a manual release run.
+      - name: Resolve release tag
+        id: release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         shell: bash
         run: |
+          set -euo pipefail
           expected="v$(node -p "require('./package.json').version")"
-          if [[ "$GITHUB_REF_NAME" != "$expected" ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "$expected" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match package version $expected" >&2
             exit 1
           fi
+          echo "tag=$expected" >> "$GITHUB_OUTPUT"
       - run: npm run lint
       - run: npm test
       - run: npm run verify:agent-skill
@@ -299,14 +311,15 @@ jobs:
 
   release:
     name: Publish Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    if: needs.validate.outputs.release_tag != ''
+    needs: [validate, package]
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
       RELEASE_PLATFORMS: ${{ (github.event_name == 'workflow_dispatch' && inputs.platforms == 'all') && 'all' || 'windows' }}
     steps:
       - name: Download installers
@@ -320,7 +333,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_VERSION="${GITHUB_REF_NAME#v}"
+          EXPECTED_VERSION="${RELEASE_TAG#v}"
           if [[ "$RELEASE_PLATFORMS" == windows ]]; then
             test "$(find release-files -type f | wc -l | tr -d ' ')" = 3
             test -f release-files/latest-x64.yml
@@ -350,20 +363,22 @@ jobs:
           release_ready=false
 
           for attempt in {1..8}; do
-            if is_draft="$(gh release view "$GITHUB_REF_NAME" \
+            if is_draft="$(gh release view "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --json isDraft \
               --jq '.isDraft' 2>/dev/null)"; then
               if [[ "$is_draft" != "true" ]]; then
-                echo "Release $GITHUB_REF_NAME is already public; refusing to replace it" >&2
+                echo "Release $RELEASE_TAG is already public; refusing to replace it" >&2
                 exit 1
               fi
               release_ready=true
               break
             fi
-            if gh release create "$GITHUB_REF_NAME" \
+            # --target creates the tag at this commit when the run was not
+            # started by a tag push; an existing tag is left where it is.
+            if gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
+              --target "$GITHUB_SHA" \
               --generate-notes \
               --draft; then
               release_ready=true
@@ -383,7 +398,7 @@ jobs:
           uploaded=false
 
           for attempt in {1..8}; do
-            if gh release upload "$GITHUB_REF_NAME" \
+            if gh release upload "$RELEASE_TAG" \
               release-files/* \
               --repo "$GITHUB_REPOSITORY" \
               --clobber; then
@@ -408,11 +423,11 @@ jobs:
 
           verified=false
           for attempt in {1..8}; do
-            if release_json="$(gh release view "$GITHUB_REF_NAME" \
+            if release_json="$(gh release view "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --json isDraft,assets)"; then
               if [[ "$(jq -r '.isDraft' <<<"$release_json")" != "true" ]]; then
-                echo "Release $GITHUB_REF_NAME became public before asset verification" >&2
+                echo "Release $RELEASE_TAG became public before asset verification" >&2
                 exit 1
               fi
               jq -r '.assets[] | [.name, (.digest // "")] | @tsv' \
@@ -435,14 +450,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          is_draft="$(gh release view "$GITHUB_REF_NAME" \
+          is_draft="$(gh release view "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --json isDraft \
             --jq '.isDraft')"
           if [[ "$is_draft" != "true" ]]; then
-            echo "Release $GITHUB_REF_NAME is already public; refusing to republish it" >&2
+            echo "Release $RELEASE_TAG is already public; refusing to republish it" >&2
             exit 1
           fi
-          gh release edit "$GITHUB_REF_NAME" \
+          gh release edit "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false

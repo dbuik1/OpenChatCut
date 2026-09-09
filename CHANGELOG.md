@@ -16,8 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   新增调整图层。视频轨上的 `adjustment` 条目本身不绘制任何内容，其滤镜作用于所覆盖帧范围内下方所有视频轨的合成画面，预览与两条导出路径一致。不透明度、淡入淡出与不透明度关键帧即为调色强度。可在媒体池工具栏于播放头处添加、在检查器中添加，或直接让 Agent 添加；顶层视频轨在该范围内空闲时落在顶层，否则新建一条更高的轨道。GL 特效、不透明度以外的变换与混合模式暂不可用；FCPXML 导出会略过它并写入警告注释。
 - Updates download in the background. The Windows and Linux desktop apps already checked this project's releases at launch; when a newer version is found they now download it without a click and then offer "Restart and install". The app never restarts on its own. Settings › Interface › Software updates turns the automatic download off, leaving the notice and a manual download.
   更新在后台自动下载。Windows 与 Linux 桌面版启动时本就会检查本项目的新版本；现在发现新版本后会直接下载，完成后提示「重启并安装」，应用不会自行重启。可在「设置 › 界面 › 软件更新」关闭自动下载，只保留提示与手动下载。
-- Pushing a `v<version>` tag builds the Windows installer and publishes the GitHub release the updater reads. A manual workflow dispatch with `platforms=all` still builds every platform.
-  推送 `v<版本号>` 标签即构建 Windows 安装包并发布更新器所读取的 GitHub Release。手动运行工作流并选择 `platforms=all` 仍会构建全部平台。
+- Pushing a `v<version>` tag, or running the desktop workflow by hand with `release` switched on, builds the Windows installer and publishes the GitHub release the updater reads; the manual run tags the commit itself. `platforms=all` still builds every platform.
+  推送 `v<版本号>` 标签，或手动运行 desktop 工作流并开启 `release`，即构建 Windows 安装包并发布更新器所读取的 GitHub Release；手动运行会自行为该提交打标签。选择 `platforms=all` 仍会构建全部平台。
 
 ### Changed / 变更
 
