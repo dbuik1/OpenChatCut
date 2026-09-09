@@ -291,11 +291,16 @@ export const FX_EFFECTS: Record<string, FxDef> = {
   'builtin:fx-glitch': {
     id: 'builtin:fx-glitch',
     name: '故障闪烁',
-    desc: '横向切片错位 + 偶发反色/色差。动画。',
+    desc: '突发式故障：条带错位、方块撕裂、色彩分离、静态噪点、扫描线与偶发反色。动画。',
     frag: glitchFrag,
     props: [
-      { key: 'intensity', label: '强度', default: 0.7, min: 0, max: 2, step: 0.05 },
+      { key: 'intensity', label: '强度', default: 0.9, min: 0, max: 2, step: 0.05 },
       { key: 'blockSize', label: '切片密度', default: 28, min: 4, max: 80, step: 1 },
+      { key: 'speed', label: '闪烁速度', default: 1, min: 0.1, max: 4, step: 0.1 },
+      { key: 'burst', label: '突发频率', default: 0.4, min: 0, max: 1, step: 0.05 },
+      { key: 'colorSplit', label: '色彩分离', default: 0.7, min: 0, max: 1, step: 0.05 },
+      { key: 'noise', label: '静态噪点', default: 0.35, min: 0, max: 1, step: 0.05 },
+      { key: 'scanlines', label: '扫描线强度', default: 0.3, min: 0, max: 1, step: 0.05 },
     ],
   },
   'builtin:fx-bloom': {
