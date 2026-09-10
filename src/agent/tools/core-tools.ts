@@ -13,8 +13,10 @@ type Args = Record<string, unknown>;
 function searchTools(args: Args, schemas: readonly AgentToolSchema[]): unknown {
   const query = String(args.query ?? '').trim().toLowerCase();
   if (!query) return { error: 'query is required', results: [] };
-  const limit = Math.min(12, Math.max(1, Math.round(Number(args.limit) || 8)));
-  const tokens = query.split(/\s+/).filter(Boolean);
+  const limit = Math.min(16, Math.max(1, Math.round(Number(args.limit) || 12)));
+  // One- and two-letter words (a, an, to, of) match nearly every description and
+  // only add noise to the ranking, so they carry no weight.
+  const tokens = query.split(/\s+/).filter((token) => token.length >= 3);
   const scored = schemas
     .filter((tool) => tool.name !== 'ToolSearch')
     .map((tool) => {

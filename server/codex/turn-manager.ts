@@ -39,6 +39,9 @@ interface TurnSession {
   clientAlive: boolean;
   terminal: boolean;
   rejectedToolCalls: number;
+  /** The caller is abandoning this thread to start one with a wider tool list,
+   * so the interruption that follows is a normal end, not a failure. */
+  restartRequested: boolean;
 }
 
 function object(value: unknown): Record<string, unknown> | null {
@@ -216,6 +219,7 @@ function createSession(request: CodexTurnRequest, client: CodexAppServerClient, 
     clientAlive: true,
     terminal: false,
     rejectedToolCalls: 0,
+    restartRequested: false,
     finish: (event) => {
       if (session.terminal) return false;
       session.terminal = true;
@@ -274,6 +278,28 @@ export class CodexTurnManager {
       result: body.success ? null : browserFailureSummary(body.result),
       success: body.success,
     });
+    return 'ok';
+  }
+
+  /**
+   * End the turn early so the caller can start a fresh thread. A Codex thread's
+   * dynamic tools are fixed at thread/start, so a tool result that activates
+   * tools the thread was never offered cannot take effect inside it; the only
+   * way to hand the model those tools is a new thread carrying the history.
+   * The thread itself is deleted by the normal cleanup path.
+   */
+  async interruptForRestart(requestId: string): Promise<'ok' | 'unknown-request'> {
+    const session = this.sessions.get(requestId);
+    if (!session || session.terminal) return 'unknown-request';
+    session.restartRequested = true;
+    if (session.clientAlive && session.threadId && session.turnId) {
+      await session.client.request(
+        'turn/interrupt',
+        { threadId: session.threadId, turnId: session.turnId },
+        { timeoutMs: CLEANUP_TIMEOUT_MS },
+      ).catch(() => {});
+    }
+    session.finish({ type: 'done' });
     return 'ok';
   }
 
@@ -340,6 +366,7 @@ export class CodexTurnManager {
 
   private completeTurn(session: TurnSession, turn: Record<string, unknown> | null): void {
     if (turn?.status === 'completed') session.finish({ type: 'done' });
+    else if (turn?.status === 'interrupted' && session.restartRequested) session.finish({ type: 'done' });
     else if (turn?.status === 'interrupted') session.finish({ type: 'error', message: 'Codex turn was interrupted.' });
     else session.finish({ type: 'error', message: 'Codex turn failed. Try again.' });
   }

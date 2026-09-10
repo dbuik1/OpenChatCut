@@ -417,4 +417,63 @@ function sequence(events: readonly CodexTurnStreamEvent[]): ServerCodexTurnDeps 
   assert.equal(outcome.hitMaxTokens, false, 'absent usage is not treated as truncation');
 }
 
-console.log('server agent codex turn verification passed, tool payload and output cap included');
+
+// ── A result that activates tools the thread was never offered restarts it ──
+// A Codex thread's tool list is fixed at thread/start. ToolSearch widening the
+// active set inside that thread used to be invisible to the model, which then
+// reported the timeline tools as unavailable. The thread is interrupted and a
+// new one starts with the widened list and the search result in its history.
+{
+  const run = makeRun();
+  const input = makeInput(run);
+  assert.ok(input.activation.current.names().includes('ToolSearch'), 'ToolSearch is a boot tool');
+  assert.ok(!input.activation.current.names().includes(analyzeMusicSchema.name),
+    'the tool under test starts inactive');
+  const requests: Array<{ requestId: string; toolNames: string[]; prompt: string }> = [];
+  const interrupted: string[] = [];
+  let releaseFirstThread!: () => void;
+  const firstThreadEnded = new Promise<void>((resolve) => { releaseFirstThread = resolve; });
+  const deps: ServerCodexTurnDeps = {
+    interruptForRestart: async (requestId) => {
+      interrupted.push(requestId);
+      releaseFirstThread();
+    },
+    runTurn: async (request, emit) => {
+      requests.push({
+        requestId: request.requestId,
+        toolNames: request.tools.map((tool) => tool.name),
+        prompt: request.prompt,
+      });
+      if (requests.length === 1) {
+        emit({ type: 'text-delta', delta: 'Looking for the tool. ' });
+        emit({ type: 'tool-start', callId: 'search-1', name: 'ToolSearch', args: { query: 'analyze music' } });
+        await deliverWhenRequested(run, 'search-1', {
+          results: [{ name: analyzeMusicSchema.name }],
+          activatedTools: [analyzeMusicSchema.name],
+        });
+        // The real turn manager resolves the thread once it is interrupted.
+        await firstThreadEnded;
+        emit({ type: 'done' });
+        return;
+      }
+      emit({ type: 'text-delta', delta: 'Analysing.' });
+      emit({ type: 'done' });
+    },
+  };
+  const outcome = await executeServerCodexTurn(input, deps);
+  assert.equal(requests.length, 2, 'the thread restarts exactly once');
+  assert.deepEqual(interrupted, [requests[0]!.requestId], 'the first thread is interrupted, not left to answer');
+  assert.notEqual(requests[0]!.requestId, requests[1]!.requestId, 'the restarted thread has its own request id');
+  assert.ok(!requests[0]!.toolNames.includes(analyzeMusicSchema.name), 'the first thread was not offered the tool');
+  assert.ok(requests[1]!.toolNames.includes(analyzeMusicSchema.name), 'the restarted thread is offered the activated tool');
+  assert.ok(requests[1]!.toolNames.includes(searchMediaSchema.name), 'the restarted thread keeps the original set');
+  assert.match(requests[1]!.prompt, /\[tool call: ToolSearch\]/, 'the search result travels into the restarted thread');
+  assert.match(requests[1]!.prompt, /Looking for the tool/, 'text produced before the restart travels too');
+  assert.equal(outcome.text, 'Looking for the tool. Analysing.', 'text spans both threads');
+  assert.equal(outcome.continued, false, 'the restart is internal to the Codex turn');
+  await flushRunPersistence(run);
+  assert.ok(run.events.some((event) => event.type === 'tool-widening-restart'), 'the restart is recorded on the run');
+  assert.equal(run.events.filter((event) => event.type === 'text-end').length, 1, 'one text-end for the whole turn');
+}
+
+console.log('server agent codex turn verification passed, tool payload, output cap and tool widening included');

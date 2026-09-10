@@ -22,6 +22,11 @@ import {
 import { executeBrowserTool, flushTextEvents, flushThinkingEvents, serverRunTextMetadata, type ActivationState } from './executor';
 
 const CODEX_TURN_TIMEOUT_MS = 600_000;
+// A Codex thread's tool list is fixed when the thread starts, so a tool result
+// that activates tools the thread was not offered can only reach the model in a
+// new thread. Each restart carries the history and strictly widens the list, so
+// the bound is only a guard against a pathological catalogue walk.
+const MAX_TOOL_WIDENING_RESTARTS = 3;
 
 export interface ServerCodexTurnInput {
   readonly run: ServerRun;
@@ -141,6 +146,8 @@ export interface ServerCodexTurnDeps {
     emit: (event: CodexTurnStreamEvent) => void,
     signal: AbortSignal,
   ) => Promise<void>;
+  /** Ends the running thread so it can be restarted with a wider tool list. */
+  readonly interruptForRestart?: (requestId: string) => Promise<unknown>;
 }
 
 /**
@@ -169,134 +176,167 @@ export async function executeServerCodexTurn(
   // exposed, and resolving that against the exposed set alone reports it as an
   // unknown tool. Widening the payload to match the resolver would send the
   // entire catalogue every turn and defeat the exposure mechanism outright.
-  const activeSchemas = input.activation.current.schemas();
   const schemas = input.activation.current.allSchemas();
-  const requestId = `run-${input.run.id}-${input.requestIndex}`;
   pushRunEvent(input.run, 'text-start', {});
   let text = '';
   let pending = '';
   let pendingThinking = '';
-  let done = false;
-  let errorMessage: string | null = null;
   let lastOutputTokens: number | undefined;
   // Tool calls reach the editor as they stream, before the turn completes, so
   // once one has run the turn is no longer safe to replay.
   let toolsExecuted = false;
   const toolHistory: ModelMessage[] = [];
+  const runTurn = deps.runTurn ?? runServerCodexTurn;
+  const interruptForRestart = deps.interruptForRestart
+    ?? ((requestId: string) => codexTurnManager.interruptForRestart(requestId));
 
-  const settle = (
-    callId: string,
-    success: boolean,
-    result: unknown,
-  ): void => {
-    void codexTurnManager.settleToolResult({
-      requestId,
-      callId,
-      success,
-      result: result ?? null,
-    });
-  };
+  for (let restarts = 0; ; restarts += 1) {
+    const activeSchemas = input.activation.current.schemas();
+    const offered = new Set(activeSchemas.map((schema) => schema.name));
+    const requestId = `run-${input.run.id}-${input.requestIndex}${restarts ? `-w${restarts}` : ''}`;
+    let done = false;
+    let errorMessage: string | null = null;
+    // Set once a tool result has activated tools this thread was never offered:
+    // the thread is abandoned and the loop starts a wider one.
+    let restartPending = false;
 
-  const bridgeToolCall = (event: Extract<CodexTurnStreamEvent, { type: 'tool-start' }>): void => {
-    void (async () => {
-      try {
-        const schema = schemas.find((candidate) => candidate.name === event.name);
-        if (!schema) {
-          const failure = { error: `Unknown tool: ${event.name}` };
-          input.activation.toolFailures.record(event.name, { success: false, result: failure });
+    const settle = (
+      callId: string,
+      success: boolean,
+      result: unknown,
+    ): void => {
+      void codexTurnManager.settleToolResult({
+        requestId,
+        callId,
+        success,
+        result: result ?? null,
+      });
+    };
+
+    const widenedBy = (): string[] =>
+      input.activation.current.names().filter((name) => !offered.has(name));
+
+    const bridgeToolCall = (event: Extract<CodexTurnStreamEvent, { type: 'tool-start' }>): void => {
+      void (async () => {
+        try {
+          const schema = schemas.find((candidate) => candidate.name === event.name);
+          if (!schema) {
+            const failure = { error: `Unknown tool: ${event.name}` };
+            input.activation.toolFailures.record(event.name, { success: false, result: failure });
+            toolHistory.push(codexToolHistoryEntry(
+              { name: event.name, args: event.args },
+              { success: false, result: failure },
+            ));
+            settle(event.callId, false, failure);
+            return;
+          }
+          toolsExecuted = true;
+          // A remembered tool the thread was not offered is admitted by the
+          // bridge itself; that is resolution, not widening, and must not
+          // restart the thread.
+          offered.add(schema.name);
+          const delivered = await executeBrowserTool(
+            input.run,
+            schema,
+            (event.args ?? {}) as Record<string, unknown>,
+            event.callId,
+            input.activation,
+          );
+          const success = !isFailedToolResult(delivered);
           toolHistory.push(codexToolHistoryEntry(
             { name: event.name, args: event.args },
-            { success: false, result: failure },
+            { success, result: delivered },
           ));
-          settle(event.callId, false, failure);
-          return;
+          if (success && !restartPending && restarts < MAX_TOOL_WIDENING_RESTARTS && widenedBy().length > 0) {
+            // The result is not settled into this thread: the model would answer
+            // it without the tools it just activated. The history entry above
+            // carries the result into the restarted thread instead.
+            restartPending = true;
+            await interruptForRestart(requestId);
+            return;
+          }
+          settle(event.callId, success, delivered ?? null);
+        } catch (error) {
+          const message = toolFailureReason(error);
+          toolHistory.push(codexToolHistoryEntry(
+            { name: event.name, args: event.args },
+            { success: false, result: { error: message } },
+          ));
+          settle(event.callId, false, { error: message });
         }
-        toolsExecuted = true;
-        const delivered = await executeBrowserTool(
-          input.run,
-          schema,
-          (event.args ?? {}) as Record<string, unknown>,
-          event.callId,
-          input.activation,
-        );
-        const success = !isFailedToolResult(delivered);
-        toolHistory.push(codexToolHistoryEntry(
-          { name: event.name, args: event.args },
-          { success, result: delivered },
-        ));
-        settle(event.callId, success, delivered ?? null);
-      } catch (error) {
-        const message = toolFailureReason(error);
-        toolHistory.push(codexToolHistoryEntry(
-          { name: event.name, args: event.args },
-          { success: false, result: { error: message } },
-        ));
-        settle(event.callId, false, { error: message });
+      })();
+    };
+
+    const emit = (event: CodexTurnStreamEvent): void => {
+      switch (event.type) {
+        case 'text-delta':
+          text += event.delta;
+          pending = flushTextEvents(input.run, pending + event.delta, false);
+          break;
+        case 'thinking-delta':
+          pendingThinking = flushThinkingEvents(input.run, pendingThinking + event.delta, false);
+          break;
+        case 'tool-start':
+          bridgeToolCall(event);
+          break;
+        case 'context-usage':
+          lastOutputTokens = event.outputTokens;
+          recordServerContextUsage(
+            input.run,
+            usageFromCodexEvent(event, prepared, input.requestIndex),
+            activeSchemas.length,
+            JSON.stringify(activeSchemas).length,
+          );
+          break;
+        case 'error':
+          errorMessage = event.message;
+          break;
+        case 'done':
+          done = true;
+          break;
+        default:
+          break;
       }
-    })();
-  };
+    };
 
-  const emit = (event: CodexTurnStreamEvent): void => {
-    switch (event.type) {
-      case 'text-delta':
-        text += event.delta;
-        pending = flushTextEvents(input.run, pending + event.delta, false);
-        break;
-      case 'thinking-delta':
-        pendingThinking = flushThinkingEvents(input.run, pendingThinking + event.delta, false);
-        break;
-      case 'tool-start':
-        bridgeToolCall(event);
-        break;
-      case 'context-usage':
-        lastOutputTokens = event.outputTokens;
-        recordServerContextUsage(
-          input.run,
-          usageFromCodexEvent(event, prepared, input.requestIndex),
-          activeSchemas.length,
-          JSON.stringify(activeSchemas).length,
-        );
-        break;
-      case 'error':
-        errorMessage = event.message;
-        break;
-      case 'done':
-        done = true;
-        break;
-      default:
-        break;
+    let turnError: unknown = null;
+    try {
+      await withTimeout(runTurn(
+        {
+          requestId,
+          system: input.instructions,
+          prompt: serializeMessagesForPrompt([
+            ...prepared.messages,
+            ...(text ? [{ role: 'assistant', content: text } as ModelMessage] : []),
+            ...toolHistory,
+          ]),
+          projectId: input.projectId,
+          askOnly: input.askOnly,
+          model: input.model,
+          tools: codexToolSpecs(activeSchemas),
+        },
+        emit,
+        input.signal,
+      ), CODEX_TURN_TIMEOUT_MS);
+    } catch (error) {
+      turnError = error;
     }
-  };
-
-  let turnError: unknown = null;
-  const runTurn = deps.runTurn ?? runServerCodexTurn;
-  try {
-    await withTimeout(runTurn(
-      {
-        requestId,
-        system: input.instructions,
-        prompt: serializeMessagesForPrompt([...prepared.messages]),
-        projectId: input.projectId,
-        askOnly: input.askOnly,
-        model: input.model,
-        tools: codexToolSpecs(activeSchemas),
-      },
-      emit,
-      input.signal,
-    ), CODEX_TURN_TIMEOUT_MS);
-  } catch (error) {
-    turnError = error;
-  }
-  flushTextEvents(input.run, pending, true);
-  flushThinkingEvents(input.run, pendingThinking, true);
-  pushRunEvent(input.run, 'text-end', serverRunTextMetadata(text));
-  if (turnError) throw toolsExecuted ? markSideEffectsPerformed(turnError) : turnError;
-  if (errorMessage) {
-    const failure = new Error(errorMessage);
-    throw toolsExecuted ? markSideEffectsPerformed(failure) : failure;
-  }
-  if (!done) {
-    throw new Error('Codex turn ended without a terminal event.');
+    if (restartPending && !turnError && !input.signal.aborted) {
+      pushRunEvent(input.run, 'tool-widening-restart', { tools: widenedBy(), restart: restarts + 1 });
+      continue;
+    }
+    flushTextEvents(input.run, pending, true);
+    flushThinkingEvents(input.run, pendingThinking, true);
+    pushRunEvent(input.run, 'text-end', serverRunTextMetadata(text));
+    if (turnError) throw toolsExecuted ? markSideEffectsPerformed(turnError) : turnError;
+    if (errorMessage) {
+      const failure = new Error(errorMessage);
+      throw toolsExecuted ? markSideEffectsPerformed(failure) : failure;
+    }
+    if (!done) {
+      throw new Error('Codex turn ended without a terminal event.');
+    }
+    break;
   }
   const messages: ModelMessage[] = [
     ...prepared.messages,

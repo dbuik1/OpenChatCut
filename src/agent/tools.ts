@@ -196,7 +196,7 @@ export const TOOL_SCHEMAS: AgentToolSchema[] = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Keyword(s), e.g. "export", "caption", "stock", "shader".' },
-        limit: { type: 'number', description: 'Max activated results (default 8, max 12).' },
+        limit: { type: 'number', description: 'Max activated results (default 12, max 16).' },
       },
       required: ['query'],
     },
