@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-09-10
+
+### Fixed / 修复
+- Editing tools found by the agent's tool search could not be called in the same turn. Since 0.2.14 a Codex turn is offered only the tools its first step exposed, and a Codex thread's tool list cannot grow after it starts, so a search that found `edit_item` still left it uncallable and the agent reported the timeline-editing tool as unavailable. A result that activates unoffered tools now ends the thread and restarts it with the wider list and the search result in its history. / 智能体通过工具搜索找到的编辑工具在同一轮内无法调用：自 0.2.14 起 Codex 线程只收到首步暴露的工具，且线程启动后工具列表不可扩展，导致搜索到 `edit_item` 仍无法调用并误报时间线工具不可用。现在激活未提供工具的结果会结束线程并以更宽的工具列表重启。
+- Tool search returns twelve results by default (was eight) and ignores one- and two-letter words, so a "motion graphic" query no longer crowds `edit_item` out of the list. / 工具搜索默认返回 12 条（原 8 条）并忽略一两个字母的词，"motion graphic" 之类查询不再把 `edit_item` 挤出结果。
+
 ## [0.2.15] - 2026-09-09
 
 ### Changed / 变更
