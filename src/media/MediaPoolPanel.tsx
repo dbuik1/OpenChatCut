@@ -66,8 +66,7 @@ interface MediaPoolPanelProps {
   /** Relink File replaces an offline/missing asset and its clip srcs. */
   onRelinkAsset?: (id: string, next: MediaAssetRelinkPatch) => void;
   /** Add a solid-color clip. */
-  onAddSolid?: () => void;
-  /** Add an adjustment layer at the playhead. */ onAddAdjustment?: () => void;
+  onAddSolid?: () => void; onAddAdjustment?: () => void;
   /** Start (or retry) ASR for one asset from the pool UI. */
   onTranscribe: (asset: MediaAsset) => void;
 }
