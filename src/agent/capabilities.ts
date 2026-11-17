@@ -1,3 +1,4 @@
+import { FAL_MODELS } from '../../shared/fal-models';
 // Which key-gated capabilities are actually configured. The booleans are computed
 // SERVER-SIDE in config/vite.config.ts (from .env.local) and injected via `define` as
 // __CONFIGURED_CAPS__ — BOOLEANS ONLY, never any key value reaches the browser.
@@ -58,16 +59,18 @@ export function applyLiveModels(models: Record<string, string>): void {
 interface ProviderRow { label: string; arg: string; argKey: 'model' | 'provider'; need: string[][] }
 const CAP_PROVIDERS: Partial<Record<CapabilityKey, ProviderRow[]>> = {
   image: [
+    { label: 'Fal.ai', arg: 'fal', argKey: 'model', need: [['FAL_KEY']] },
     { label: 'gpt-image', arg: 'gpt-image-2', argKey: 'model', need: [['IMAGE_API_KEY'], ['OPENAI_API_KEY']] },
     { label: 'Nano Banana', arg: 'nano-banana', argKey: 'model', need: [['GEMINI_API_KEY']] },
     { label: 'MiniMax', arg: 'image-01', argKey: 'model', need: [['MINIMAX_API_KEY']] },
     { label: 'WaveSpeed', arg: 'wavespeed', argKey: 'model', need: [['WAVESPEED_API_KEY']] },
     { label: 'BytePlus', arg: 'byteplus', argKey: 'model', need: [['BYTEPLUS_API_KEY']] },
     { label: 'xAI Grok', arg: 'grok-imagine', argKey: 'model', need: [['LLM_XAI_OAUTH_API_KEY'], ['LLM_XAI_API_KEY']] },
+    { label: 'Agnes Image', arg: 'agnes-image', argKey: 'model', need: [['AGNES_IMAGE_API_KEY']] },
   ],
   voice: [
     { label: 'ElevenLabs', arg: 'elevenlabs', argKey: 'provider', need: [['ELEVENLABS_API_KEY']] },
-    { label: 'Doubao', arg: 'doubao', argKey: 'provider', need: [['DOUBAO_TTS_APP_ID', 'DOUBAO_TTS_ACCESS_KEY']] },
+    { label: 'Doubao', arg: 'doubao', argKey: 'provider', need: [['DOUBAO_TTS_API_KEY']] },
     { label: 'MiniMax', arg: 'minimax', argKey: 'provider', need: [['MINIMAX_API_KEY']] },
     { label: 'Inworld', arg: 'inworld', argKey: 'provider', need: [['INWORLD_TTS_API_KEY']] },
     { label: 'Fish Audio', arg: 'fishaudio', argKey: 'provider', need: [['FISHAUDIO_TTS_API_KEY']] },
@@ -78,11 +81,15 @@ const CAP_PROVIDERS: Partial<Record<CapabilityKey, ProviderRow[]>> = {
     { label: 'Cartesia', arg: 'cartesia', argKey: 'provider', need: [['CARTESIA_API_KEY']] },
   ],
   video: [
+    { label: 'OFox', arg: 'ofox', argKey: 'model', need: [['LLM_OFOX_API_KEY']] },
+    { label: 'Fal.ai', arg: 'fal', argKey: 'model', need: [['FAL_KEY']] },
     { label: 'Seedance', arg: 'seedance2', argKey: 'model', need: [['SEEDANCE_API_KEY']] },
     { label: 'Kling', arg: 'kling', argKey: 'model', need: [['KLING_API_KEY']] },
     { label: 'Hailuo', arg: 'hailuo', argKey: 'model', need: [['MINIMAX_API_KEY']] },
     { label: 'xAI Grok', arg: 'grok-imagine-video', argKey: 'model', need: [['LLM_XAI_OAUTH_API_KEY'], ['LLM_XAI_API_KEY']] },
+    { label: 'Gemini Omni', arg: 'gemini-omni', argKey: 'model', need: [['GEMINI_API_KEY']] },
     { label: 'BytePlus', arg: 'byteplus', argKey: 'model', need: [['BYTEPLUS_API_KEY']] },
+    { label: 'Agnes Video', arg: 'agnes-video', argKey: 'model', need: [['AGNES_VIDEO_API_KEY']] },
   ],
   music: [
     { label: 'Mureka', arg: 'mureka', argKey: 'provider', need: [['MUREKA_API_KEY']] },
@@ -122,15 +129,41 @@ const PREFERRED_KEY: Partial<Record<CapabilityKey, string>> = {
 
 const rowTag = (r: ProviderRow): string => `${r.label}(${r.argKey}=${r.arg})`;
 
+function configuredProviders(cap: CapabilityKey): ProviderRow[] {
+  const rows = CAP_PROVIDERS[cap];
+  if (!rows || !liveKeys) return [];
+  const has = (name: string): boolean => Boolean(liveKeys?.[name]?.configured);
+  return rows.filter((row) => row.need.some((group) => group.every(has)));
+}
+
+function falModelSuffix(cap: CapabilityKey): string {
+  // Listed whenever Fal is configured, so a user with several image/video vendors
+  // and no saved default can still reach a Fal model. The ids are scoped to
+  // model=fal so they do not read as the only callable models beside a default.
+  if ((cap !== 'image' && cap !== 'video') || !liveKeys?.FAL_KEY?.configured) return '';
+  const models = FAL_MODELS.filter((model) => model.kind === cap);
+  const preferred = liveModels?.[cap === 'image' ? 'FAL_IMAGE_MODEL' : 'FAL_VIDEO_MODEL'];
+  const selected = models.find((model) => model.id === preferred);
+  return `\nFal ${cap} models (only when calling model=fal; falModel=<id>): ${models.map((model) => `${model.label}=${model.id}`).join(', ')}. `
+    + (selected ? `Saved Fal model: ${selected.id}.`
+      : 'No Fal model selected: ask which Fal model to use before submitting; do not silently default to Seedance.')
+    + ' Only the documented common inputs are supported; use the selected model constraints in the tool schema.';
+}
+
+function doubaoSpeakerSuffix(): string {
+  if (!liveKeys?.DOUBAO_TTS_API_KEY?.configured) return '';
+  const speaker = (liveModels?.DOUBAO_TTS_VOICE_ID ?? '').trim();
+  return speaker
+    ? `\nDoubao default speaker ID: ${speaker}. For provider=doubao pass it verbatim as voiceId unless the user explicitly names another voice; no audition is needed.`
+    : '';
+}
+
 /** Routing suffix for an ON capability, mode-aware:
  * user default → use it; single vendor → use it;
  * several & manual (every change confirmed) → ask once via ask_followup_questions;
  * several & auto (user delegated) → agent picks and states the reason. */
 function providerSuffix(cap: CapabilityKey, mode: ApprovalMode): string {
-  const rows = CAP_PROVIDERS[cap];
-  if (!rows || !liveKeys) return '';
-  const has = (n: string): boolean => Boolean(liveKeys?.[n]?.configured);
-  const on = rows.filter((r) => r.need.some((group) => group.every(has)));
+  const on = configuredProviders(cap);
   if (on.length === 0) return '';
   const prefKey = PREFERRED_KEY[cap];
   const savedPref = prefKey ? (liveModels?.[prefKey] ?? '').trim() : '';
@@ -156,8 +189,8 @@ const CAP_ROWS: { key: CapabilityKey; label: string; tool: string; fallback: str
   { key: 'sound', label: 'Sound generation', tool: 'submit_sound', fallback: 'use list_audio/add_audio from the sound-effects library' },
   { key: 'stock', label: 'Stock-media search', tool: 'search_stock_media', fallback: 'use push_asset to import a known public URL directly' },
   { key: 'transcription', label: 'Transcription/talking-head editing', tool: 'transcribe_track', fallback: 'word-level deletion, filler cleanup, and automatic captions are unavailable' },
-  { key: 'sandbox', label: 'Sandbox execution (ffmpeg/node/python)', tool: 'run_code', fallback: 'skip sandbox steps such as probe_media' },
-  { key: 'web', label: 'Web extraction', tool: 'web_browser', fallback: 'ask the user to paste the page content' },
+  { key: 'sandbox', label: 'Sandbox execution (ffmpeg/node/python)', tool: 'run_code', fallback: 'skip run_code steps; probe_media does not need the sandbox and stays available' },
+  { key: 'web', label: 'Advanced web extraction', tool: 'web_map/web_crawl/web_batch_scrape and Firecrawl page formats', fallback: 'use basic web_search/web_browser excerpts, or ask the user to paste the page content' },
 ];
 
 /** System-prompt section listing which key-gated tools are on/off (local editing —
@@ -176,11 +209,19 @@ export function capabilitiesPrompt(
   }
   return `\n\n# Available capabilities (based on configured API keys; local editing is always available without keys)\n`
     + `✅ Configured: ${on.length ? on.join(', ') : '(no key-gated capabilities)'}.\n`
+    + falModelSuffix('image') + falModelSuffix('video') + doubaoSpeakerSuffix() + '\n'
     + `⬜ Not configured — do not promise these in a plan or call them; they return "not configured" and waste a turn:\n`
     + (off.length ? off.map((s) => `  - ${s}`).join('\n') : '  (none)')
     + '\nWhen an unavailable capability is needed, follow its fallback above or tell the user that the capability is not configured'
     + ' (guide them to Settings → the matching capability page to add a provider).'
+    + (liveModels?.WEB_SEARCH_PROVIDER === 'disabled'
+      ? '\nBasic web_search and web_browser page reading are disabled by the server. Do not call them.'
+      : liveModels?.WEB_SEARCH_PROVIDER === 'firecrawl'
+        ? '\nBasic web_search and web_browser explicitly use Firecrawl and require FIRECRAWL_API_KEY. Do not switch providers after an error.'
+        : liveModels?.WEB_SEARCH_PROVIDER === 'parallel'
+          ? '\nBasic web_search and web_browser page excerpts explicitly use anonymous Parallel Search MCP without a search key. Advanced page formats still require Firecrawl.'
+          : '\nBasic web_search and web_browser use Firecrawl and require FIRECRAWL_API_KEY. Anonymous Parallel Search MCP is used only when the user sets WEB_SEARCH_PROVIDER=parallel; do not pass provider="parallel" otherwise.')
     + '\nProvider choice: skill files only document per-provider usage details; the actual provider is decided by THIS list'
     + ' and its routing suffix (user default → single provider → ask once in manual mode → pick freely in auto mode).'
-    + ' Never use a provider that is not in the list above.';
+    + ' Never use a provider that is not in the list above; basic web search/page providers follow the server setting described above.';
 }

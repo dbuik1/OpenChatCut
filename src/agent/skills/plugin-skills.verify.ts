@@ -10,7 +10,8 @@ import { parseSkillFrontmatter } from './skill-frontmatter';
 
 const SKILLS_DIR = dirname(fileURLToPath(import.meta.url));  // check 与技能内容同目录
 const EXPECTED = [
-  'ai-cinematic-short-film', 'asset-import', 'create-motion-graphics', 'explainer-video',
+  'ai-cinematic-short-film', 'asset-import', 'batch-montage-variants', 'beat-sync-montage',
+  'create-motion-graphics', 'ecommerce-product-montage', 'explainer-video',
   'export', 'gameplay-peaks', 'image-gen', 'known-errors', 'learn-my-fillers',
   'livestream-to-clips', 'long-video-to-shorts',
   'motion-graphic-placement',

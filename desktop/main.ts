@@ -1,5 +1,4 @@
 import './chdir-first.ts';
-import { spawn } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +15,7 @@ import {
 } from 'electron';
 import { buildTextContextMenuTemplate } from './context-menu.ts';
 import { startEmbeddedServer } from './embedded-server.ts';
-import { createTransparentMovProxy, importLocalMedia } from './local-media-import.ts';
+import { createTransparentMovProxy, importLocalMedia } from '../server/local-media-import.ts';
 import {
   createLocalMediaImportHandler,
   LOCAL_MEDIA_IMPORT_CHANNEL,
@@ -39,9 +38,11 @@ import {
 import {
   AGENT_IMPORT_ROOTS_KEY,
   importAgentPathsWithGrant,
-} from './agent-path-import.ts';
+} from '../server/local-path-import.ts';
 import { getKey, setKeys } from '../server/keystore.ts';
 import { AGENT_PATH_IMPORT_CHANNEL } from '../shared/directory-import.ts';
+import { AGENT_LOCAL_MEDIA_CHANNEL } from '../shared/agent-local-media.ts';
+import { browseLocalMedia } from '../server/agent-local-media.ts';
 import { modelCachePath } from '../shared/model-cache-path.ts';
 import { isTranscriptWindowPayload, TRANSCRIPT_WINDOW_CHANNELS, type TranscriptWindowPayload } from '../shared/transcript-window.ts';
 import {
@@ -51,10 +52,18 @@ import {
 } from './page-origin.ts';
 import type { DesktopPageUrlDecision, DesktopPageUrlSurface } from './page-origin.ts';
 import { preparePackagedRuntime } from './packaged-runtime.ts';
+import {
+  describeMissingRuntimeAssets,
+  missingRuntimeAssets,
+  packagedRuntimeAssetChecks,
+  runtimeAssetFailure,
+} from './runtime-preflight.ts';
+import { ffmpegBin } from '../server/media-binaries.ts';
 import { focusExistingWindow } from './single-instance.ts';
 import { requestProfileScopedSingleInstanceLock } from './runtime-profile.ts';
 import { applyDesktopWindowFrame, desktopWindowFrameOptions } from './window-frame.ts';
 import { applyResponsiveWindowScale, DESKTOP_UI_SCALE_MAX, DESKTOP_UI_SCALE_MIN, installResponsiveWindowScale, parseUserUiScale } from './window-scale.ts';
+import { migrateUiScaleBase } from './ui-scale-migration.ts';
 import { resolveInitialDesktopWindowBounds } from './window-scale.ts';
 import {
   createExportDirectoryGrant,
@@ -69,6 +78,7 @@ import {
   validDesktopExportFilename,
 } from './export-directory-state.ts';
 import { runDesktopSmokeProbe } from './smoke-probe.ts';
+import { exitSmoke, installSmokeWatchdog } from './smoke-lifecycle.ts';
 import { runtimeProfile } from '../server/runtime-profile.ts';
 import {
   applyWindowsGpuCrashFallback,
@@ -78,15 +88,11 @@ import {
 
 // Electron main process entry. dev mode: esbuild hits desktop-dist/main.mjs,dist/ in the codebase root;
 // Packaging form: dist/, resonance-bundle, chrome-headless-shell use extraResources.
+// The V8 heap ceiling is raised in desktop/bootstrap.ts, which runs before this bundle loads.
 const DIST_DIR = app.isPackaged
   ? join(process.resourcesPath, 'dist')
   : join(fileURLToPath(new URL('..', import.meta.url)), 'dist');
 const PRELOAD_PATH = join(dirname(fileURLToPath(import.meta.url)), 'preload.cjs');
-
-// Remotion renders export frames inside this process (main + headless tabs).
-// Raise the V8 heap ceiling so large/4K exports don't die with "out of memory"
-// (issue #40). Must run before app 'ready'; js-flags apply to every V8 instance.
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=6144');
 
 // CC_SMOKE=1: No window smoke - start the embedded server, load the page, explore /api/keys, and return the code 0/1 according to the result.
 // CC_SMOKE_RENDER=1 adds a true rendering probe (packaged version acceptance: pre-bundled + full browser link included in the package).
@@ -334,6 +340,14 @@ function registerDesktopHandlers(trustedOrigin: string): void {
 async function boot(): Promise<void> {
   await app.whenReady();
   if (app.isPackaged) {
+    const missing = missingRuntimeAssets(packagedRuntimeAssetChecks({
+      resourcesPath: process.resourcesPath,
+      platform: process.platform,
+      ffmpegPath: ffmpegBin(),
+    }));
+    if (missing.length) console.error(`[desktop] ${describeMissingRuntimeAssets(missing)}`);
+    const fatal = runtimeAssetFailure(missing);
+    if (fatal) throw new Error(fatal);
     await preparePackagedRuntime({
       resourcesPath: process.resourcesPath,
       userDataPath: app.getPath('userData'),
@@ -360,6 +374,8 @@ async function boot(): Promise<void> {
   });
   installDirectoryWatchIpc(origin);
   if (diagnosticsLog) installDiagnosticsIpc(origin, diagnosticsLog);
+  ipcMain.handle(AGENT_LOCAL_MEDIA_CHANNEL, trustedDesktopHandler(origin,
+    async (_event, request: unknown) => browseLocalMedia(request)));
   ipcMain.handle(AGENT_PATH_IMPORT_CHANNEL, trustedDesktopHandler(origin, async (event, request: unknown) => {
     const value = request as { paths?: unknown; projectId?: unknown; knownHashes?: unknown };
     const paths = Array.isArray(value?.paths)
@@ -368,7 +384,8 @@ async function boot(): Promise<void> {
     const knownHashes = Array.isArray(value?.knownHashes)
       ? value.knownHashes.filter((entry): entry is string => typeof entry === 'string' && entry.length <= 128)
       : [];
-    if (!paths.length || typeof value?.projectId !== 'string') {
+    if (!paths.length || paths.length > 100 || paths.length !== (value.paths as unknown[]).length
+      || typeof value?.projectId !== 'string') {
       throw new Error('invalid agent path import request');
     }
     return importAgentPathsWithGrant({ paths, projectId: value.projectId, knownHashes }, {
@@ -396,6 +413,15 @@ async function boot(): Promise<void> {
   );
   app.once('before-quit', () => desktopInference.dispose());
   console.log(`[desktop] ${devOrigin ? 'live source' : 'embedded server'} at ${origin}`);
+
+  // A UI_SCALE saved before the shipped base changed is rebased once, so the window
+  // keeps its size after the update (window-scale.ts explains the base).
+  try {
+    const rebased = await migrateUiScaleBase({ getKey: (name) => getKey(name as never), setKeys });
+    if (rebased) console.log(`[desktop] UI scale rebased: ${rebased.from} → ${rebased.to}`);
+  } catch (error) {
+    console.warn('[desktop] UI scale rebase skipped:', error);
+  }
 
   const initialBounds = resolveInitialDesktopWindowBounds(screen.getPrimaryDisplay().workArea);
   const win = new BrowserWindow({
@@ -436,32 +462,6 @@ async function boot(): Promise<void> {
   }
 }
 
-/**
- * On Windows, after forced renderer crashes, BOTH in-process exits have been
- * observed to wedge: app.exit() (v0.2.12 CI run 3) and even process.exit
- * following it (same run — the process survived to the external 420s kill).
- * So: arm an EXTERNAL kill on failure codes first, then process.exit
- * directly — app.exit posts through Chromium's message loop, which is
- * exactly the thing that deadlocks, and a smoke process has nothing worth a
- * graceful quit. The CI step treats a printed SMOKE-OK as the pass signal,
- * so a post-success wedge cannot fail the build.
- */
-function exitSmoke(code: number): void {
-  // Failure only: taskkill terminates with its own nonzero status, which
-  // must never be able to turn a SMOKE-OK exit 0 into a failure.
-  if (code !== 0 && process.platform === 'win32') {
-    try {
-      spawn('taskkill', ['/T', '/F', '/PID', String(process.pid)], {
-        detached: true,
-        stdio: 'ignore',
-      }).unref();
-    } catch {
-      // process.exit below remains the only path.
-    }
-  }
-  process.exit(code);
-}
-
 app.on('window-all-closed', () => app.quit());
 
 const hasSingleInstanceLock = requestProfileScopedSingleInstanceLock(app, runtimeProfile());
@@ -481,44 +481,23 @@ if (!hasSingleInstanceLock) {
 }
 
 if (SMOKE) {
-  // No .unref(): in the Electron main process an unref'd timer is not
-  // guaranteed to ever fire — Node's loop is polled through Chromium's message
-  // pump, and with no ref'd handles the poll can starve. The v0.2.12 Windows
-  // smoke hung for 105 minutes on a 240s watchdog that never fired. A ref'd
-  // timer does not block app.exit(0) on the success path, so there is nothing
-  // to unref for.
-  setTimeout(() => {
-    console.error(`smoke timed out after ${SMOKE_TIMEOUT_MS}ms`);
-    exitSmoke(2);
-  }, SMOKE_TIMEOUT_MS);
-  // Pre-armed EXTERNAL watchdog: the Windows main process has wedged so hard
-  // during smoke (crashed-renderer teardown) that timers, microtasks, and
-  // both in-process exits all stopped — the setTimeout above never even
-  // logged. A detached helper is immune to that. On a clean exit our PID is
-  // gone before the helper fires and the kill is a no-op; CI reaps the
-  // helper as an orphan.
-  if (process.platform === 'win32') {
-    try {
-      const graceSeconds = Math.ceil(SMOKE_TIMEOUT_MS / 1000) + 60;
-      const helper = spawn('powershell.exe', [
-        '-NoProfile',
-        '-Command',
-        `Start-Sleep -Seconds ${graceSeconds}; taskkill /T /F /PID ${process.pid}`,
-      ], { detached: true, stdio: 'ignore' });
-      helper.unref();
-      // The pid line is diagnostic: run 6's helper never fired and this says
-      // whether it even spawned.
-      console.log(`[smoke] external watchdog armed: helper pid ${helper.pid ?? 'SPAWN FAILED'}, fires in ${graceSeconds}s`);
-    } catch (error) {
-      console.error('[smoke] external watchdog spawn failed:', error instanceof Error ? error.message : String(error));
-    }
-  }
+  installSmokeWatchdog(SMOKE_TIMEOUT_MS);
 }
 
 if (hasSingleInstanceLock) {
   boot().catch((err) => {
+    const detail = err instanceof Error ? err.message : String(err);
     console.error('[desktop] boot failed:', err instanceof Error ? err.stack ?? err.message : err);
     if (SMOKE) exitSmoke(1);
-    else app.exit(1);
+    else {
+      // A packaged double-click has no console: without this the process just
+      // disappears and the user has nothing to report (issue #140).
+      try {
+        dialog.showErrorBox('OpenChatCut 启动失败 / failed to start', detail);
+      } catch {
+        // A dialog is best effort; the exit below still has to happen.
+      }
+      app.exit(1);
+    }
   });
 }

@@ -1,5 +1,6 @@
 import { msToFrame, type TranscriptWord, type TranscriptVariant } from './types';
 import { sourceFramesToTimelineFrames, sourceWindowForTimelineRange } from '../editor/sourceLimit';
+import { wordSegmentLookup } from './wordSegments';
 
 // Transcript-based editing: deleting a word removes its audible source range.
 // The kept audio = maximal runs of NON-deleted words, each run playing the
@@ -144,8 +145,16 @@ export function keptSegments(
         srcEnd += Math.max(0, Math.min(silence, half));
       }
     }
-    const durFrames = Math.max(1, srcEnd - srcStart);
-    segs.push({ srcStartFrame: srcStart, srcEndFrame: srcEnd, fromFrame: pos, durFrames });
+    // A word shorter than one frame (ASR sometimes emits start === end, or two
+    // timestamps that round to the same frame) collapses the source range to
+    // zero. durFrames already floors at 1; srcEndFrame must match, because it
+    // becomes `trimAfter` on the media element and Remotion throws
+    // "trimAfter prop must be greater than trimBefore prop" for an empty range —
+    // which unmounts the whole preview composition (black frame, no audio, the
+    // transport still reporting "playing") the moment that segment premounts.
+    const srcEndFrame = Math.max(srcEnd, srcStart + 1);
+    const durFrames = Math.max(1, srcEndFrame - srcStart);
+    segs.push({ srcStartFrame: srcStart, srcEndFrame, fromFrame: pos, durFrames });
     pos += durFrames;
     si = sj + 1;
   }
@@ -211,13 +220,13 @@ function retimedWordEntries(
   opts: EditOpts = {},
 ): RetimedWordEntry[] {
   const segs = keptSegments(words, deleted, fps, offsetFrames, opts);
+  const findSegment = wordSegmentLookup(segs);
   const out: RetimedWordEntry[] = [];
   for (let i = 0; i < words.length; i++) {
     if (deleted.has(i)) continue;
     const wS = msToFrame(words[i].start, fps);
     const wE = msToFrame(words[i].end, fps);
-    const seg = segs.find((s) => wS >= s.srcStartFrame && wS < s.srcEndFrame)
-      ?? segs.find((s) => wS <= s.srcEndFrame && wE >= s.srcStartFrame);
+    const seg = findSegment(wS, wE);
     if (!seg) continue;
     const fromF = seg.fromFrame + (Math.max(wS, seg.srcStartFrame) - seg.srcStartFrame);
     const toF = seg.fromFrame + (Math.min(wE, seg.srcEndFrame) - seg.srcStartFrame);
@@ -236,6 +245,12 @@ function retimedWordEntries(
     if (word !== out[n]!.word) out[n] = { index: out[n]!.index, word };
   }
   return out;
+}
+
+/** One projection for consumers that need both display words and source identities. */
+export function projectRetimedWords(words: TranscriptWord[], deleted: Set<number>, fps: number, offsetFrames: number, opts: EditOpts = {}) {
+  const entries = retimedWordEntries(words, deleted, fps, offsetFrames, opts);
+  return { words: entries.map((entry) => entry.word), indices: entries.map((entry) => entry.index) };
 }
 
 /** Source indices of words that SURVIVE the edit state (deletions + window),
@@ -415,13 +430,14 @@ interface MediaWindowItem {
 }
 
 /** video file: all words in the window (timeline ms) - displayed when heard, transcript deletion will not be involved. */
-export function mediaWindowWords(
+export function projectMediaWindowWords(
   words: TranscriptWord[],
   fps: number,
   item: MediaWindowItem,
-): TranscriptWord[] {
+) {
   const window = sourceWindowForTimelineRange(item, 0, item.durationInFrames);
   const out: TranscriptWord[] = [];
+  const indices: number[] = [];
   for (let i = 0; i < words.length; i++) {
     const wS = msToFrame(words[i].start, fps);
     const wE = msToFrame(words[i].end, fps);
@@ -430,8 +446,13 @@ export function mediaWindowWords(
     const toF = item.startFrame + sourceFramesToTimelineFrames(item, Math.min(wE, window.endFrame) - window.startFrame);
     const start = (fromF / fps) * 1000;
     out.push({ text: words[i].text, start, end: Math.max(start + 1, (toF / fps) * 1000), speaker: words[i].speaker });
+    indices.push(i);
   }
-  return out;
+  return { words: out, indices };
+}
+
+export function mediaWindowWords(words: TranscriptWord[], fps: number, item: MediaWindowItem): TranscriptWord[] {
+  return projectMediaWindowWords(words, fps, item).words;
 }
 
 /** Source word index (wordOverrides key) with the same set of survival rules as mediaWindowWords. */

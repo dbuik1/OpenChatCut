@@ -26,13 +26,21 @@ export function buildSubmitImageArgs(args: GenerateArgs): SubmitImageArgs {
   const width = aspectRatio === undefined ? num(args.width) : undefined;
   const height = aspectRatio === undefined ? num(args.height) : undefined;
   const shared: SubmitImageArgs = {
-    model, prompt: String(args.prompt ?? ''), name: String(args.name ?? ''), aspectRatio,
+    model, falModel: str(args.falModel), prompt: String(args.prompt ?? ''), name: String(args.name ?? ''), aspectRatio,
     referenceAssetIds: references, count: num(args.count),
   };
+  if (model === 'fal') {
+    for (const key of ['width', 'height', 'quality', 'maskAssetId', 'background', 'moderation', 'inputFidelity', 'outputFormat', 'outputCompression', 'seed', 'promptOptimizer']) {
+      if (args[key] !== undefined) throw new Error(`${key} is not supported by the Fal image integration`);
+    }
+    return { ...shared, imageSize: args.imageSize as SubmitImageArgs['imageSize'] };
+  }
   if (model === 'image-01') {
     return { ...shared, width, height, seed: num(args.seed), promptOptimizer: bool(args.promptOptimizer) };
   }
-  if (model === 'nano-banana') return { ...shared, imageSize: args.imageSize as SubmitImageArgs['imageSize'] };
+  if (model === 'nano-banana' || model === 'agnes-image') {
+    return { ...shared, imageSize: args.imageSize as SubmitImageArgs['imageSize'] };
+  }
   if (model === 'wavespeed' || model === 'byteplus') return { ...shared, imageSize: args.imageSize as SubmitImageArgs['imageSize'], width, height };
   const outputFormat = args.outputFormat as SubmitImageArgs['outputFormat'];
   return {
@@ -67,9 +75,8 @@ function elevenVoice(args: GenerateArgs): SubmitVoiceArgs {
 }
 
 const doubaoVoice = (args: GenerateArgs): SubmitVoiceArgs => ({
-  ...voiceBase(args, 'doubao'), speedRatio: num(args.speedRatio), emotion: str(args.emotion),
-  emotionScale: num(args.emotionScale), loudnessRatio: num(args.loudnessRatio), pitch: num(args.pitch),
-  performancePrompt: str(args.performancePrompt), explicitDialect: args.explicitDialect as SubmitVoiceArgs['explicitDialect'],
+  ...voiceBase(args, 'doubao'), speedRatio: num(args.speedRatio),
+  loudnessRatio: num(args.loudnessRatio), pitch: num(args.pitch),
 });
 
 function minimaxVoice(args: GenerateArgs): SubmitVoiceArgs {
@@ -196,8 +203,8 @@ const videoBase = (args: GenerateArgs, model: SubmitVideoArgs['model']): SubmitV
   resolution: args.resolution as SubmitVideoArgs['resolution'], firstFrame: str(args.firstFrame), lastFrame: str(args.lastFrame),
 });
 
-// seedance2 (Volcengine) and byteplus (BytePlus ModelArk) are the same Ark Seedance API/fields.
-const seedanceStyleVideo = (model: 'seedance2' | 'byteplus') => (args: GenerateArgs): SubmitVideoArgs => ({
+// OFox shares these input fields; its server validator rejects unsupported Ark options.
+const seedanceStyleVideo = (model: 'seedance2' | 'byteplus' | 'ofox') => (args: GenerateArgs): SubmitVideoArgs => ({
   ...videoBase(args, model), ratio: str(args.ratio), refImages: list(args.refImages), refVideos: list(args.refVideos),
   refAudios: list(args.refAudios), generateAudio: bool(args.generateAudio), seed: num(args.seed),
   cameraFixed: bool(args.cameraFixed), watermark: bool(args.watermark), returnLastFrame: bool(args.returnLastFrame),
@@ -205,6 +212,7 @@ const seedanceStyleVideo = (model: 'seedance2' | 'byteplus') => (args: GenerateA
 });
 const seedanceVideo = seedanceStyleVideo('seedance2');
 const byteplusVideo = seedanceStyleVideo('byteplus');
+const ofoxVideo = seedanceStyleVideo('ofox');
 const klingVideo = (args: GenerateArgs): SubmitVideoArgs => ({
   ...videoBase(args, 'kling'), ratio: str(args.ratio), mode: args.mode as SubmitVideoArgs['mode'],
   refImages: list(args.refImages), refVideos: list(args.refVideos),
@@ -217,10 +225,36 @@ const hailuoVideo = (args: GenerateArgs): SubmitVideoArgs => ({
 });
 // xAI Grok Imagine Video: text-to-video only — the base fields are the whole surface.
 const grokVideo = (args: GenerateArgs): SubmitVideoArgs => videoBase(args, 'grok-imagine-video');
+const agnesVideo = (args: GenerateArgs): SubmitVideoArgs => ({
+  ...videoBase(args, 'agnes-video'), ratio: str(args.ratio),
+  refImages: list(args.refImages), refAudios: list(args.refAudios), seed: num(args.seed),
+});
 
-const VIDEO_STRATEGIES = { seedance2: seedanceVideo, kling: klingVideo, hailuo: hailuoVideo, byteplus: byteplusVideo, 'grok-imagine-video': grokVideo } as const;
+const geminiOmniVideo = (args: GenerateArgs): SubmitVideoArgs => ({
+  ...videoBase(args, 'gemini-omni'), ratio: str(args.ratio), refImages: list(args.refImages),
+});
+
+const falVideo = (args: GenerateArgs): SubmitVideoArgs => {
+  for (const key of ['mode', 'refVideoMode', 'promptOptimizer', 'fastPretreatment', 'seed', 'cameraFixed', 'watermark', 'returnLastFrame', 'executionExpiresAfter', 'priority', 'multiPrompts', 'shotType']) {
+    if (args[key] !== undefined) throw new Error(`${key} is not supported by the Fal video integration`);
+  }
+  return ({
+  ...videoBase(args, 'fal'), falModel: str(args.falModel), ratio: str(args.ratio),
+  refImages: list(args.refImages), refVideos: list(args.refVideos), refAudios: list(args.refAudios),
+  generateAudio: bool(args.generateAudio),
+  });
+};
+
+const VIDEO_STRATEGIES = {
+  fal: falVideo, seedance2: seedanceVideo, kling: klingVideo, hailuo: hailuoVideo,
+  byteplus: byteplusVideo, 'grok-imagine-video': grokVideo, ofox: ofoxVideo,
+  'agnes-video': agnesVideo, 'gemini-omni': geminiOmniVideo,
+} as const;
 export function buildSubmitVideoArgs(args: GenerateArgs): SubmitVideoArgs {
-  const model = args.model === 'kling' || args.model === 'hailuo' || args.model === 'byteplus' || args.model === 'grok-imagine-video' ? args.model : 'seedance2';
+  const model = args.model === undefined ? 'seedance2' : args.model;
+  if (model !== 'seedance2' && model !== 'kling' && model !== 'hailuo' && model !== 'byteplus' && model !== 'grok-imagine-video' && model !== 'ofox' && model !== 'agnes-video' && model !== 'fal' && model !== 'gemini-omni') {
+    throw new Error('Unsupported video model; select an available provider before submitting or rerunning.');
+  }
   return VIDEO_STRATEGIES[model](args);
 }
 

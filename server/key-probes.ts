@@ -2,15 +2,12 @@
 // (read-only endpoint or near-zero cost call), verify that the Key + Base URL is available. The key comes from keystore,
 // Or the request body overrides (the temporary value that has not been saved in the panel will only take effect for this detection and will not be saved).
 // Security invariant: The result only contains ok / message / status / latencyMs, and never echoes any key value;
-// The provider's error copy is flattened and truncated before entering the message. Align the endpoints and authentication headers of each vite-plugin-* one by one
-// Real call writing method (beanbao three header / MiniMax base_resp / Gemini x-goog-api-key...).
-import { ProxyAgent } from 'undici';
-import { environmentProxyUrl, proxyDispatcher } from './outbound-proxy.ts';
+// The provider's error copy is flattened and truncated before entering the message. Align the endpoints and authentication headers of each provider call one by one
+// (Doubao audio-generation X-Api-Key / MiniMax base_resp / Gemini x-goog-api-key...).
+import { proxyDispatcher } from './outbound-proxy.ts';
 import { getKey, KEY_NAMES, type KeyName } from './keystore.ts';
 import { r2Probe } from './r2.ts';
 import { mediaDirProbe, mediaDirPostCheck, mediaDirOkText } from './media-dir.ts';
-import { checkDataDir, readDataDirPointer } from './data-dir.ts';
-import { DATA_DIR_ENV, defaultRootDir, runtimeProfile } from './runtime-profile.ts';
 import {
   AI_SDK_BASE_URL_FORMAT,
   resolveLlmBaseUrl,
@@ -23,14 +20,22 @@ import {
   type LlmProvider,
 } from '../shared/llm-providers.ts';
 import { versionedApiBaseUrl } from './plugins/media-provider-config.ts';
+import { resolveDoubaoSpeaker } from './plugins/voice-providers.ts';
 import { xaiOauthAccessToken } from './xai-oauth-session.ts';
 import {
   classifyStatus,
+  doubaoPostCheck,
+  minimaxPostCheck,
   networkMessage,
+  parseModelCatalog,
+  parseTextModelCatalog,
   sanitizeProbeText,
   type ProbeResult,
 } from './key-probe-result.ts';
-export { classifyStatus, networkMessage, type ProbeResult } from './key-probe-result.ts';
+import { PROBE_TIMEOUT_MS, runDataDirProbe, runProxyProbe } from './key-probe-local.ts';
+export { classifyStatus, networkMessage, parseModelCatalog, type ProbeResult } from './key-probe-result.ts';
+export { doubaoPostCheck, minimaxPostCheck } from './key-probe-result.ts';
+export { runDataDirProbe, runProxyProbe } from './key-probe-local.ts';
 // Proxy-aware fetch: attaches the configured outbound proxy (keystore
 // PROXY_URL or HTTPS_PROXY/HTTP_PROXY env) via undici dispatcher.
 type FetchInit = Parameters<typeof fetch>[1] & { dispatcher?: unknown };
@@ -68,7 +73,7 @@ const fetchWithProxy = (url: RequestInfo | URL, init?: FetchInit): Promise<Respo
 type Get = (name: KeyName) => string;
 
 interface ProbeDef {
-  /** Starting test threshold: OR AND group (doubao = App ID + Access Key together) */
+  /** Starting test threshold: OR of AND-groups (every name in one inner list must be present) */
   readonly needs: readonly (readonly KeyName[])[];
   readonly run: (get: Get) => Promise<Response>;
   /** 2xx may also be a provider-level failure (MiniMax base_resp); return error text, null = true success */
@@ -79,59 +84,7 @@ interface ProbeDef {
   readonly models?: (bodyText: string) => string[];
 }
 
-const TIMEOUT_MS = 12_000;
-const t = (): AbortSignal => AbortSignal.timeout(TIMEOUT_MS);
-const PROXY_PROBE_URL = 'https://www.gstatic.com/generate_204';
-
-function proxyProbeUrl(overrides: Record<string, unknown>): string {
-  if (Object.hasOwn(overrides, 'PROXY_URL')) return String(overrides.PROXY_URL ?? '').trim();
-  return getKey('PROXY_URL').trim() || environmentProxyUrl();
-}
-
-/** Storage-root writability check: a local disk probe, never a network request. */
-export async function runDataDirProbe(overrides: Record<string, unknown>): Promise<ProbeResult> {
-  const profile = runtimeProfile();
-  if (process.env[DATA_DIR_ENV]?.trim()) {
-    return { ok: false, message: `目录由 ${DATA_DIR_ENV} 固定，无法在设置中修改` };
-  }
-  const raw = Object.hasOwn(overrides, DATA_DIR_ENV)
-    ? String(overrides[DATA_DIR_ENV] ?? '')
-    : readDataDirPointer() ?? '';
-  const started = Date.now();
-  const body = await checkDataDir(raw, defaultRootDir(profile));
-  const latencyMs = Date.now() - started;
-  return body.ok
-    ? { ok: true, latencyMs, message: body.note ?? '目录可写' }
-    : { ok: false, latencyMs, message: body.error ?? '目录检查失败' };
-}
-
-/** Test the saved proxy or the unsaved value currently shown in the settings field. */
-export async function runProxyProbe(overrides: Record<string, unknown>): Promise<ProbeResult> {
-  const proxyUrl = proxyProbeUrl(overrides);
-  if (!proxyUrl) return { ok: false, message: '尚未填写代理地址，且未检测到系统代理环境变量' };
-  let dispatcher: ProxyAgent;
-  try {
-    dispatcher = new ProxyAgent(proxyUrl);
-  } catch {
-    return { ok: false, message: '代理地址格式无效，请填写 http://host:port 或 https://host:port' };
-  }
-  const started = Date.now();
-  try {
-    const response = await fetch(PROXY_PROBE_URL, { signal: t(), dispatcher } as RequestInit);
-    const latencyMs = Date.now() - started;
-    if (!response.ok) return { ok: false, status: response.status, latencyMs, message: `代理已连接，但外网探测返回 HTTP ${response.status}` };
-    return { ok: true, status: response.status, latencyMs, message: `代理连接成功 · 外网可达 · ${latencyMs}ms` };
-  } catch (error) {
-    return { ok: false, latencyMs: Date.now() - started, message: proxyNetworkMessage(error) };
-  } finally {
-    await dispatcher.close();
-  }
-}
-
-function proxyNetworkMessage(error: unknown): string {
-  const message = networkMessage(error).replace(/，不代表 Key 错误$/, '');
-  return `代理连接失败 · ${message}`;
-}
+const t = (): AbortSignal => AbortSignal.timeout(PROBE_TIMEOUT_MS);
 const base = (get: Get, name: KeyName, def: string): string => (get(name) || def).replace(/\/+$/, '');
 const bearer = (key: string): Record<string, string> => ({ Authorization: `Bearer ${key}` });
 function llmProbe(provider: LlmProvider): ProbeDef {
@@ -156,40 +109,9 @@ function llmProbe(provider: LlmProvider): ProbeDef {
   };
 }
 
-export function parseModelCatalog(bodyText: string): string[] {
-  try {
-    const body = JSON.parse(bodyText) as {
-      data?: Array<{ id?: unknown; name?: unknown }>;
-      models?: Array<{ id?: unknown; name?: unknown }>;
-    };
-    const rows = Array.isArray(body.data) ? body.data : Array.isArray(body.models) ? body.models : [];
-    return [...new Set(rows
-      .map((row) => typeof row.id === 'string' ? row.id : typeof row.name === 'string' ? row.name : '')
-      .map((id) => id.trim())
-      .filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b));
-  } catch {
-    return [];
-  }
-}
-
 /** The provider's error copy is flattened before entering the results: line breaks and truncation are removed. Never splice any key values.*/
 export function sanitize(text: string): string {
   return sanitizeProbeText(text);
-}
-
-/** MiniMax: HTTP 200 may also cause authentication failure, the truth is in base_resp.status_code(0 = success).*/
-export function minimaxPostCheck(bodyText: string): string | null {
-  try {
-    const body = JSON.parse(bodyText) as { base_resp?: { status_code?: number; status_msg?: string } };
-    const code = body.base_resp?.status_code ?? 0;
-    if (code === 0) return null;
-    const msg = body.base_resp?.status_msg ?? '';
-    const hint = code === 1004 ? '（鉴权失败，检查 Key）' : '';
-    return `MiniMax base_resp ${code}${msg ? ` · ${sanitize(msg)}` : ''}${hint}`;
-  } catch {
-    return null; // Non-JSON 2xx are counted as successful
-  }
 }
 
 // The four capability pages of MiniMax share one detection: POST /v1/get_voice (free read-only;
@@ -203,7 +125,6 @@ const minimaxProbe: ProbeDef = {
   }),
   postCheck: minimaxPostCheck,
 };
-
 const atlasMusicProbe: ProbeDef = {
   needs: [['ATLASCLOUD_API_KEY']],
   run: async (get) => {
@@ -301,6 +222,26 @@ const cartesiaProbe: ProbeDef = {
   }),
 };
 
+/** Requesty: the authenticated /models call checks the key, then the model list
+ * comes from /models/managed, whose ids match the bundled capability catalog.
+ * Falls back to the full /models list if the managed list is unavailable. */
+const requestyLlmProbe = llmProbe('requesty');
+const requestyProbe: ProbeDef = {
+  ...requestyLlmProbe,
+  run: async (get) => {
+    const checked = await requestyLlmProbe.run(get);
+    if (!checked.ok) return checked;
+    const root = resolveLlmBaseUrl('requesty', get('LLM_REQUESTY_BASE_URL'), AI_SDK_BASE_URL_FORMAT);
+    const managed = await fetchWithProxy(`${root}/models/managed`, { signal: t() }).catch(() => null);
+    return managed?.ok ? managed : checked;
+  },
+};
+
+const cheaperInferenceProbe: ProbeDef = {
+  ...llmProbe('cheaperinference'),
+  models: parseTextModelCatalog,
+};
+
 
 /** page key (same name as the vendor page key of settingsSchema) → detection definition.*/
 export const PROBES: Record<string, ProbeDef> = {
@@ -308,6 +249,8 @@ export const PROBES: Record<string, ProbeDef> = {
     `llm/${preset.id}`,
     llmProbe(preset.id),
   ])),
+  'llm/requesty': requestyProbe,
+  'llm/cheaperinference': cheaperInferenceProbe,
   'image/openai': {
     needs: [['IMAGE_API_KEY'], ['OPENAI_API_KEY']],
     run: (get) => fetch(`${base(get, 'IMAGE_BASE_URL', 'https://api.openai.com')}/v1/models`, {
@@ -318,6 +261,13 @@ export const PROBES: Record<string, ProbeDef> = {
   'image/minimax': minimaxProbe,
   'image/byteplus': byteplusProbe,
   'image/xai': xaiMediaProbe,
+  'image/agnes': {
+    needs: [['AGNES_IMAGE_API_KEY']],
+    run: (get) => fetchWithProxy(`${base(get, 'AGNES_IMAGE_BASE_URL', 'https://apihub.agnes-ai.com/v1')}/models`, {
+      signal: t(), headers: bearer(get('AGNES_IMAGE_API_KEY')),
+    }),
+    models: parseModelCatalog,
+  },
   'image/wavespeed': {
     needs: [['WAVESPEED_API_KEY']],
     run: (get) => fetch(`${base(get, 'WAVESPEED_BASE_URL', 'https://api.wavespeed.ai')}/api/v3/balance`, {
@@ -329,22 +279,23 @@ export const PROBES: Record<string, ProbeDef> = {
   'voice/gemini': geminiMediaProbe,
   'voice/mistral': mistralMediaProbe,
   'voice/cartesia': cartesiaProbe,
-  // openpeech does not have free probing endpoints, synthesizing 1 word is the minimum real verification (the cost is negligible).
+  // Doubao 音频生成新版接口：X-Api-Key 单头鉴权；无免费探活端点，合成 1 个字做最小真实校验（成本可忽略）。
   'voice/doubao': {
-    needs: [['DOUBAO_TTS_APP_ID', 'DOUBAO_TTS_ACCESS_KEY']],
-    run: (get) => fetch(`${base(get, 'DOUBAO_TTS_BASE_URL', 'https://openspeech.bytedance.com')}/api/v3/tts/unidirectional`, {
-      method: 'POST', signal: t(),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-App-Id': get('DOUBAO_TTS_APP_ID'),
-        'X-Api-Access-Key': get('DOUBAO_TTS_ACCESS_KEY'),
-        'X-Api-Resource-Id': get('DOUBAO_TTS_RESOURCE_ID') || 'seed-tts-2.0',
-      },
-      body: JSON.stringify({
-        user: { uid: 'openchatcut-probe' },
-        req_params: { text: '测', speaker: 'zh_female_vv_uranus_bigtts', audio_params: { format: 'mp3', sample_rate: 24_000 } },
-      }),
-    }),
+    needs: [['DOUBAO_TTS_API_KEY']],
+    run: (get) => {
+      const root = base(get, 'DOUBAO_TTS_BASE_URL', 'https://openspeech.bytedance.com');
+      return fetch(root.endsWith('/api/v3/tts/create') ? root : `${root}/api/v3/tts/create`, {
+        method: 'POST', signal: t(),
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': get('DOUBAO_TTS_API_KEY') },
+        body: JSON.stringify({
+          model: get('DOUBAO_TTS_MODEL') || 'seed-audio-1.0',
+          text_prompt: '测',
+          references: [{ speaker: resolveDoubaoSpeaker(get('DOUBAO_TTS_VOICE_ID')) || 'zh_female_vv_uranus_bigtts' }],
+          audio_config: { format: 'mp3', sample_rate: 24_000 },
+        }),
+      });
+    },
+    postCheck: doubaoPostCheck,
   },
   'voice/minimax': minimaxProbe,
   'voice/inworld': {
@@ -383,6 +334,20 @@ export const PROBES: Record<string, ProbeDef> = {
   'video/hailuo': minimaxProbe,
   'video/byteplus': byteplusProbe,
   'video/xai': xaiMediaProbe,
+  'video/agnes': {
+    needs: [['AGNES_VIDEO_API_KEY']],
+    run: (get) => fetchWithProxy(`${base(get, 'AGNES_VIDEO_BASE_URL', 'https://apihub.agnes-ai.com/v1')}/models`, {
+      signal: t(), headers: bearer(get('AGNES_VIDEO_API_KEY')),
+    }),
+    models: parseModelCatalog,
+  },
+  'video/ofox': {
+    needs: [['LLM_OFOX_API_KEY']],
+    run: (get) => fetch(`${base(get, 'LLM_OFOX_BASE_URL', 'https://api.ofox.ai/v1')}/models`, {
+      signal: t(), headers: bearer(get('LLM_OFOX_API_KEY')),
+    }),
+    models: parseModelCatalog,
+  },
   'music/mureka': {
     needs: [['MUREKA_API_KEY']],
     run: (get) => fetch(`${base(get, 'MUREKA_BASE_URL', 'https://api.mureka.ai')}/v1/account/billing`, {
@@ -452,6 +417,14 @@ export const PROBES: Record<string, ProbeDef> = {
     needs: [['FIRECRAWL_API_KEY']],
     run: (get) => fetch('https://api.firecrawl.dev/v2/team/credit-usage', {
       signal: t(), headers: bearer(get('FIRECRAWL_API_KEY')),
+    }),
+  },
+  // Read-only account endpoint; a fake key is a stable 401. Upload-Post keys
+  // use the `Apikey` scheme, not `Bearer`.
+  'publish/upload-post': {
+    needs: [['UPLOAD_POST_API_KEY']],
+    run: (get) => fetch(`${base(get, 'UPLOAD_POST_BASE_URL', 'https://api.upload-post.com')}/api/uploadposts/me`, {
+      signal: t(), headers: { Authorization: `Apikey ${get('UPLOAD_POST_API_KEY')}` },
     }),
   },
   // S3 HeadBucket is sent via SDK (SigV4 signature cannot be fetched manually), r2.ts synthesizes Response:

@@ -4,9 +4,27 @@ import type { TimelineCompositionProps } from '../editor/TimelineComposition';
 import { timelineDuration, type ProjectDoc, type TimelineState } from '../editor/types';
 import { resolveTimelineRenderPlan } from '../editor/sequenceGraph';
 import { webScaledExportDimensions, type ExportResolution } from './mediaSettings';
+import {
+  browserEncoderBitrate,
+  browserEncodingContentType,
+  browserHardwareAcceleration,
+  probeBrowserEncoder,
+  type BrowserHardwareAcceleration,
+  type VideoEncoderSupportProbe,
+} from './browserEncoderProbe';
 // The local renderer's per-frame budget, shared so both engines agree.
 import { DEFAULT_RENDER_TIMEOUT_MS } from '../../remotion/render-timeout.mjs';
-const DEFAULT_CAPABILITY_BITRATE_BPS = 12_000_000;
+
+/**
+ * Route notices, not errors: each is shown while the local renderer takes
+ * over. The WebCodecs detail behind them stays in the inspection issues and
+ * the console, where it helps diagnose the machine without reading like the
+ * export failed.
+ */
+export const BROWSER_ENCODER_UNSUPPORTED_REASON = '浏览器编码器不支持此导出规格';
+export const BROWSER_RENDER_INCOMPLETE_REASON = '浏览器快导未能完成';
+// Mediabunny's messages when WebCodecs refuses the encoder the render asked for.
+const ENCODER_REFUSED = /encoder configuration .* is not supported|VideoEncoder is not supported|cannot be encoded by this browser/i;
 
 
 export type BrowserVideoCodec = 'h264' | 'vp8';
@@ -27,6 +45,8 @@ export interface BrowserExportOptions {
   onProgress?: (progress: RenderMediaOnWebProgress) => void;
   loadRenderer?: () => Promise<WebRendererModule>;
   loadComposition?: () => Promise<{ TimelineComposition: ComponentType<TimelineCompositionProps> }>;
+  /** Stands in for VideoEncoder.isConfigSupported; null means WebCodecs is missing. */
+  probeVideoEncoder?: VideoEncoderSupportProbe | null;
 }
 
 export type BrowserExportAttempt =
@@ -47,6 +67,12 @@ function abortError(): DOMException {
 
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/** The neutral notice for a browser render that threw before the local renderer took over. */
+export function browserFallbackReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return ENCODER_REFUSED.test(message) ? BROWSER_ENCODER_UNSUPPORTED_REASON : BROWSER_RENDER_INCOMPLETE_REASON;
 }
 
 /**
@@ -86,8 +112,11 @@ interface BrowserRenderConfig {
   renderer: WebRendererModule;
   container: 'mp4' | 'webm';
   audioCodec: 'aac' | 'opus';
+  width: number;
+  height: number;
   scale: number;
   videoBitrate: number | 'high';
+  hardwareAcceleration: BrowserHardwareAcceleration;
   issues: string[];
 }
 
@@ -121,7 +150,25 @@ async function loadBrowserRenderConfig(
   if (!capability.canRender) {
     return { status: 'unsupported', reason: issues[0] ?? '当前浏览器不支持此编码配置', issues };
   }
-  return { renderer, container, audioCodec, scale, videoBitrate: resolvedVideoBitrate, issues };
+  // canRenderMediaOnWeb only asks about a 1280x720 frame with no hardware
+  // preference, which passes wherever a software encoder exists. The render
+  // then asks for this size with prefer-hardware and throws when the GPU
+  // encoder is missing (disabled acceleration, GPU-crash fallback, VM/RDP).
+  // Asking that exact question first routes such machines to the local
+  // renderer before any frame is drawn.
+  const hardwareAcceleration = browserHardwareAcceleration(width, height);
+  const encoder = await probeBrowserEncoder(
+    { codec, width, height, videoBitrate: resolvedVideoBitrate, hardwareAcceleration },
+    options.probeVideoEncoder,
+  );
+  throwIfAborted(signal);
+  if (!encoder.supported) {
+    return { status: 'unsupported', reason: BROWSER_ENCODER_UNSUPPORTED_REASON, issues: [...issues, encoder.detail] };
+  }
+  return {
+    renderer, container, audioCodec, width, height, scale,
+    videoBitrate: resolvedVideoBitrate, hardwareAcceleration, issues,
+  };
 }
 function staticBrowserBlocker(
   options: BrowserExportOptions,
@@ -144,21 +191,24 @@ function staticBrowserBlocker(
   return blocker ? { status: 'unsupported', reason: blocker, issues: [blocker] } : null;
 }
 
-async function isBrowserEncodingPowerEfficient(options: BrowserExportOptions): Promise<boolean | undefined> {
+async function isBrowserEncodingPowerEfficient(
+  options: BrowserExportOptions,
+  config: BrowserRenderConfig,
+): Promise<boolean | undefined> {
   const capabilities = globalThis.navigator?.mediaCapabilities;
-  if (!capabilities?.encodingInfo) return undefined;
-  const { width, height } = browserScaledExportDimensions(options.state, options.resolution);
-  const contentType = options.codec === 'h264'
-    ? 'video/mp4; codecs="avc1.640028"'
-    : 'video/webm; codecs="vp8"';
+  if (!capabilities?.encodingInfo || options.codec === 'prores') return undefined;
+  const { width, height } = config;
+  const bitrate = browserEncoderBitrate(options.codec, width, height, config.videoBitrate);
   try {
+    // Chromium only answers type 'record' behind its MediaCapabilitiesEncodingInfo
+    // flag and rejects it otherwise; that lands in the catch below.
     const info = await capabilities.encodingInfo({
       type: 'record',
       video: {
-        contentType,
+        contentType: browserEncodingContentType(options.codec, { width, height, fps: options.fps, bitrate }),
         width,
         height,
-        bitrate: options.videoBitrate ?? DEFAULT_CAPABILITY_BITRATE_BPS,
+        bitrate,
         framerate: options.fps,
       },
     });
@@ -177,7 +227,7 @@ export async function inspectBrowserExport(options: BrowserExportOptions): Promi
   return {
     status: 'supported',
     issues: config.issues,
-    powerEfficient: await isBrowserEncodingPowerEfficient(options),
+    powerEfficient: await isBrowserEncodingPowerEfficient(options, config),
   };
 }
 
@@ -210,7 +260,8 @@ async function executeBrowserRender(
       scale: config.scale,
       signal,
       onProgress,
-      hardwareAcceleration: 'prefer-hardware',
+      // The value the capability probe already confirmed (browserHardwareAcceleration).
+      hardwareAcceleration: config.hardwareAcceleration,
       pageResponsiveness: 'medium',
       // Without this, @remotion/web-renderer falls back to Remotion's 30s
       // default and delayRender reports 30s minus its own 2s buffer — the

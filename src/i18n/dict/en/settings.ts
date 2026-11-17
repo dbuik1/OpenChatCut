@@ -36,6 +36,11 @@ export default {
   '增强工具': 'Power Tools',
   '沙箱执行': 'Sandbox Execution',
   '网页抓取': 'Web Scraping',
+  '发布到社交平台': 'Social Publishing',
+  'publish_to_social · 把导出的成片发布到 TikTok、Instagram、YouTube 等平台。': 'publish_to_social · Publish finished exports to TikTok, Instagram, YouTube and more.',
+  '一个 Key 发布到 TikTok、Instagram、YouTube、LinkedIn、Facebook、X、Threads、Pinterest、Bluesky。先在 Upload-Post 创建一个 Profile 并连接各平台账号，再把 Profile 名称填在下面。Agent 发布前总会先预览平台、标题与视频，等你确认后才上传；YouTube 默认私密。':
+    'One key publishes to TikTok, Instagram, YouTube, LinkedIn, Facebook, X, Threads, Pinterest and Bluesky. Create a profile in Upload-Post, connect your accounts to it, then enter the profile name below. The Agent always previews the platforms, title and video and waits for your confirmation before uploading; YouTube defaults to private.',
+  '在 Upload-Post 控制台创建、已连接社交账号的 Profile 名称。': 'The Upload-Post profile name (created in the Upload-Post dashboard, with your social accounts connected).',
   'Anthropic / 兼容 API': 'Anthropic / Compatible API',
   'Anthropic / OpenAI': 'Anthropic / OpenAI',
   '模型供应商': 'Model providers',
@@ -44,6 +49,7 @@ export default {
   '可灵 Kling': 'Kling',
   'MiniMax 海螺': 'MiniMax Hailuo',
   '本地磁盘': 'Local Disk',
+  '选择 Fal.ai 作为默认厂商，然后选择模型。聊天中指定的模型优先于此默认值。': 'Select Fal.ai as the default provider, then choose a model. An explicit model request in chat overrides this default.',
 
   // ── capability group hint ──
   '对话与工具调用的核心，未配置无法对话。': 'Core of chat and tool calls — chat is unavailable until configured.',
@@ -86,7 +92,6 @@ export default {
   '生图模型': 'Image model',
   '配音模型': 'Voice model',
   '音效模型': 'Sound model',
-  '音色资源 ID': 'Voice resource ID',
   '视频模型': 'Video model',
   '音乐模型': 'Music model',
   '云同步': 'Cloud sync',
@@ -120,11 +125,13 @@ export default {
   '法语（fr）': 'French (fr)',
   '德语（de）': 'German (de)',
   '俄语（ru）': 'Russian (ru)',
+  '葡萄牙语（pt）': 'Portuguese (pt)',
   '启用': 'On',
   '停用': 'Off',
   '本地模型（whisper）': 'Local model (Whisper)',
-  '转写在本机完成：免费、离线、素材不出本机。模型按需下载（见下方列表），自动选择设备优势后端：WebGPU 不可用时回退 CPU。本地转写不含说话人分离（全部归为同一位说话人）。':
-    'Transcription runs on this machine: free, offline, and private. Download models on demand below. OpenChatCut selects the best available backend and falls back to CPU when WebGPU is unavailable. Local transcription does not support speaker diarization.',
+  '转写在本机完成：免费、离线、素材不出本机。模型需先下载，下载与删除在 本地模型 → 本地转写 页（点下方按钮前往）。自动选择设备优势后端：WebGPU 不可用时回退 CPU。本地转写不含说话人分离（全部归为同一位说话人）。':
+    'Transcription runs on this machine: free, offline, and private. Models must be downloaded first; download or delete them on the Local models → Local transcription page (use the button below). OpenChatCut selects the best available backend and falls back to CPU when WebGPU is unavailable. Local transcription does not support speaker diarization.',
+  '下载 / 管理本地模型': 'Download / manage local models',
 
   // ──Page Note/Field Note──
   'MiniMax 同一个 Key，配置一次全能力（生图 / 配音 / 视频 / 音乐）通用。': 'One MiniMax key covers every capability (image / voice / video / music) — configure once.',
@@ -136,6 +143,7 @@ export default {
   '每个厂商独立保存地址、密钥与模型。先测试连接，成功后可从接口返回的模型中选择。': 'Each provider keeps its own endpoint, key, and model. Test the connection, then choose from the models returned by that API.',
   '填写完整 API 前缀；可使用官方地址、自建网关或兼容中转。': 'Enter the complete API prefix. You can use the official endpoint, your own gateway, or a compatible relay.',
   '测试连接后可直接选择接口返回的模型，也可以手动填写模型 ID。': 'After testing, choose a returned model or enter a model ID manually.',
+  '也可以手动填写厂商的其它模型 ID，建议列表仅为常用模型。': 'You can also enter any other model ID from this vendor; the suggestion list covers common models only.',
   '选择服务实际支持的协议；OpenAI 使用 Responses API，兼容服务使用 Chat Completions API。': 'Choose the protocol your service actually supports. OpenAI uses the Responses API; compatible services use Chat Completions.',
   '选择厂商后会自动使用官方 API 地址、接口格式和推荐模型，也可以在下方覆盖。': 'Choose a provider to use its official endpoint, protocol, and recommended model automatically, or override them below.',
   '填写完整 API 前缀（可含 /v1、/v1beta/openai 等路径）；切换厂商会重置地址与模型，并立即生效。': 'Enter the full API prefix, including paths such as /v1 or /v1beta/openai. Switching providers resets the Base URL and model and takes effect immediately.',
@@ -168,6 +176,9 @@ export default {
   '本地转写、节拍与音乐分析、画面语义搜索。模型按需安装，数据不出本机。':
     'Local transcription, beat/music analysis, and visual semantic search. Models are installed on demand and data stays on this machine.',
   '默认 https://api.fish.audio': 'Default https://api.fish.audio',
+  'Agnes Image 2.5 Flash，文生图与图生图。尺寸档位 1K/2K/3K/4K，支持多种宽高比。': 'Agnes Image 2.5 Flash: text-to-image and image-to-image. Size tiers 1K/2K/3K/4K, with many aspect ratios.',
+  'Agnes Video 2.5 Flash，文生视频、首尾帧控制与图片/音频参考。固定 720P，时长 4–12 秒。': 'Agnes Video 2.5 Flash: text-to-video, first/last-frame control and image/audio references. Fixed 720p, 4–12 seconds.',
+  '默认 https://apihub.agnes-ai.com/v1': 'Default https://apihub.agnes-ai.com/v1',
   '默认 https://api.inworld.ai': 'Default https://api.inworld.ai',
   '默认 https://api.sws.speechify.com': 'Default https://api.sws.speechify.com',
   '默认 https://api.wavespeed.ai': 'Default https://api.wavespeed.ai',
@@ -176,6 +187,12 @@ export default {
 
   // ── OpenAI Codex account ──
   'Codex 模型': 'Codex model',
+  'Copilot 模型': 'Copilot model',
+  'Copilot 默认模型': 'Copilot default model',
+  '使用 GitHub Copilot 订阅：官方 Copilot CLI 管理登录与凭据（终端运行 copilot login），OpenChatCut 通过 Copilot SDK 直接驱动编辑工具，不会读取或显示凭据。会话状态隔离在 ~/.openchatcut/copilot，不影响你自己的 ~/.copilot。':
+    'Use a GitHub Copilot subscription: the official Copilot CLI manages sign-in and credentials (run `copilot login` in a terminal). OpenChatCut drives the editing tools directly through the Copilot SDK and never reads or displays credentials. Session state is isolated in ~/.openchatcut/copilot and does not affect your own ~/.copilot.',
+  '登录后可读取当前订阅可用的模型，也可以手动填写模型 ID。仅支持工具调用的模型可用于编辑。':
+    'After signing in, load the models available to this subscription or enter a model ID manually. Only tool-calling models can be used for editing.',
   'Codex 默认模型': 'Codex default model',
   '推理强度': 'Reasoning effort',
   '模型默认': 'Model default',
@@ -210,6 +227,28 @@ export default {
   '请在登录页面完成授权，完成后会自动刷新。': 'Finish authorization on the sign-in page. This status will refresh automatically.',
   '已登录 ChatGPT': 'Signed in to ChatGPT',
   '凭据与续期均由 Codex CLI 管理。': 'Credentials and renewal are managed by the Codex CLI.',
+  // ── GitHub Copilot ──
+  '版本过低': 'Version too old',
+  '正在检查 Copilot CLI…': 'Checking Copilot CLI…',
+  '正在读取本机 Copilot 运行时状态。': 'Reading the local Copilot runtime status.',
+  '未检测到 Copilot CLI': 'Copilot CLI was not found',
+  '安装后重试：npm i -g @github/copilot（或 brew install copilot）。':
+    'Install it and retry: npm i -g @github/copilot (or brew install copilot).',
+  'Copilot CLI 版本过低': 'Copilot CLI is out of date',
+  '在终端运行 copilot update 后重试。': 'Run `copilot update` in a terminal, then retry.',
+  '尚未登录 Copilot': 'Not signed in to Copilot',
+  '在终端运行 copilot login 完成登录后点击刷新。':
+    'Run `copilot login` in a terminal, then refresh.',
+  '已登录 GitHub Copilot': 'Signed in to GitHub Copilot',
+  '凭据与续期均由 Copilot CLI 管理。': 'Credentials and renewal are managed by the Copilot CLI.',
+  '无法连接 Copilot': 'Could not reach Copilot',
+  '请确认开发服务正在运行后重试。': 'Make sure the development server is running, then retry.',
+  '账号': 'Account',
+  '登录方式': 'Sign-in method',
+  '主机': 'Host',
+  '无法连接 Copilot 服务，请确认开发服务正在运行。':
+    'Could not reach the Copilot service. Make sure the development server is running.',
+  '无法读取 Copilot 模型列表，请稍后重试。': 'Could not load Copilot models. Please try again.',
   'Codex CLI 正在使用 API Key': 'Codex CLI is using an API key',
   '此页面仅启用 ChatGPT 订阅；API Key 请使用 OpenAI 厂商页。':
     'This page enables ChatGPT subscriptions only. Use the OpenAI provider page for API keys.',
@@ -235,9 +274,32 @@ export default {
   '已复制': 'Copied',
   'Codex 返回了无效的登录地址。': 'Codex returned an invalid sign-in URL.',
   'Codex 返回了无效的验证地址。': 'Codex returned an invalid verification URL.',
-  '内置 Agent 需要 Anthropic API Key。Claude Code 订阅用户请通过「外部 Agent 接入 (MCP)」连接；OpenChatCut 不接收 Claude OAuth。':
-    'The built-in Agent requires an Anthropic API key. Claude Code subscription users should connect through “External agents (MCP)”; OpenChatCut does not accept Claude OAuth.',
   '复制失败': 'Copy failed',
+  // ── Claude Code account (TODO: not yet translated for it/ru/zh locales) ──
+  '内置 Agent 可使用 Anthropic API Key，也可以在下方「Anthropic · Claude Code」页用 Claude 订阅登录（无需 API Key）。独立运行的 Claude Code 会话也可以通过「外部 Agent 接入 (MCP)」驱动 OpenChatCut。':
+    'The built-in Agent can use an Anthropic API key, or sign in with a Claude subscription on the “Anthropic · Claude Code” page below (no API key needed). A standalone Claude Code session can also drive OpenChatCut through “External agents (MCP)”.',
+  '使用 Claude 订阅登录，由官方 Claude Code CLI 管理凭据、续期与退出，OpenChatCut 不会读取或显示 OAuth 凭据。在终端运行 claude auth login（或 claude setup-token 获取长期令牌）完成登录后，点击“重新检测”。':
+    'Sign in with a Claude subscription. The official Claude Code CLI manages credentials, renewal, and logout; OpenChatCut never reads or displays OAuth credentials. Run claude auth login (or claude setup-token for a long-lived token) in a terminal, then click “Recheck”.',
+  'Claude Code 模型': 'Claude Code model',
+  'Claude Code 默认模型': 'Claude Code default model',
+  '登录后可从可用模型中选择，也可以手动填写别名（如 sonnet / opus / haiku）。':
+    'After signing in, choose from the available models or enter an alias manually (e.g. sonnet / opus / haiku).',
+  '正在检查 Claude Code CLI…': 'Checking Claude Code CLI…',
+  '正在读取本机 Claude Code 运行时状态。': 'Reading the local Claude Code runtime status.',
+  '未检测到 Claude Code CLI': 'Claude Code CLI was not found',
+  '请先安装官方 Claude Code CLI，然后刷新状态。': 'Install the official Claude Code CLI, then refresh the status.',
+  '尚未登录 Claude': 'Not signed in to Claude',
+  '在终端完成登录后点击“重新检测”。': 'After signing in from a terminal, click “Recheck”.',
+  '已登录 Claude': 'Signed in to Claude',
+  '凭据与续期均由 Claude Code CLI 管理。': 'Credentials and renewal are managed by the Claude Code CLI.',
+  'Claude Code 暂时不可用': 'Claude Code is temporarily unavailable',
+  'Claude Code CLI {version}': 'Claude Code CLI {version}',
+  '无法连接 Claude Code 服务，请确认开发服务正在运行。':
+    'Could not reach the Claude Code service. Make sure the development server is running.',
+  '无法读取 Claude Code 模型，请稍后重试。': 'Could not load Claude Code models. Please try again.',
+  '重新检测': 'Recheck',
+  '登录': 'Sign in',
+  '长期令牌': 'Long-lived token',
   // ──Provider page status/test connection/field rendering──
   '已配置': 'Configured',
   '未配置': 'Not configured',
@@ -260,6 +322,13 @@ export default {
     'Generates images with your xAI subscription session (SuperGrok / X Premium+, preferred) or LLM_XAI_API_KEY. Text-to-image: up to 4 images, 1K / 2K.',
   '使用 xAI 订阅会话（SuperGrok / X Premium+，优先）或 LLM_XAI_API_KEY 生成视频。文生视频：1–15 秒，自带音轨，480p / 720p / 1080p。':
     'Generates videos with your xAI subscription session (SuperGrok / X Premium+, preferred) or LLM_XAI_API_KEY. Text-to-video: 1–15s, audio track included, 480p / 720p / 1080p.',
+  '使用 GEMINI_API_KEY（与 Nano Banana 生图相同）。文生视频 / 图生视频 / 首尾帧 / 最多 6 张参考图；比例仅 16:9 与 9:16；分辨率 360p / 720p / 1080p / 4k；时长 3–15 秒（首尾帧 3–10 秒，不填默认 10 秒）。默认模型 gemini-omni-1.2-flash。':
+    'Uses GEMINI_API_KEY (same key as Nano Banana images). Text-to-video / image-to-video / first and last frame / up to 6 reference images; 16:9 and 9:16 only; 360p / 720p / 1080p / 4k; 3–15 seconds (3–10 with first and last frames, 10 when unset). Default model gemini-omni-1.2-flash.',
+  'Google AI Studio / Gemini API 的 Omni 视频模型 ID。': 'Omni video model ID from Google AI Studio / the Gemini API.',
+  'OFox · 多模型': 'OFox · Multi-model',
+  'OFox · 多模型网关': 'OFox · Multi-model Gateway',
+  '使用 LLM_OFOX_API_KEY（在 Agent 供应商里配置 OFox）生成视频。一个 Key 覆盖 Seedance、Wan 等视频模型；支持文生视频、首帧/首尾帧图生视频与图片参考（最多 9 张）；时长/分辨率按模型由 API 校验，2–30 秒。':
+    'Generates videos with LLM_OFOX_API_KEY (configure OFox under Agent providers). One key covers Seedance, Wan and other video models; supports text-to-video, first-frame / first-and-last-frame image-to-video, and up to 9 reference images; duration/resolution are validated per model by the API, 2–30 seconds.',
   'xAI · Grok Imagine (视频)': 'xAI · Grok Imagine (Video)',
   '验证地址与密钥，并读取该接口可用的模型': 'Verifies the endpoint and key, then loads the models available from that API',
   '选择模型': 'Choose model',
@@ -302,6 +371,9 @@ export default {
   '默认 https://generativelanguage.googleapis.com': 'Default https://generativelanguage.googleapis.com',
   '默认 https://api.elevenlabs.io': 'Default https://api.elevenlabs.io',
   '默认 https://openspeech.bytedance.com': 'Default https://openspeech.bytedance.com',
+  '音色 ID（speaker）': 'Voice ID (speaker)',
+  '由对话选择': 'Chosen in chat',
+  '粘贴火山控制台复制的音色 ID（如 S_5wulnA7i2）；填写后豆包配音默认用它，对话里指定其它音色仍可覆盖。': 'Paste the voice ID copied from the Volcengine console (for example S_5wulnA7i2). When set, Doubao TTS uses it by default; naming another voice in chat still overrides it.',
   '默认 https://ark.cn-beijing.volces.com/api/v3': 'Default https://ark.cn-beijing.volces.com/api/v3',
   '默认 https://api-singapore.klingai.com': 'Default https://api-singapore.klingai.com',
   '默认 https://api.mureka.ai': 'Default https://api.mureka.ai',
@@ -392,15 +464,23 @@ export default {
   'OpenAI CLI，通过环境变量携带令牌。': 'Official OpenAI CLI, carries the token via environment variable.',
   '写入 ~/.cursor/mcp.json 的全局配置。': 'Writes a global config to ~/.cursor/mcp.json.',
   '写入 ~/.gemini/antigravity/mcp_config.json。': 'Writes a global config to ~/.gemini/antigravity/mcp_config.json.',
+  '写入 ~/.qoder/settings.json，国内版同时写 ~/.qoder-cn。': 'Writes ~/.qoder/settings.json, plus ~/.qoder-cn for the China build.',
+  '千问办公': 'Qwen Work',
+  '自定义 MCP 只存在应用内，复制 JSON 后在连接器里粘贴。': 'Custom MCP servers live inside the app: copy this JSON and paste it into its connector.',
+  '复制配置': 'Copy config',
+  '配置已复制，粘贴到客户端的自定义 MCP 输入框。': 'Config copied; paste it into the client’s custom MCP input.',
+  '复制失败，请手动选择配置文本。': 'Copy failed; select the config text manually.',
   '连接': 'Connect',
   '连接中…': 'Connecting…',
   '已连接': 'Connected',
   '连接失败': 'Connect failed',
   '已写入 {paths}': 'Wrote {paths}',
+  '已写入 {paths}。请完全退出并重新打开 Codex，令牌才会生效。': 'Wrote {paths}. Fully quit and reopen Codex so it picks up the token.',
   '连接后重启对应客户端生效；Codex 需新开终端使环境变量生效。': 'Restart the client after connecting; Codex needs a new terminal for the env var.',
   '目标配置文件不是有效 JSON，为避免覆盖未写入。': 'Target config file is not valid JSON; nothing was written to avoid overwriting it.',
   '写入配置文件失败。': 'Failed to write the config file.',
   '执行 codex mcp add 失败。': 'Running codex mcp add failed.',
+  '已在 Codex 注册，但令牌未能保存为 Windows 用户环境变量，连接未完成。': 'Registered with Codex, but the token could not be saved as a Windows user environment variable, so the connection is incomplete.',
   'OpenChatCut 暴露一个 Streamable HTTP MCP 端点。Claude Code / Codex / Cursor 等外部 Agent 接入后,与内置 Agent 共用同一套编辑工具,可直接读写当前工程。':
     'OpenChatCut exposes a Streamable HTTP MCP endpoint. External agents such as Claude Code, Codex, and Cursor share the same editing tools as the built-in agent and can read and edit the current project directly.',
   '端点地址': 'Endpoint',
@@ -443,7 +523,7 @@ export default {
     'Settings → Connectors → Add custom connector, then paste the endpoint above.',
   '端点默认仅监听本机;对外暴露时请配置 OPENCHATCUT_MCP_TOKEN 鉴权。桌面端 5199 端口被占用时会回退随机端口,以启动日志与本页地址为准。':
     'The endpoint listens on localhost only by default; configure OPENCHATCUT_MCP_TOKEN before exposing it. If port 5199 is taken, the desktop app falls back to a random port — trust the startup log and the address shown here.',
-  // Local ASR model management (Settings → 转写 → 本地模型)
+  // Local ASR model management (Settings → 本地模型 → 本地转写)
   '本地转写': 'Local transcription',
   '节拍与音乐分析': 'Beat and music analysis',
   '画面语义搜索': 'Visual semantic search',
@@ -464,12 +544,18 @@ export default {
   '未下载': 'Not downloaded',
   '删除': 'Delete',
   '下载': 'Download',
+  '补全': 'Complete',
+  '桌面引擎已就绪；补全浏览器引擎文件，供桌面推理失败时回退':
+    'The desktop engine is ready. Download the browser-engine files too, as a fallback when desktop inference fails.',
   '模型按需下载到本机，不随应用打包。首次使用或下载模型时自动加速下载。':
     'Models are downloaded to this machine on demand — they are not bundled with the app. Downloads use the accelerated pipeline automatically.',
   '桌面原生推理加速': 'Native desktop inference acceleration',
   '启用后，转写使用 macOS Metal 或原生 CPU；画面语义、节拍与音乐语义模型自动选择 Windows DirectML、Linux CUDA、macOS CoreML 或浏览器 WebGPU；失败时回退 CPU 或浏览器引擎。':
     'When enabled, transcription uses macOS Metal or native CPU. Visual-semantic, rhythm, and music-semantic models select Windows DirectML, Linux CUDA, macOS CoreML, or browser WebGPU. Failures fall back to CPU or the browser engine.',
   'WebGPU 转写加速': 'WebGPU transcription acceleration',
+  '删除静音（本地 VAD）': 'Remove silence (local VAD)',
+  '启用后，Agent 的删除静音用本机 Silero VAD 判定语音区间，只删除确认无人说话的片段；关闭时不执行删除。模型随应用内置，无需下载。':
+    'When enabled, the agent\'s silence removal uses the on-device Silero VAD to locate speech and only deletes spans confirmed to contain none; when disabled it deletes nothing. The model ships with the app, so there is no download.',
   '无法读取模型列表：{err}': 'Cannot load the model list: {err}',
   '默认模型': 'Default model',
   '自动（按设备内存选择）': 'Auto (by device memory)',
@@ -505,31 +591,12 @@ export default {
   '未安装': 'Not installed',
   '重新安装': 'Reinstall',
   '安装': 'Install',
-  // ── Storage migration dialog ──
-  '数据存储': 'Data storage',
-  '当前存储': 'Current storage',
-  'SQLite 数据库': 'SQLite database',
-  'JSON 文件目录': 'JSON file directory',
-  '本地数据键': 'Local data entries',
-  '迁移时间': 'Migrated at',
-  'SQLite 键数': 'SQLite entries',
-  '迁移到 SQLite': 'Migrate to SQLite',
-  '迁移中…': 'Migrating…',
-  '迁移失败': 'Migration failed',
-  '迁移尚未完成，仍在使用 JSON 文件目录': 'Migration is not complete; the JSON file directory remains active',
-  '已迁移 {imported} 个数据键，跳过 {skipped} 个': 'Migrated {imported} entries, skipped {skipped}',
-  '，今后项目将默认使用 SQLite 存储工程数据': ', and new projects will now use SQLite by default',
-  '迁移后，工程数据保存到单一 SQLite 数据库文件：写入更可靠（事务）、加载更快、支持全文搜索。原始 JSON 文件将【只读保留】，旧版本、回滚与数据救援始终可用。': 'After migration, project data lives in a single SQLite database: transactional writes, faster loads and full-text search. The original JSON files stay read-only, so older versions, rollbacks and data rescue always work.',
-  '迁移后新编辑写入 SQLite；如需回滚到旧版本，迁移后新增的编辑不会出现在旧版本中。': 'New edits go to SQLite after migration; if you roll back to an older version, edits made after migration will not appear there.',
-  '可将工程数据迁移到 SQLite：写入更可靠、加载更快、支持全文搜索。原始 JSON 文件只读保留，随时可回滚。': 'Migrate project data to SQLite: more reliable writes, faster loading, full-text search. Original JSON files stay read-only, so you can always roll back.',
-  '忽略': 'Dismiss',
   '不描述图片，一律剥离。': 'Do not describe images; always strip them.',
   '主模型不支持图片时维持现状（图片剥离为文本）。': 'Keep current behavior when the main model cannot see images (images stripped to text).',
   '厂商（已配置 API Key）': 'Provider (API key configured)',
   '图片与时间线帧由所选视觉模型理解后以文本注入。': 'Images and timeline frames are understood by the selected vision model and injected as text.',
   '图片会发送给所选视觉模型厂商用于描述；视觉调用失败时自动回退为剥离文本，不阻塞对话。': 'Images are sent to the selected vision provider for description; on vision failure it falls back to stripping text and never blocks the conversation.',
   '基底模型不支持图片输入时（如 DeepSeek 系），图片由所选视觉模型理解后以文本注入。': 'When the base model cannot accept images (e.g. DeepSeek family), the chosen vision model understands them and injects text.',
-  '工程数据存储方式': 'Project data storage',
   '已指定': 'Custom',
   '已禁用': 'Disabled',
   '指定视觉模型': 'Use a specific vision model',
@@ -538,11 +605,6 @@ export default {
   '视觉模型': 'Vision model',
   '视觉理解': 'Vision understanding',
   '跟随主模型': 'Follow main model',
-  '清理旧 JSON 数据（{n} 个文件）': 'Clean up old JSON data ({n} files)',
-  '我确认已迁移完成，且不需要回滚到旧版本（删除后旧版本软件将看到空数据）': 'I confirm the migration is complete and I do not need to roll back to the old version (old versions will see empty data after deletion)',
-  '确认清理': 'Confirm cleanup',
-  '清理中…': 'Cleaning up…',
-  '已清理 {removed} 个旧 JSON 文件': 'Removed {removed} old JSON files',
   '默认工程位置': 'Default project location',
   '应用默认数据目录': 'Default app data folder',
   '新工程和生成素材的默认保存位置，以及可选的 R2 云备份。':

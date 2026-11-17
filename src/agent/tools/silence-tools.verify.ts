@@ -3,7 +3,7 @@ import { makeDraft } from '../../editor/store';
 import type { TimelineItem } from '../../editor/types';
 import { docFromTimeline } from '../../persist/projectStore';
 import type { AgentContext } from '../context';
-import { vadSilenceRemovalEnabled } from '../../audio/vad';
+import { vadSilenceRemovalEnabled } from '../../audio/vadPreference';
 import { execSilenceTool } from './silence-tools';
 
 const clip: TimelineItem = {

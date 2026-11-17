@@ -15,13 +15,24 @@ const PACKS_KEY = 'plugins:packs';
 const API_PATH = '/api/plugins';
 let memoryPacks: unknown[] = [];
 
+// Reuse successful connections; a failed open must remain retryable.
+let dbPromise: Promise<IDBDatabase> | undefined;
 function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => { db.close(); dbPromise = undefined; };
+      db.onclose = () => { dbPromise = undefined; };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
+  }).catch((error) => {
+    dbPromise = undefined;
+    throw error;
   });
+  return dbPromise;
 }
 
 async function idbGet<T>(key: string): Promise<T | undefined> {
@@ -289,7 +300,7 @@ export function transitionDefOf(pack: PluginPack, item: PluginTransitionItem): C
 }
 
 /** Single packages are registered into the runtime registry (fx/lut → ALL_FX, transition → custom registry).
- * effects.ts contains.frag?raw import, which can only be imported dynamically (browser side).*/
+ * The GL catalogs are browser-side runtime state, so the imports stay dynamic (browser side).*/
 export async function registerPack(pack: InstalledPack): Promise<void> {
   if (!pack.enabled) return;
   const [fx, tr] = await Promise.all([

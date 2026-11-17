@@ -2,6 +2,7 @@
 node_modules/
 dist/
 desktop-dist/
+cli-dist/
 release/
 coverage/
 .nyc_output/
@@ -103,3 +104,6 @@ public/whisper-cli/
 .npm-cache/
 # Root-level local runtime files
 /etc/
+
+# Agent tooling local state (Command Code taste captures)
+.commandcode/

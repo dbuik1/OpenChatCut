@@ -3,7 +3,7 @@ import { makeDraft } from '../../editor/store';
 import type { TimelineState } from '../../editor/types';
 import { docFromTimeline } from '../../persist/projectStore';
 import type { AgentContext } from '../context';
-import { execStockTool } from './stock-tools';
+import { execStockTool, serialBatch } from './stock-tools';
 
 const state: TimelineState = {
   fps: 30,
@@ -42,6 +42,9 @@ globalThis.fetch = async (_input, init) => {
   const url = typeof request.url === 'string' ? request.url : '';
   if (url.includes('fallback')) {
     return Response.json({ ok: false, error: 'materializer unavailable' });
+  }
+  if (url.includes('forbidden')) {
+    return Response.json({ ok: false, error: 'upstream HTTP 403', code: 'upstream_http' });
   }
   if (url.includes('legacy')) {
     return Response.json({
@@ -86,6 +89,19 @@ try {
   assert.equal(pushedAsset?.name, '宣传图显示名');
   assert.equal(pushedAsset?.originalFilePath, undefined);
 
+  // An origin that answers 403 is a failed row: registering it as a remote source used to
+  // report success for an asset that could never play or export.
+  const forbidden = await execStockTool('download_media', {
+    url: ['https://cdn.example.test/forbidden/clip.mp4', 'https://cdn.example.test/ok/clip.mp4'],
+  }, context) as { failed: number; succeeded: number; results: Array<{ success: boolean; error?: string; url?: string }> };
+  assert.equal(forbidden.failed, 1);
+  assert.equal(forbidden.succeeded, 1);
+  assert.equal(forbidden.results[0]?.success, false);
+  assert.match(forbidden.results[0]?.error ?? '', /403/);
+  assert.equal(forbidden.results[0]?.url, 'https://cdn.example.test/forbidden/clip.mp4');
+  assert.equal(draft.getDoc().assets.some((asset) => asset.src.includes('forbidden')), false,
+    'a forbidden origin must not enter the media pool as a remote source');
+
   const legacy = await execStockTool('import_url_asset', {
     url: 'https://cdn.example.test/legacy/voice.wav',
   }, context) as { ok: boolean; asset: { id: string } };
@@ -97,6 +113,27 @@ try {
   globalThis.fetch = originalFetch;
   if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
   else Reflect.deleteProperty(globalThis, 'window');
+}
+
+// Batches have no time window: every URL runs, one at a time and in order, and a failed
+// row does not stop the URLs after it.
+{
+  const seen: string[] = [];
+  let active = 0;
+  let peak = 0;
+  const rows = await serialBatch(['a', 'b', 'c', 'd'], async (url) => {
+    active += 1;
+    peak = Math.max(peak, active);
+    seen.push(url);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active -= 1;
+    return url === 'b'
+      ? { success: false, error: 'upstream', url }
+      : { success: true, assetId: url, name: url, type: 'video', src: url, local: true };
+  });
+  assert.deepEqual(seen, ['a', 'b', 'c', 'd'], 'every URL starts, in order');
+  assert.equal(peak, 1, 'URLs run one at a time');
+  assert.deepEqual(rows.map((row) => row.success), [true, false, true, true], 'every URL gets its own row');
 }
 
 console.log('stock source identity verify: ok');

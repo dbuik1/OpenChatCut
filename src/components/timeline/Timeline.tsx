@@ -90,6 +90,7 @@ export function Timeline(props: TimelineProps) {
         captionsVisible={captionsVisible}
         zoneIn={zoneIn} zoneOut={zoneOut}
         zoom={zoom} setZoom={setZoom}
+        frameRateLock={props.frameRateLock ?? null}
       />
 
       {/* selection-mode hint strip (subtle banner while picking refs) */}

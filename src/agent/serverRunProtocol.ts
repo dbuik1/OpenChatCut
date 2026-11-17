@@ -42,6 +42,14 @@ export interface ServerRunToolAction {
   readonly baseDoc: ProjectDoc;
 }
 
+/**
+ * What happened to the project edits of one tool call. `none` when the call
+ * landed nothing (reads, proposal-only edits, tools outside the project);
+ * `queued` when its save failed and the edits wait in the run for the next
+ * landing, so repeating the call would apply them twice.
+ */
+export type ServerRunProjectWrite = 'none' | 'saved' | 'queued';
+
 export interface ServerRunRecovery {
   readonly tools: readonly Pick<
     ServerRunToolAction,
@@ -91,7 +99,9 @@ export interface ServerRunOptions {
   readonly onRunStart?: (
     start: ServerRunStart,
   ) => ServerRunRecovery | void | Promise<ServerRunRecovery | void>;
-  readonly onToolAction?: (action: ServerRunToolAction) => void | Promise<void>;
+  readonly onToolAction?: (
+    action: ServerRunToolAction,
+  ) => ServerRunProjectWrite | void | Promise<ServerRunProjectWrite | void>;
   readonly onTerminal?: (
     terminal: ServerRunTerminal,
   ) => ServerRunTerminalResolution | false | Promise<ServerRunTerminalResolution | false>;
@@ -106,7 +116,7 @@ export interface ServerRunController {
   readonly stop: () => void;
 }
 
-export type ServerRunBackend = 'api' | 'codex';
+export type ServerRunBackend = 'api' | 'codex' | 'copilot' | 'claude-code';
 
 export interface ServerRunPayload {
   readonly projectId: string;
@@ -120,12 +130,15 @@ export interface ServerRunPayload {
   readonly provider?: string;
   readonly model?: string;
   readonly backend?: ServerRunBackend;
+  readonly reasoningEffort?: string;
   readonly cacheMode: AgentCacheMode;
   readonly maxOutputTokens: number;
   readonly autonomousAcceptance: boolean;
   readonly maxAcceptanceIterations: number;
   readonly externalSessionId?: string;
   readonly openAiApiMode?: string;
+  /** claude-code only: the composer's auto-apply state, enforced on that turn's MCP server. */
+  readonly approvalMode?: 'manual' | 'auto';
 }
 
 interface ServerRunTransportContext {
@@ -134,12 +147,14 @@ interface ServerRunTransportContext {
   readonly provider?: string;
   readonly model?: string;
   readonly backend?: ServerRunBackend;
+  readonly reasoningEffort?: string;
   readonly cacheMode: AgentCacheMode;
   readonly maxOutputTokens: number;
   readonly autonomousAcceptance?: boolean;
   readonly maxAcceptanceIterations?: number;
   readonly openAiApiMode?: string;
   readonly externalSessionId?: string;
+  readonly approvalMode?: 'manual' | 'auto';
 }
 function createServerRunIdentity(): Pick<ServerRunPayload, 'runId' | 'capability'> {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -316,6 +331,7 @@ export function buildServerRunPayload(
     ...(transport.provider ? { provider: transport.provider } : {}),
     ...(transport.model ? { model: transport.model } : {}),
     ...(transport.backend ? { backend: transport.backend } : {}),
+    ...(transport.reasoningEffort ? { reasoningEffort: transport.reasoningEffort } : {}),
     cacheMode: transport.cacheMode,
     maxOutputTokens: transport.maxOutputTokens,
     autonomousAcceptance: transport.autonomousAcceptance === true,
@@ -326,6 +342,7 @@ export function buildServerRunPayload(
     ...(transport.externalSessionId
       ? { externalSessionId: transport.externalSessionId }
       : {}),
+    ...(transport.approvalMode ? { approvalMode: transport.approvalMode } : {}),
   };
   const retainedHistory = budgetedHistory(payloadWithoutHistory, history);
   return {

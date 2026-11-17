@@ -43,8 +43,14 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
   xai: 'xAI',
   'xai-oauth': 'xAI (订阅登录)',
   openrouter: 'OpenRouter',
+  ofox: 'OFox',
+  orcarouter: 'OrcaRouter',
+  requesty: 'Requesty',
+  cheaperinference: 'Cheaper Inference',
+  runcrate: 'Runcrate',
   ollama: 'Ollama',
   lmstudio: 'LM Studio',
+  agnes: 'Agnes AI',
 };
 
 export function VisionModelPane(): React.JSX.Element {

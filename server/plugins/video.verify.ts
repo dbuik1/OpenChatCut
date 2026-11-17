@@ -6,9 +6,13 @@ import {
   requireGenerationResultUrls,
 } from './generation-jobs.ts';
 import {
+  hailuoRequestBody, isMinimaxSubjectModel, validateMinimaxVideoMode,
+} from './minimax-video.ts';
+import {
+  agnesVideoRetrieveUrl,
   expectedVideoResultCount,
-  hailuoApiResolution, hailuoRequestBody, isMinimaxSubjectModel, klingPrompt, seedanceApiResolution, seedanceRequestBody,
-  validateMinimaxVideoMode, validateVideoRequest,
+  hailuoApiResolution, klingPrompt, seedanceApiResolution, seedanceRequestBody,
+  validateVideoRequest,
 } from './video.ts';
 
 assert.equal(hailuoApiResolution(undefined), '768P');
@@ -307,6 +311,21 @@ const flBody = hailuoRequestBody(fl, 'MiniMax-Hailuo-02', 'data:image/jpeg;base6
 assert.equal(flBody.resolution, '1080P');
 assert.equal(flBody.last_frame_image, 'data:image/jpeg;base64,b');
 
+// A model id newer than the family list stays reachable (#136): it gets the
+// current-generation request shape rather than a local rejection, and MiniMax
+// decides. Constraints for models we HAVE categorized still fire.
+const nextGen = 'MiniMax-Hailuo-9.9';
+assert.equal(validateMinimaxVideoMode(t2v, nextGen), 'unknown');
+const nextGenBody = hailuoRequestBody(t2v, nextGen);
+assert.equal(nextGenBody.model, nextGen);
+assert.equal(nextGenBody.duration, 6);
+assert.equal(nextGenBody.resolution, '768P');
+assert.equal(validateMinimaxVideoMode(fl, nextGen), 'unknown');
+assert.equal(hailuoRequestBody({ ...fl, resolution: '512p' }, nextGen, 'data:image/jpeg;base64,a', 'data:image/jpeg;base64,b').resolution, '512P');
+assert.equal(validateMinimaxVideoMode(fl, 'MiniMax-Hailuo-02'), 'hailuo02');
+assert.throws(() => validateMinimaxVideoMode(fl, 'MiniMax-Hailuo-2.3'), /requires MiniMax-Hailuo-02/);
+assert.throws(() => validateMinimaxVideoMode(t2v, 'S2V-01'), /requires firstFrame/);
+
 const grok = validateVideoRequest({ model: 'grok-imagine-video', prompt: 'a cat on a windowsill', durationSeconds: 10, ratio: '9:16', resolution: '720p' });
 assert.equal(grok.model, 'grok-imagine-video');
 assert.equal(grok.durationSeconds, 10);
@@ -329,4 +348,89 @@ assert.throws(
   /supported by seedance2\/byteplus only/,
 );
 
-console.log('video.check: ok (seedance 480p + kling base/feature + hailuo)');
+const ofox = validateVideoRequest({ model: 'ofox', prompt: 'a paper airplane gliding through a sunlit room', durationSeconds: 4, ratio: '9:16', resolution: '720p' });
+assert.equal(ofox.model, 'ofox');
+assert.equal(ofox.durationSeconds, 4);
+assert.equal(ofox.ratio, '9:16');
+assert.equal(ofox.resolution, '720p');
+assert.equal(validateVideoRequest({ model: 'ofox', prompt: 'x', ratio: '21:9' }).ratio, '21:9');
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', durationSeconds: 40 }),
+  /durationSeconds must be between 2 and 30/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', resolution: '4k' }),
+  /resolution must be 480p, 720p, or 1080p/,
+);
+const ofoxI2v = validateVideoRequest({ model: 'ofox', prompt: 'x', firstFramePath: '/media/uploads/a.jpg', lastFramePath: '/media/uploads/b.jpg', generateAudio: false, seed: 7 });
+assert.equal(ofoxI2v.firstFramePath, '/media/uploads/a.jpg');
+assert.equal(ofoxI2v.lastFramePath, '/media/uploads/b.jpg');
+assert.equal(ofoxI2v.generateAudio, false);
+assert.equal(ofoxI2v.seed, 7);
+const ofoxRefs = validateVideoRequest({ model: 'ofox', prompt: 'x', refImagePaths: Array.from({ length: 9 }, (_, i) => `/media/uploads/r${i}.jpg`) });
+assert.equal(ofoxRefs.refImagePaths.length, 9);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', lastFramePath: '/media/uploads/b.jpg' }),
+  /lastFrame requires firstFrame/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', firstFramePath: '/media/uploads/a.jpg', refImagePaths: ['/media/uploads/r.jpg'] }),
+  /cannot be combined with refImages/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', refImagePaths: Array.from({ length: 10 }, (_, i) => `/media/uploads/r${i}.jpg`) }),
+  /at most 9 refImages/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', refVideoPaths: ['/media/uploads/v.mp4'] }),
+  /refVideos\/refAudios are not wired/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', watermark: true }),
+  /supported by seedance2\/byteplus only/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', promptOptimizer: true }),
+  /supported by hailuo only/,
+);
+assert.throws(
+  () => validateVideoRequest({ model: 'ofox', prompt: 'x', shotType: 'customize', multiPrompts: [{ prompt: 'a', duration: 2, index: 1 }, { prompt: 'b', duration: 2, index: 2 }] }),
+  /multi-shot and editing options are not supported by ofox/,
+);
+
+const agnesVideo = validateVideoRequest({
+  model: 'agnes-video', prompt: 'a cat walks', durationSeconds: 5, ratio: '9:16', resolution: '720p', seed: 7,
+});
+assert.equal(agnesVideo.model, 'agnes-video');
+assert.equal(agnesVideo.seed, 7);
+assert.equal(
+  agnesVideoRetrieveUrl('https://apihub.agnes-ai.com/v1', 'video_abc', 'agnes-video-2.5-flash'),
+  'https://apihub.agnes-ai.com/agnesapi?video_id=video_abc&model_name=agnes-video-2.5-flash',
+);
+assert.throws(() => validateVideoRequest({ model: 'agnes-video', prompt: 'x', durationSeconds: 3 }), /between 4 and 12/);
+assert.throws(() => validateVideoRequest({ model: 'agnes-video', prompt: 'x', resolution: '1080p' }), /only supports 720p/);
+assert.throws(
+  () => validateVideoRequest({ model: 'agnes-video', prompt: 'x', firstFramePath: '/media/uploads/a.jpg', refImagePaths: ['/media/uploads/b.jpg'] }),
+  /cannot be combined/,
+);
+assert.throws(() => validateVideoRequest({ model: 'agnes-video', prompt: 'x', generateAudio: true }), /not supported by agnes-video/);
+assert.equal(validateVideoRequest({ model: 'agnes-video', prompt: 'x', lastFramePath: '/media/uploads/b.jpg' }).lastFramePath, '/media/uploads/b.jpg');
+
+const omni = validateVideoRequest({
+  model: 'gemini-omni', prompt: 'neon city flythrough', durationSeconds: 8, ratio: '9:16', resolution: '1080p',
+});
+assert.equal(omni.model, 'gemini-omni');
+assert.equal(omni.ratio, '9:16');
+assert.throws(
+  () => validateVideoRequest({ model: 'gemini-omni', prompt: 'x', ratio: '21:9' }),
+  /16:9 or 9:16/,
+);
+assert.throws(
+  () => validateVideoRequest({
+    model: 'gemini-omni', prompt: 'x',
+    firstFramePath: '/media/uploads/a.jpg', refImagePaths: ['/media/uploads/b.jpg'],
+  }),
+  /cannot be combined with refImages/,
+);
+
+console.log('video.check: ok (seedance 480p + kling base/feature + hailuo + gemini-omni)');

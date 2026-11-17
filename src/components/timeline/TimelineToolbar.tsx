@@ -14,6 +14,7 @@ import { TimelineSpeedControl } from './TimelineSpeedControl';
 import { SceneDetectionDialog } from '../../scene-detection/SceneDetectionDialog';
 import { MotionTrackingDialog } from '../../tracking/MotionTrackingDialog';
 import { TrackCreateControl } from './TrackCreateControl';
+import { TimelineFrameRateControl } from './TimelineFrameRateControl';
 
 // Group spacing between toolbar clusters uses gaps without a visible divider.
 function ToolSep() {
@@ -118,12 +119,14 @@ interface TimelineToolbarProps {
   zoneOut: number | null;
   zoom: number;
   setZoom: (z: number) => void;
+  /** projectFrameRateLock(doc): null while the frame rate can still change */
+  frameRateLock: string | null;
 }
 
 export function TimelineToolbar({
   state, commands, editMode, placeMode, setPlaceMode, snapping,
   recorder, canRecord, playing, timecodeRef, playheadFrame, total, captionsVisible,
-  zoneIn, zoneOut, zoom, setZoom,
+  zoneIn, zoneOut, zoom, setZoom, frameRateLock,
 }: TimelineToolbarProps) {
   const t = useT();
   const speedItem = state.items.find((item) => (
@@ -228,6 +231,7 @@ export function TimelineToolbar({
         title={t('缩放时间轴')} className="cc-timeline-zoom" />
       <TB icon="zoomIn" title={t('放大时间轴 (⌘＋)')} tipRight onClick={() => invokeAction('zoom-in', undefined, 'toolbar')} />
       <TB icon="fit" title={t('适配视图 (⇧Z)')} tipRight onClick={() => invokeAction('zoom-fit', undefined, 'toolbar')} />
+      <TimelineFrameRateControl fps={state.fps} lock={frameRateLock} onChange={commands.setProjectFps} />
       <label className="cc-aspect-select cc-tip cc-tip-r" data-tip={t('画幅比例')}>
         <Icon name="aspect" size={16} />
         <select aria-label={t('画幅比例')} value={ASPECT_PRESETS.find((preset) => preset.width === state.width && preset.height === state.height)?.label ?? ''}

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse as parseDotenv } from 'dotenv';
 import { loadEnv } from 'vite';
-import { KEY_NAMES, NON_SECRET_NAMES, mergeEnvText, planLegacyLlmMigration, seedKeystore, keyStatus, getKey } from './keystore.ts';
+import { KEY_NAMES, NON_SECRET_NAMES, mergeEnvText, planLegacyLlmMigration, seedKeystore, keyStatus, getKey, setKeys } from './keystore.ts';
 import { LLM_PROVIDER_PRESETS, llmProviderConfigNames } from '../shared/llm-providers.ts';
 import { MODEL_CAPABILITY_OVERRIDES_KEY, parseModelCapabilityOverrides } from '../shared/model-capabilities.ts';
 import { parseEnvText } from '../desktop/env-file.ts';
@@ -109,31 +109,60 @@ assert.ok(!serialized.includes('secret-abc') && !serialized.includes('px-1'), 's
 assert.equal(getKey('LLM_API_KEY'), 'secret-abc', 'getKey returns the live value server-side');
 seedKeystore({ ...isolatedSeed, PREFERRED_TRANSCRIPTION_PROVIDER: 'local' } as Record<string, string>);
 assert.equal(keyStatus().caps.transcription, true, 'selected local Whisper keeps keyless transcription available');
+assert.equal(keyStatus().caps.video, false, 'unconfigured OFox leaves existing video capability off');
+seedKeystore({ ...isolatedSeed, LLM_OFOX_API_KEY: 'ofox-test-key' });
+assert.equal(keyStatus().caps.video, true, 'OFox alone enables video generation');
+assert.equal(keyStatus().caps.image, false, 'OFox does not enable unimplemented image generation');
+seedKeystore({ ...isolatedSeed, FAL_KEY: 'fal-secret', FAL_IMAGE_MODEL: 'nano-banana-2', FAL_VIDEO_MODEL: 'seedance-2.5' } as Record<string, string>);
+const falStatus = keyStatus();
+assert.equal(falStatus.models.FAL_IMAGE_MODEL, 'nano-banana-2');
+assert.equal(falStatus.models.FAL_VIDEO_MODEL, 'seedance-2.5');
+assert.equal(falStatus.keys.FAL_KEY.configured, true, 'Fal key is reported as configured');
+assert.equal(falStatus.caps.image, true, 'Fal key enables image capability for routed image models');
+assert.equal(falStatus.caps.video, true, 'Fal key enables video capability for routed video models');
+assert.ok(!JSON.stringify(falStatus).includes('fal-secret'), 'Fal secret never appears in browser status');
 seedKeystore({
   ...isolatedSeed,
   [MODEL_CAPABILITY_OVERRIDES_KEY]: '[{"backend":"api","provider":"openai","modelId":"x","apiKey":"secret"}]',
 } as Record<string, string>);
 assert.equal(keyStatus().models[MODEL_CAPABILITY_OVERRIDES_KEY], '', 'invalid startup override is not exposed');
 
+const supportedOverride = { backend: 'api', provider: 'openai', modelId: 'custom', contextWindowTokens: 128_000 };
+const overridesWithRetiredProvider = JSON.stringify([
+  { ...supportedOverride, provider: 'retired-provider' }, supportedOverride,
+]);
+assert.throws(() => parseModelCapabilityOverrides(overridesWithRetiredProvider), /Invalid model capability provider/,
+  'new configuration still rejects unavailable providers');
+await assert.rejects(setKeys({ [MODEL_CAPABILITY_OVERRIDES_KEY]: overridesWithRetiredProvider }),
+  /Invalid model capability provider/, 'settings writes reject unavailable providers before persistence');
+seedKeystore({ ...isolatedSeed, [MODEL_CAPABILITY_OVERRIDES_KEY]: overridesWithRetiredProvider });
+assert.deepEqual(JSON.parse(getKey(MODEL_CAPABILITY_OVERRIDES_KEY)), [supportedOverride],
+  'loading old settings retains valid overrides when another provider was removed');
+// Restore the empty override state for the independent legacy migration checks below.
+seedKeystore({ ...isolatedSeed, [MODEL_CAPABILITY_OVERRIDES_KEY]: 'invalid' });
+
 // ── non-secret model/routing/toggle channel: explicit routing names + per-vendor
 // Base URL/model name (derived with LLM_PROVIDER_PRESETS), the value is echoed by keyStatus().models —
 // The SECRET value still never appears in any response ──
 const MODEL_ROUTING_NAMES = [
   'LLM_PROVIDER', 'LLM_MODEL', 'CODEX_MODEL', 'CODEX_REASONING_EFFORT', 'LLM_OPENAI_API_MODE',
+  'COPILOT_MODEL', 'COPILOT_REASONING_EFFORT', 'CLAUDE_CODE_MODEL',
   MODEL_CAPABILITY_OVERRIDES_KEY,
-  'GEMINI_IMAGE_MODEL', 'IMAGE_BASE_URL', 'GEMINI_BASE_URL',
+  'FAL_IMAGE_MODEL', 'FAL_VIDEO_MODEL',
+  'GEMINI_IMAGE_MODEL', 'GEMINI_OMNI_VIDEO_MODEL', 'IMAGE_BASE_URL', 'GEMINI_BASE_URL',
   'ELEVENLABS_TTS_MODEL', 'ELEVENLABS_SOUND_MODEL',
   'OPENAI_TTS_MODEL', 'GEMINI_TTS_MODEL', 'MISTRAL_TTS_MODEL', 'CARTESIA_TTS_MODEL',
   'OPENAI_TRANSCRIPTION_MODEL', 'MISTRAL_TRANSCRIPTION_MODEL', 'DEEPGRAM_TRANSCRIPTION_MODEL',
   'GROQ_TRANSCRIPTION_MODEL', 'ELEVENLABS_TRANSCRIPTION_MODEL', 'CARTESIA_TRANSCRIPTION_MODEL', 'GROQ_BASE_URL',
-  'DOUBAO_TTS_RESOURCE_ID', 'SEEDANCE_VIDEO_MODEL', 'KLING_VIDEO_MODEL', 'MUREKA_MUSIC_MODEL',
+  'DOUBAO_TTS_MODEL', 'DOUBAO_TTS_VOICE_ID', 'SEEDANCE_VIDEO_MODEL', 'KLING_VIDEO_MODEL', 'MUREKA_MUSIC_MODEL',
   'MINIMAX_TTS_MODEL', 'MINIMAX_VIDEO_MODEL', 'MINIMAX_MUSIC_MODEL', 'MINIMAX_IMAGE_MODEL',
   'ATLASCLOUD_API_BASE', 'ATLASCLOUD_MUSIC_MODEL',
   'WAVESPEED_IMAGE_MODEL', 'BYTEPLUS_IMAGE_MODEL', 'BYTEPLUS_VIDEO_MODEL',
-  'XAI_IMAGE_MODEL', 'XAI_VIDEO_MODEL',
+  'XAI_IMAGE_MODEL', 'XAI_VIDEO_MODEL', 'OFOX_VIDEO_MODEL',
+  'AGNES_IMAGE_BASE_URL', 'AGNES_IMAGE_MODEL', 'AGNES_VIDEO_BASE_URL', 'AGNES_VIDEO_MODEL',
   'INWORLD_TTS_MODEL', 'FISHAUDIO_TTS_MODEL', 'SPEECHIFY_TTS_MODEL',
   'PREFERRED_IMAGE_VENDOR', 'PREFERRED_VOICE_VENDOR', 'PREFERRED_VIDEO_VENDOR', 'PREFERRED_MUSIC_VENDOR',
-  'PREFERRED_TRANSCRIPTION_PROVIDER', 'TRANSCRIPTION_LANGUAGE', 'TRANSCRIPTION_DIARIZATION', 'AUTO_TRANSCRIBE_INGEST', 'UI_SCALE', 'AUTO_DOWNLOAD_UPDATES',
+  'PREFERRED_TRANSCRIPTION_PROVIDER', 'TRANSCRIPTION_LANGUAGE', 'TRANSCRIPTION_DIARIZATION', 'AUTO_TRANSCRIBE_INGEST', 'UI_SCALE', 'UI_SCALE_BASE', 'UI_LOCALE', 'AUTO_DOWNLOAD_UPDATES',
   'LOCAL_ASR_MODEL', // On-device ASR model tier: '' | tiny | base | small | medium
   'R2_ENABLED', // Cloud synchronization switch (''=enable/'0'=disable)
   'R2_PRESIGN', // Browser pre-signed direct transmission (''=enabled/'0'=server-side write-through only)
@@ -141,6 +170,7 @@ const MODEL_ROUTING_NAMES = [
   'AGENT_IMPORT_ROOTS', // Agent local-path import whitelist (comma-separated absolute dirs)
   'OPENCHATCUT_SKILLS_DIR', // User skill files directory (''=~/.openchatcut/skills)
   'PROXY_URL', // Outbound network proxy (''=use HTTPS_PROXY/HTTP_PROXY env)
+  'WEB_SEARCH_PROVIDER', // Basic web research routing ('' | parallel | firecrawl | disabled)
 ] as const;
 for (const name of MODEL_ROUTING_NAMES) {
   assert.ok((KEY_NAMES as readonly string[]).includes(name), `${name} is whitelisted (settable via POST /api/keys)`);
@@ -163,8 +193,9 @@ assert.deepStrictEqual(
 );
 
 // seed one SECRET + one non-secret on top of the state above (seeds accumulate in-process)
-seedKeystore({ ...isolatedSeed, LLM_API_KEY: 'sec-x', MINIMAX_TTS_MODEL: 'speech-2.8-hd' } as Record<string, string>);
+seedKeystore({ ...isolatedSeed, LLM_API_KEY: 'sec-x', MINIMAX_TTS_MODEL: 'speech-2.8-hd', WEB_SEARCH_PROVIDER: 'disabled' } as Record<string, string>);
 const st2 = keyStatus();
+assert.equal(st2.models['WEB_SEARCH_PROVIDER'], 'disabled', 'web routing/disable choice is echoed as non-secret config');
 assert.equal(st2.models['MINIMAX_TTS_MODEL'], 'speech-2.8-hd', 'non-secret model value echoed in models');
 assert.equal(st2.models['KLING_VIDEO_MODEL'], '', 'unset non-secret name echoes empty string');
 assert.ok(!('LLM_API_KEY' in st2.models), 'SECRET key has no field in models at all');

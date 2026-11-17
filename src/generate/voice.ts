@@ -38,13 +38,10 @@ export interface SubmitVoiceArgs {
   nextRequestIds?: string[];
   speedRatio?: number;
   emotion?: string;
-  emotionScale?: number;
   loudnessRatio?: number;
   pitch?: number;
   /** MiniMax only: voice_setting.vol 0–10. */
   volume?: number;
-  performancePrompt?: string;
-  explicitDialect?: 'dongbei' | 'shaanxi' | 'sichuan';
   sampleRate?: number;
   bitrate?: number;
   audioFormat?: 'mp3' | 'pcm' | 'flac' | 'wav' | 'pcmu_raw' | 'pcmu_wav' | 'opus';
@@ -93,7 +90,9 @@ export async function submitVoice(args: SubmitVoiceArgs, state: TimelineState): 
   const text = args.text.trim();
   const voiceId = args.voiceId.trim();
   if (!text) throw new Error('text is required');
-  if (!voiceId && !args.timbreWeights?.length) throw new Error('voiceId is required unless MiniMax timbreWeights are provided');
+  if (!voiceId && !args.timbreWeights?.length && args.provider !== 'doubao') {
+    throw new Error('voiceId is required unless MiniMax timbreWeights are provided');
+  }
   const response = await fetch('/generate/voice', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -108,7 +107,7 @@ export async function submitVoice(args: SubmitVoiceArgs, state: TimelineState): 
   const props = result.subtitlePath ? { minimaxSubtitlePath: result.subtitlePath, minimaxSubtitleType: args.subtitleType ?? 'sentence' } : undefined;
   return {
     id: newId(),
-    name: args.name?.trim() || `Voice · ${voiceId}`,
+    name: args.name?.trim() || `Voice · ${voiceId || args.provider}`,
     kind: 'audio',
     src: result.path,
     durationInFrames,

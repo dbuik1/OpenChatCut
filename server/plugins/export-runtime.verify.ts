@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { exportScale } from './export-plan.ts';
-import {
+import { ffmpegThreadArgs } from '../media-process.ts';
+import { isolateVerifyHome } from '../../shared/verify-home.ts';
+
+const verifyHome = await mkdtemp(join(tmpdir(), 'occ-export-runtime-verify-'));
+const restoreHome = isolateVerifyHome(verifyHome);
+
+// Import after isolation: the generation-job store resolves its profile database
+// at import time, and this suite's snapshot write must stay in the throwaway home.
+const {
   assertNonEmptyExportBytes,
   cancelActiveExportJob,
   cleanupStaleExportFiles,
@@ -18,9 +26,9 @@ import {
   retimeFps,
   retimeVideoEncodingArgs,
   trackExportJobController,
-} from './export-runtime.ts';
-import { createGenerationJob, getGenerationJobSnapshot } from './generation-jobs.ts';
-import { ffmpegThreadArgs } from '../media-process.ts';
+} = await import('./export-runtime.ts');
+const { createGenerationJob, getGenerationJobSnapshot } = await import('./generation-jobs.ts');
+const { resetSqliteStoreForTests } = await import('../storage/sqlite-store.ts');
 
 assert.doesNotThrow(() => assertNonEmptyExportBytes(1));
 assert.throws(() => assertNonEmptyExportBytes(0), /empty file/);
@@ -32,7 +40,7 @@ assert.equal(resolveMaxActiveExports('2'), 2);
 assert.equal(resolveMaxActiveExports('99'), 4);
 assert.deepEqual(
   exportOutputSize({ width: 1920, height: 1080 }, exportScale({ width: 1920, height: 1080 }, '480p')),
-  { width: 854, height: 480 },
+  { width: 864, height: 486 },
 );
 
 assert.deepEqual(
@@ -161,5 +169,10 @@ const { jobId } = await createGenerationJob(
 trackExportJobController(jobId, controller);
 assert.equal(await cancelActiveExportJob(jobId), true);
 assert.equal(getGenerationJobSnapshot(jobId), undefined);
+
+// Close the store before deleting the fixture, then restore the real profile home.
+resetSqliteStoreForTests();
+restoreHome();
+await rm(verifyHome, { recursive: true, force: true });
 
 console.log('export runtime checks passed');

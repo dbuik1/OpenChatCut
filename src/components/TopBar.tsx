@@ -1,18 +1,25 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { theme } from '../theme';
 import { Icon } from './icons';
 import { ExportHistory } from './ExportHistory';
 import { GenerationActivity } from './GenerationActivity';
 import { SkinPicker } from './settings/SkinPicker';
-import { McpGuideDialog } from './settings/McpGuide';
+import { loadMcpGuideDialog } from './settings/mcpGuideLoader';
 import { ALL_LOCALES, getLocale, setLocale, useT } from '../i18n/locale';
 import { invokeAction, bindAction } from '../shortcuts/actionRegistry';
 import { DesktopWindowControls } from './DesktopWindowControls';
 import { TopBarIconButton } from './TopBarIconButton';
 
+// Lazy, like the dashboard's copy of this dialog. A static import here put the
+// whole MCP guide into the editor's eager chunk and made every lazy() built on
+// loadMcpGuideDialog ineffective, dashboard included — both top bars have to go
+// through the thunk for either to be split.
+const McpGuideDialog = lazy(() => loadMcpGuideDialog().then((m) => ({ default: m.McpGuideDialog })));
+
 // Language switching: The text pill displays the current language; clicking
 // cycles through the supported locales. First run defaults to the
-// system language (or English) — see i18n/locale.ts.
+// system language (or English) — see i18n/locale.ts. Chinese and Korean show
+// their own script; the others show the locale code.
 export function LocaleToggle() {
   const t = useT();
   const locale = getLocale();
@@ -23,10 +30,10 @@ export function LocaleToggle() {
       data-tip={t('切换界面语言')}
       aria-label={t('切换界面语言')}
       onClick={() => setLocale(next)}
-      style={{ minWidth: 30, height: 22, background: 'none', border: `0.5px solid ${theme.border}`, borderRadius: 4, cursor: 'pointer', padding: '0 5px', fontSize: 11, fontWeight: 600, letterSpacing: 0.3, color: theme.textDim, display: 'grid', placeItems: 'center' }}
+      style={{ minWidth: locale === 'th' ? 36 : 30, height: 22, background: 'none', border: `0.5px solid ${theme.border}`, borderRadius: 4, cursor: 'pointer', padding: '0 5px', fontSize: 11, fontWeight: 600, letterSpacing: 0.3, color: theme.textDim, display: 'grid', placeItems: 'center' }}
       onMouseEnter={(e) => { e.currentTarget.style.color = theme.text; e.currentTarget.style.background = theme.panelAlt; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = theme.textDim; e.currentTarget.style.background = 'none'; }}>
-      {locale === 'zh' ? '中' : locale.toUpperCase()}
+      {locale === 'zh' ? '中' : locale === 'ko' ? '한' : locale === 'th' ? 'ไทย' : locale.toUpperCase()}
     </button>
   );
 }
@@ -107,7 +114,11 @@ export function TopBar({ projectId, projectName, canUndo, canRedo, exporting, ex
       </button>
       <div title={t('账户')} style={{ width: 20, height: 20, borderRadius: '50%', marginLeft: 2, background: 'conic-gradient(from 210deg, #6d6cff, #ff5f9e, #ffb35f, #6d6cff)', flexShrink: 0 }} />
       </div>
-      {mcpOpen && <McpGuideDialog onClose={() => setMcpOpen(false)} />}
+      {/* No fallback: a dialog that is still loading shows nothing, exactly as it
+          did before it was opened — the same treatment the other overlays get. */}
+      <Suspense fallback={null}>
+        {mcpOpen && <McpGuideDialog onClose={() => setMcpOpen(false)} />}
+      </Suspense>
     </header>
   );
 }

@@ -8,7 +8,7 @@ import type { TimelineItem } from '../../editor/types';
 import type { Action } from '../../editor/reduce';
 import { analyzeClipSilence, type SilenceSpan } from '../../audio/silence';
 import { sourceRevisionOf } from '../../editor/mediaSourceRevision';
-import { vadSilenceRemovalEnabled } from '../../audio/vad';
+import { vadSilenceRemovalEnabled } from '../../audio/vadPreference';
 import { planSilenceRemoval, silenceRemovalBlocker, spansToLocalCuts } from '../../editor/silenceRebuild';
 
 type Args = Record<string, unknown>;
@@ -33,10 +33,11 @@ export async function execSilenceTool(name: string, args: Args, ctx: AgentContex
   // refuse, never to report an edit that did not happen.
   if (!vadSilenceRemovalEnabled()) {
     return {
-      error: 'remove_silence is turned off in this build, so nothing was changed. '
+      error: 'remove_silence is turned off, so nothing was changed. '
         + 'Removing dead air needs voice-activity detection to tell a pause from music, '
-        + 'room tone or quiet speech, and that detection is not compiled into this build. '
-        + 'To tighten pacing on a transcribed clip, use clean_script instead.',
+        + 'room tone or quiet speech. Ask the user to turn on Settings → Local models → '
+        + 'Local transcription → Remove silence (local VAD), then retry. '
+        + 'To tighten pacing on a transcribed clip now, use clean_script instead.',
     };
   }
   const params = {

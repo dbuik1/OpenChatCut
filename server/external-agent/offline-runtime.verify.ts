@@ -1,25 +1,54 @@
 import assert from 'node:assert/strict';
-import { isExternalServerDirectCall } from '../../src/agent/external-tool-policy.ts';
-import { ExternalEditorCallError } from './broker.ts';
-import { OfflineExternalEditRuntime } from './offline-runtime.ts';
-import { offlineExternalToolSchemas } from './offline-tools.ts';
-import { executeOfflineTool } from './offline-executor.ts';
-import {
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { isolateVerifyHome } from '../../shared/verify-home.ts';
+
+const root = await mkdtemp(join(tmpdir(), 'occ-offline-runtime-'));
+const restoreHome = isolateVerifyHome(root);
+
+// The offline run ledger's project store captures the profile home at module
+// evaluation; delay these known modules so this verification can never touch
+// the user's real project data.
+const { isExternalServerDirectCall } = await import('../../src/agent/external-tool-policy.ts');
+const { ExternalEditorCallError } = await import('./broker.ts');
+const { OfflineExternalEditRuntime } = await import('./offline-runtime.ts');
+const { offlineExternalToolSchemas } = await import('./offline-tools.ts');
+const { executeOfflineTool } = await import('./offline-executor.ts');
+const {
   editorUrl,
   editSessionId,
   MemoryPersistence,
   projectDoc,
   projectId,
-} from './offline-runtime.verify-fixtures.ts';
-import { verifyOfflineCommitAndProjectionScenarios } from './offline-runtime-safety.verify-scenarios.ts';
+} = await import('./offline-runtime.verify-fixtures.ts');
+const { verifyOfflineCommitAndProjectionScenarios } =
+  await import('./offline-runtime-safety.verify-scenarios.ts');
 
 
 const toolNames = new Set(offlineExternalToolSchemas().map((schema) => schema.name));
 
-for (const allowed of ['begin_edit_session', 'read_timeline', 'read_project', 'read_transcript', 'read_captions', 'read_agent_artifact', 'set_aspect_ratio', 'edit_captions', 'update_watermark', 'import_timeline']) {
+for (const allowed of ['begin_edit_session', 'read_timeline', 'read_project', 'read_transcript', 'read_captions', 'read_agent_artifact', 'set_aspect_ratio', 'edit_captions', 'update_watermark', 'import_timeline', 'edit_item', 'manage_effects', 'list_templates', 'search_templates', 'list_audio', 'browse_library', 'add_motion_graphic', 'add_audio', 'import_asset', 'import_assets', 'import_folder', 'browse_local_media', 'export_jianying_draft']) {
   assert.equal(toolNames.has(allowed), true, `${allowed} is server-direct`);
 }
-for (const excluded of ['edit_item', 'manage_effects', 'view_timeline_frames', 'submit_image', 'import_media', 'download_media', 'manage_versions', 'submit_render_job']) {
+// edit_item / manage_effects / the catalog tools moved into the server-direct set
+// once their GL catalogs became loadable outside Vite (the generated *.frag.ts
+// twins) and the offline editor context started carrying the bundled template and
+// audio catalogs. The tools below remain browser-bound.
+for (const excluded of [
+  'list_edit_sessions',
+  'recover_edit_session',
+  'view_timeline_frames',
+  'view_asset_frames',
+  'place_graphics_in_safe_zone',
+  'auto_reframe',
+  'create_motion_graphic_from_code',
+  'submit_image',
+  'import_media',
+  'download_media',
+  'manage_versions',
+  'submit_render_job',
+]) {
   assert.equal(toolNames.has(excluded), false, `${excluded} requires the browser editor`);
 }
 for (const action of ['template', 'style', 'layout', 'display_text', 'source_set', 'language_mode']) {
@@ -50,6 +79,13 @@ assert.equal(persistence.commitCount, 0);
 
 const begun = await runtime.execute('begin_edit_session', { approvalMode: 'auto', clientName: 'External editor' });
 const sessionId = editSessionId(begun);
+await assert.rejects(
+  () => runtime.execute('begin_edit_session', { approvalMode: 'auto' }),
+  /Resolve or discard active edit session/,
+  'offline active conflict rejects when reuseExisting is not set',
+);
+const adoptedOffline = await runtime.execute('begin_edit_session', { approvalMode: 'auto', reuseExisting: true });
+assert.equal(editSessionId(adoptedOffline), sessionId, 'offline begin_edit_session with reuseExisting: true adopts active session');
 for (const action of ['preset_apply', 'preset_delete', 'preset_list', 'preset_rename', 'preset_save']) {
   await assert.rejects(
     () => runtime.execute('edit_captions', { editSessionId: sessionId, action }),
@@ -303,9 +339,21 @@ assert.deepEqual(raceStore.current, projectDoc());
 
 await verifyOfflineCommitAndProjectionScenarios();
 
-for (const instance of [
+await Promise.all([
   runtime, interruptedRuntime, resumedRuntime, concurrentRuntime, staleRuntime,
   takeoverRuntime, candidateRuntime, cancelledRuntime, raceRuntime,
-]) instance.dispose();
+].map((instance) => instance.dispose()));
+// dispose() also fires the per-run lease releases without awaiting them; let
+// those store writes settle before the close below so it is final.
+await new Promise((resolve) => setTimeout(resolve, 0));
+
+const { resetSqliteStoreForTests } = await import('../storage/sqlite-store.ts');
+const { resetSearchForTests } = await import('../storage/fulltext-search.ts');
+// The store and its search index each keep the SQLite fixture files open;
+// Windows cannot remove the directory until both close.
+resetSqliteStoreForTests();
+resetSearchForTests();
+restoreHome();
+await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 10 });
 
 console.log('offline-runtime.verify: ok');

@@ -137,9 +137,13 @@ function restoredRun(
     ? runtimeContext.transportError
     : null;
   // Pre-backend records stored the provider name in `backend`; new records
-  // store the execution backend ('api' | 'codex') plus `provider` separately.
+  // store the execution backend ('api' | 'codex' | 'copilot' | 'claude-code') plus
+  // `provider` separately.
   const storedBackend = record.backend;
-  const hasNewBackend = storedBackend === 'api' || storedBackend === 'codex';
+  const hasNewBackend = storedBackend === 'api'
+    || storedBackend === 'codex'
+    || storedBackend === 'copilot'
+    || storedBackend === 'claude-code';
   return {
     id: record.runId,
     projectId,

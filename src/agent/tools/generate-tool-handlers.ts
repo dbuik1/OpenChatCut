@@ -9,7 +9,7 @@ import { trackGenerationProgress } from '../../generate/progress';
 import { submitVideo, type VideoGenerationSubmission } from '../../generate/video';
 import { submitVoice } from '../../generate/voice';
 import { timelineToFcpxml, type NleFormat } from '../../export/fcpxml';
-import { exportMediaDir } from '../../export/mediaDir';
+import { fcpxmlMediaLocations } from '../../export/exportMediaSources';
 import { recordExport } from '../../persist/exportHistoryStore';
 import {
   applyGenerationJobReports,
@@ -20,6 +20,7 @@ import {
   type GenerationRetryClass,
 } from '../../persist/jobRegistryStore';
 import { fontFallbackGate } from './font-tools';
+import { refreshSystemFonts } from '../../fonts/systemFonts';
 import {
   buildSubmitImageArgs,
   buildSubmitMusicArgs,
@@ -280,7 +281,7 @@ interface ExportTarget {
 }
 
 function exportTarget(args: GenerateArgs, ctx: AgentContext): ExportTarget {
-  const project = ctx.getDoc();
+  const project = structuredClone(ctx.getDoc());
   const query = typeof args.timelineId === 'string' && args.timelineId.trim()
     ? args.timelineId.trim()
     : project.activeTimelineId;
@@ -327,7 +328,7 @@ async function exportXml(args: GenerateArgs, state: TimelineState): Promise<unkn
   const keys = Array.isArray(args.motionGraphicRenderKeys)
     ? args.motionGraphicRenderKeys.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
     : [];
-  const xml = timelineToFcpxml(state, { title: typeof args.name === 'string' ? args.name : undefined, nleFormat, motionGraphicRenderKeys: keys, mediaDir: await exportMediaDir() });
+  const xml = timelineToFcpxml(state, { title: typeof args.name === 'string' ? args.name : undefined, nleFormat, motionGraphicRenderKeys: keys, ...await fcpxmlMediaLocations(state) });
   const base = (typeof args.name === 'string' && args.name ? args.name : 'timeline').replace(/\.(?:fcpxml|xml)$/i, '');
   const filename = `${base}.fcpxml`;
   const blob = new Blob([xml], { type: 'application/xml' });
@@ -338,7 +339,9 @@ async function exportXml(args: GenerateArgs, state: TimelineState): Promise<unkn
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  // Delayed revoke: revoking synchronously after click() can cut the download
+  // off before the browser starts reading the blob (same pattern as exportFiles.ts).
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   void recordExport({ name: filename, format: 'xml', sizeBytes: blob.size, createdAt: Date.now() });
   return { ok: true, format: 'xml', nleFormat, name: filename, sizeBytes: blob.size, motionGraphicRenderKeys: keys };
 }
@@ -347,6 +350,7 @@ async function submitExportHandler(args: GenerateArgs, ctx: AgentContext): Promi
   const format = args.format ?? 'video';
   const target = exportTarget(args, ctx);
   if (format === 'video' || format === 'xml') {
+    await refreshSystemFonts();
     const gate = fontFallbackGate(target.state, args.confirmFontFallback);
     if (gate) return gate;
   }

@@ -3,7 +3,7 @@
 // Replaces the transformers.js ONNX pipeline on the desktop path; the
 // browser path keeps transformers.js.
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createReadStream, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
@@ -21,8 +21,11 @@ import {
   parseDesktopAsrRequest,
 } from '../shared/desktop-inference.ts';
 import { ASR_INFERENCE_CONTRACT } from '../shared/asr-inference-contract.ts';
+import { resolveGgmlPath } from '../shared/asr-ggml-cache.ts';
 import { NativeAsrWorkerLifecycle } from './native-asr-worker-lifecycle.ts';
+import { extractPcm } from './native-asr-pcm.ts';
 import {
+  nativeGgmlFileName,
   whisperLanguage,
   whisperTokensToChunks,
   whisperWordsToChunks,
@@ -54,14 +57,6 @@ interface NativeWorkerData {
   readonly whisperCliPath: string;
   readonly platform: NodeJS.Platform;
 }
-
-// ONNX modelId (browser catalog) -> GGML model file for the desktop engine.
-const GGML_MODELS: Record<string, { fileName: string }> = {
-  'Xenova/whisper-tiny': { fileName: 'ggml-tiny-q5_1.bin' },
-  'onnx-community/whisper-base_timestamped': { fileName: 'ggml-base-q5_1.bin' },
-  'Xenova/whisper-small': { fileName: 'ggml-small-q5_1.bin' },
-  'Xenova/whisper-medium': { fileName: 'ggml-medium-q5_1.bin' },
-};
 
 const SERVER_READY_TIMEOUT_MS = 20_000;
 
@@ -104,51 +99,6 @@ function parseNativeTranscriptionRequest(value: unknown): DesktopAsrRequest {
   }
   const request = parseDesktopAsrRequest({ ...value, sourcePath: '/media/uploads/native-input' });
   return { ...request, sourcePath };
-}
-
-function decodePcm(chunks: readonly Buffer[], totalBytes: number): Float32Array {
-  if (totalBytes === 0 || totalBytes % Float32Array.BYTES_PER_ELEMENT !== 0) {
-    throw new Error('FFmpeg returned invalid PCM audio');
-  }
-  const copy = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    copy.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new Float32Array(copy.buffer);
-}
-
-function extractPcm(request: DesktopAsrRequest): Promise<Float32Array> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(requireRuntime().ffmpegPath, [
-      '-nostdin', '-hide_banner', '-loglevel', 'error',
-      '-protocol_whitelist', 'pipe,data', '-i', 'pipe:0',
-      '-map', '0:a:0', '-ac', '1', '-ar', String(SAMPLE_RATE), '-f', 'f32le', 'pipe:1',
-    ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-    const input = createReadStream(request.sourcePath);
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    const onData = (chunk: Buffer): void => {
-      chunks.push(chunk);
-      totalBytes += chunk.length;
-    };
-    child.stdout.on('data', onData);
-    child.stderr.resume();
-    child.once('error', (error) => reject(error));
-    child.once('close', (code) => {
-      if (code === 0) {
-        resolve(decodePcm(chunks, totalBytes));
-      } else {
-        reject(new Error(`FFmpeg PCM extraction failed (${code})`));
-      }
-    });
-    input.on('error', (error) => {
-      child.kill();
-      reject(error);
-    });
-    input.pipe(child.stdin);
-  });
 }
 
 function runWhisperCli(
@@ -311,7 +261,7 @@ async function transcribeWithEngine(
   engine: LoadedEngine,
   signal?: AbortSignal,
 ): Promise<DesktopAsrResponse> {
-  const samples = await extractPcm(request);
+  const samples = await extractPcm(requireRuntime().ffmpegPath, request.sourcePath, SAMPLE_RATE);
   const audioSeconds = samples.length / SAMPLE_RATE;
   const dir = await mkdtemp(join(tmpdir(), 'occ-asr-'));
   const wavPath = join(dir, 'input.wav');
@@ -359,9 +309,9 @@ async function transcribeWithEngine(
 }
 
 function ggmlPathFor(modelId: string): string | null {
-  const spec = GGML_MODELS[modelId];
-  if (!spec) return null;
-  const path = join(requireRuntime().cacheDir, 'ggml', spec.fileName);
+  const fileName = nativeGgmlFileName(modelId);
+  if (!fileName) return null;
+  const path = resolveGgmlPath(requireRuntime().cacheDir, fileName);
   return existsSync(path) ? path : null;
 }
 

@@ -1,4 +1,4 @@
-import { APICallError } from 'ai';
+import { APICallError, NoOutputGeneratedError } from 'ai';
 import { pushRunEvent, type ServerRun } from './store';
 
 /**
@@ -70,7 +70,11 @@ export function hasSideEffectsPerformed(error: unknown): boolean {
 }
 
 export function classifyLlmFailure(error: unknown): LlmFailure {
-  if (error instanceof APICallError) {
+  // `isInstance`, never `instanceof`: provider packages carry their own copy of
+  // @ai-sdk/provider, so the error class they throw is not the one `ai`
+  // re-exports. `instanceof` silently misses every provider failure and drops
+  // it into UNKNOWN, which is never retried.
+  if (APICallError.isInstance(error)) {
     const { statusCode, responseBody } = error;
     const body = typeof responseBody === 'string' ? responseBody : '';
     if (statusCode === 401 || statusCode === 403) {
@@ -96,6 +100,13 @@ export function classifyLlmFailure(error: unknown): LlmFailure {
       return { code: 'SERVER', message: error.message };
     }
     return { code: 'TRANSPORT', message: error.message };
+  }
+  if (NoOutputGeneratedError.isInstance(error)) {
+    // The provider closed the stream without recording a single step and
+    // without an error chunk to explain it. Nothing in the request is wrong,
+    // so one more attempt beats failing the turn on a message the user cannot
+    // act on.
+    return { code: 'EMPTY_RESPONSE', message: safeMessage(error) };
   }
   const name = error instanceof Error ? error.name : '';
   // The Codex backend never raises APICallError: it talks to a spawned

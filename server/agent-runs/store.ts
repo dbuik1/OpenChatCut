@@ -3,10 +3,7 @@ import type {
   AgentContextCheckpoint,
   AgentContextUsage,
 } from '../../src/agent/context-compaction';
-import {
-  createAgentRun,
-  type AgentRunContext,
-} from '../../src/persist/agentRuntimeStore';
+import { createAgentRun } from '../../src/persist/agentRuntimeStore';
 import {
   adoptAgentSessionWriteGeneration,
   currentAgentSessionGeneration,
@@ -33,6 +30,7 @@ import {
 } from './store-recovery';
 import {
   claimToolRequest as claimToolRequestInternal,
+  registerToolRequest as registerToolRequestInternal,
   rejectPendingTools,
   settleToolResult as settleToolResultInternal,
   waitForToolResult as waitForToolResultInternal,
@@ -43,7 +41,6 @@ import {
   MAX_SERVER_EVENT_BYTES,
   MAX_SERVER_RUN_BYTES,
   MAX_SERVER_RUN_EVENTS,
-  MAX_SERVER_TOOL_REQUESTS,
   RunStoreLimitError,
   type ServerRun,
   type ServerRunEvent,
@@ -60,12 +57,13 @@ import {
   serverRunCapabilityVerifier,
   verifyServerRunCapability,
 } from './store-values';
+import { createRunRecord, type CreatedServerRun, type CreateServerRunInput } from './store-record';
+export type { CreatedServerRun, CreateServerRunInput } from './store-record';
 export {
   MAX_ACTIVE_SERVER_RUNS,
   MAX_SERVER_EVENT_BYTES,
   MAX_SERVER_RUN_BYTES,
   MAX_SERVER_RUN_EVENTS,
-  MAX_SERVER_TOOL_REQUESTS,
   RunStoreLimitError,
   createServerRunCapability,
   digestToolArgs,
@@ -141,87 +139,6 @@ export async function prepareRunAdmission(projectId: string): Promise<string> {
   }
   pruneRuns();
   return sessionGeneration;
-}
-
-export interface CreateServerRunInput {
-  readonly id?: string;
-  readonly projectId: string;
-  readonly sessionGeneration: string;
-  readonly backend?: string;
-  readonly provider: string;
-  readonly model: string;
-  readonly askOnly?: boolean;
-  readonly references?: readonly unknown[];
-  readonly externalSessionId?: string;
-  readonly context?: unknown;
-  readonly requestShapeHash?: string;
-  readonly userInputDigest?: string;
-}
-
-export interface CreatedServerRun {
-  readonly run: ServerRun;
-  readonly capability: string;
-}
-
-function createRuntimeContext(
-  input: CreateServerRunInput,
-  capabilityVerifier: string,
-  digest: string,
-): AgentRunContext {
-  return {
-    requestShapeHash: digest,
-    modelId: input.model,
-    activeToolCount: 0,
-    serverRunCapabilityVerifier: capabilityVerifier,
-    transportStatus: 'queued',
-    transportError: null,
-  };
-}
-
-function createRunRecord(
-  input: CreateServerRunInput,
-  id: string,
-  createdAt: number,
-  digest: string,
-  capabilityVerifier: string,
-): ServerRun {
-  const runtimeContext = createRuntimeContext(input, capabilityVerifier, digest);
-  return {
-    id,
-    projectId: input.projectId,
-    sessionGeneration: input.sessionGeneration,
-    capabilityVerifier,
-    requestShapeHash: digest,
-    backend: input.backend ?? 'api',
-    provider: input.provider,
-    model: input.model,
-    askOnly: input.askOnly === true,
-    references: input.references ? [...input.references] : [],
-    ...(input.externalSessionId ? { externalSessionId: input.externalSessionId } : {}),
-    ...(input.context !== undefined ? { context: input.context } : {}),
-    status: 'queued',
-    createdAt,
-    events: [],
-    error: null,
-    retainedEventBytes: 0,
-    replayStart: 1,
-    subscriberCount: 0,
-    waiters: new Set(),
-    eventCursor: 0,
-    pendingEventBytes: 0,
-    pendingEventCount: 0,
-    runtimeContext,
-    toolRequests: new Map(),
-    metrics: {
-      requests: 0,
-      inputTokens: 0,
-      freshInputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      outputTokens: 0,
-      reasoningTokens: 0,
-    },
-  };
 }
 
 function persistCreatedRun(run: ServerRun, userInputDigest: string): void {
@@ -323,6 +240,22 @@ export function waitForRunEvents(
 
 export async function cancelRun(run: ServerRun): Promise<void> {
   await cancelRunInternal(STORE_EVENT_DEPENDENCIES, run);
+}
+export function registerToolRequest(
+  run: ServerRun,
+  toolCallId: string,
+  toolName: string,
+  argsDigest: string,
+  timeoutMs?: number,
+): Promise<unknown> {
+  return registerToolRequestInternal(
+    STORE_TOOL_DEPENDENCIES,
+    run,
+    toolCallId,
+    toolName,
+    argsDigest,
+    timeoutMs,
+  );
 }
 export function waitForToolResult(
   run: ServerRun,

@@ -148,8 +148,15 @@ const ROUTING_GROUPS: readonly RoutingGroup[] = [
       'search_media', 'manage_media_pool', 'download_media', 'push_asset', 'import_url_asset',
       'search_stock_media', 'edit_asset', 'import_media', 'finalize_uploaded_asset',
       'request_asset_download', 'probe_media',
-      'import_asset', 'import_folder', 'import_timeline',
+      'browse_local_media', 'import_asset', 'import_assets', 'import_folder', 'import_timeline',
     ],
+  },
+  {
+    requestKeywords: [
+      'publish', 'post to', 'post on', 'post it', 'share to', 'upload to', 'upload-post',
+      '发布', '发到', '上传到',
+    ],
+    tools: ['publish_to_social', 'track_social_publish', 'submit_render_job', 'track_export'],
   },
   {
     requestKeywords: [

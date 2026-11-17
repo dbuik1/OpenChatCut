@@ -1,15 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
-import {
-  defaultModelForProvider,
-  normalizeLlmProvider,
-  normalizeOpenAiApiMode,
-} from '../../shared/llm-providers';
-import { resolveLlmProviderConfig } from '../llm-config';
-import { getKey, type KeyName } from '../keystore';
 import { activateOfflineAgentRuntimeBackend } from '../external-agent/agent-runtime-persistence';
-import { executeRun, type ServerRunInput } from './executor';
-import { resolveServerRunToolCatalog } from './tool-policy';
+import { resolveRunExecution, runRequestDigests } from './execution-input';
 import {
   cancelRun,
   claimToolRequest,
@@ -31,8 +23,8 @@ import {
   type ProposalRuntimeStatus,
   type ServerRunSettleStatus,
 } from './store-settle';
-import { digestValue } from './store-values';
 import { deleteAgentArtifacts, loadAgentRuntimeSidecar, storeAgentArtifact } from '../../src/persist/agentRuntimeStore';
+import { MAX_ARTIFACT_BYTES } from '../../src/persist/agentRuntimeTypes';
 import { sha256Text } from '../../src/persist/agentRuntimeStore';
 import {
   readJson,
@@ -40,48 +32,30 @@ import {
   requestOrigin,
   requireProjectId,
   validateCreateInput,
-  type ValidatedCreateInput,
 } from './request';
 import { CursorProtocolError, resolveCursor, sseForRun } from './sse';
+import {
+  deferRunExecution,
+  discardDeferredRun,
+  ensureDeferredRunExecution,
+  startDeferredRun,
+} from './run-admission';
 import { projectStoreHttpAuthorized, projectStoreReadAuthorized } from '../project-store-http-auth';
 const MAX_TOOL_RESULT_BODY_BYTES = 1024 * 1024;
+/**
+ * Draft artifacts are contracted at MAX_ARTIFACT_BYTES (8 MiB) by the producer,
+ * the snapshot validation, and the durable store. The request envelope embeds
+ * that already-serialized JSON body as a string, so every quote and backslash
+ * in it is escaped again — roughly 2x in the worst realistic case. Sizing the
+ * transport below the artifact cap is what produced 413s on large drafts while
+ * the client's own guard said the draft was fine.
+ *
+ * This bound only keeps an unbounded upload out of memory; storeAgentArtifact
+ * recomputes the real size after parsing and still rejects anything over the
+ * artifact cap with 409.
+ */
+export const MAX_DRAFT_BODY_BYTES = MAX_ARTIFACT_BYTES * 2 + 64 * 1024;
 const SERVER_RUN_CAPABILITY_HEADER = 'x-openchatcut-run-capability';
-const SERVER_RUN_ADMISSION_TIMEOUT_MS = 60_000;
-interface DeferredRun {
-  readonly input: ServerRunInput;
-  readonly timeout: NodeJS.Timeout;
-}
-const deferredRuns = new Map<string, DeferredRun>();
-const startedRuns = new Set<string>();
-
-function deferRunExecution(run: ServerRun, input: ServerRunInput): void {
-  const timeout = setTimeout(() => {
-    if (!deferredRuns.delete(run.id)) return;
-    void cancelRun(run);
-  }, SERVER_RUN_ADMISSION_TIMEOUT_MS);
-  deferredRuns.set(run.id, { input, timeout });
-}
-
-function startDeferredRun(run: ServerRun): 'started' | 'already_started' | 'unavailable' {
-  const deferred = deferredRuns.get(run.id);
-  if (!deferred) {
-    return startedRuns.has(run.id) || run.status !== 'queued'
-      ? 'already_started'
-      : 'unavailable';
-  }
-  deferredRuns.delete(run.id);
-  clearTimeout(deferred.timeout);
-  startedRuns.add(run.id);
-  void executeRun(run, deferred.input).finally(() => startedRuns.delete(run.id));
-  return 'started';
-}
-
-function discardDeferredRun(runId: string): void {
-  const deferred = deferredRuns.get(runId);
-  if (deferred) clearTimeout(deferred.timeout);
-  deferredRuns.delete(runId);
-}
-
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   if (res.destroyed || res.writableEnded) return;
@@ -136,35 +110,6 @@ async function boundRun(
   }
   return run;
 }
-function runRequestDigests(
-  input: ValidatedCreateInput,
-  execution: ServerRunInput,
-  askOnly: boolean,
-  sessionGeneration: string,
-): { readonly userInputDigest: string; readonly requestShapeHash: string } {
-  const userInputDigest = digestValue(input.messages);
-  return {
-    userInputDigest,
-    requestShapeHash: digestValue({
-      projectId: input.projectId,
-      sessionGeneration,
-      userInputDigest,
-      askOnly,
-      references: input.references,
-      externalSessionId: input.externalSessionId,
-      context: input.context,
-      provider: execution.provider,
-      model: execution.model,
-      openAiApiMode: execution.openAiApiMode,
-      cacheMode: execution.cacheMode,
-      maxOutputTokens: execution.maxOutputTokens,
-      autonomousAcceptance: execution.autonomousAcceptance,
-      maxAcceptanceIterations: execution.maxAcceptanceIterations,
-      tools: execution.tools,
-      instructions: execution.instructions,
-    }),
-  };
-}
 function sendCreatedRun(
   res: ServerResponse,
   run: ServerRun,
@@ -183,12 +128,6 @@ function sendCreatedRun(
   });
 }
 
-function ensureDeferredRunExecution(run: ServerRun, input: ServerRunInput): void {
-  if (run.status !== 'queued' || deferredRuns.has(run.id) || startedRuns.has(run.id)) return;
-  deferRunExecution(run, input);
-}
-
-
 
 async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const body = await readJson(req);
@@ -196,36 +135,11 @@ async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<
   const askOnly = body.askOnly === true;
   const origin = requestOrigin(req);
   if (!origin) return sendJson(res, 400, { error: 'valid request host is required' });
-  const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
-  const requestedModel = input.model;
-  const backend = body.backend === 'codex' ? 'codex' : 'api';
-  const readKey = (name: string): string => getKey(name as KeyName);
-  const codexBackend = backend === 'codex';
-  const config = codexBackend
-    ? { provider: 'openai', model: '' }
-    : resolveLlmProviderConfig(provider || getKey('LLM_PROVIDER'), readKey);
-  const effectiveProvider = normalizeLlmProvider(config.provider);
-  const effectiveModel = requestedModel || config.model || defaultModelForProvider(effectiveProvider);
-  const openAiApiMode = normalizeOpenAiApiMode(body.openAiApiMode);
-  const tools = resolveServerRunToolCatalog(input.tools, askOnly);
+  const execution = resolveRunExecution(body, input, origin, askOnly);
   const existing = getRun(input.runId)
     ?? await recoverServerRun(input.projectId, input.runId);
   const sessionGeneration = existing?.sessionGeneration
     ?? await prepareRunAdmission(input.projectId);
-  const execution: ServerRunInput = {
-    messages: input.messages,
-    backend,
-    provider: effectiveProvider,
-    model: effectiveModel,
-    openAiApiMode,
-    cacheMode: input.cacheMode,
-    maxOutputTokens: input.maxOutputTokens,
-    autonomousAcceptance: input.autonomousAcceptance,
-    maxAcceptanceIterations: input.maxAcceptanceIterations,
-    origin,
-    tools,
-    instructions: input.instructions,
-  };
   const digests = runRequestDigests(input, execution, askOnly, sessionGeneration);
   if (existing) {
     const matches = existing.projectId === input.projectId
@@ -243,9 +157,9 @@ async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<
     id: input.runId,
     projectId: input.projectId,
     sessionGeneration,
-    backend,
-    provider: effectiveProvider,
-    model: effectiveModel,
+    backend: execution.backend,
+    provider: execution.provider,
+    model: execution.model,
     askOnly,
     references: input.references,
     ...(input.externalSessionId ? { externalSessionId: input.externalSessionId } : {}),
@@ -393,7 +307,7 @@ async function handleSettle(req: IncomingMessage, res: ServerResponse, runId: st
 }
 
 async function handleDraftStore(req: IncomingMessage, res: ServerResponse, runId: string): Promise<void> {
-  const body = await readJson(req);
+  const body = await readJson(req, MAX_DRAFT_BODY_BYTES);
   const projectId = requireProjectId(body.projectId);
   const run = await boundRun(req, res, projectId, runId);
   if (!run) return;

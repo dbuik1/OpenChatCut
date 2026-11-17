@@ -40,4 +40,33 @@ assert.equal(deepseekVision.supportsImages.value, true, 'DeepSeek vision input r
 assert.equal(deepseekVision.supportsImages.source, 'catalog');
 assert.ok(listVisionModels('deepseek').includes('deepseek-v4-flash-vision-exp'));
 
+// The gateway's default must expose editing tools without a manual override.
+const cheaperDefault = identity('cheaperinference', 'gpt-5.4-mini');
+assert.deepEqual(
+  resolveModelCapabilities(cheaperDefault),
+  resolveModelCapabilities(identity('openai', 'gpt-5.4-mini')),
+  'Cheaper Inference inherits its known upstream model capabilities',
+);
+assert.equal(resolveModelCapabilities(cheaperDefault).supportsTools.value, true);
+assert.equal(resolveModelCapabilities(identity('cheaperinference', 'claude-sonnet-5')).supportsTools.value, true);
+for (const [upstream, modelId] of [['deepseek', 'deepseek-v4-flash'], ['kimi', 'kimi-k3'], ['glm', 'glm-4.7']]) {
+  assert.deepEqual(resolveModelCapabilities(identity('cheaperinference', modelId)),
+    resolveModelCapabilities(identity(upstream, modelId)), `${modelId} keeps its known upstream capabilities`);
+}
+assert.deepEqual(listVisionModels('cheaperinference', 'gpt-5.4-mini'), ['gpt-5.4-mini'],
+  'only the configured gateway model is offered for vision');
+assert.equal(resolveModelCapabilities(identity('cheaperinference', 'unknown-custom-model')).supportsTools.value, false,
+  'unknown gateway models keep the conservative fallback');
+assert.equal(resolveModelCapabilities(cheaperDefault, [{ ...cheaperDefault, supportsTools: false }]).supportsTools.value,
+  false, 'gateway-specific user overrides still win');
+
+// Runcrate's hand-vendored catalog gives its default model editing tools.
+const runcrateDefault = resolveModelCapabilities(identity('runcrate', 'deepseek-ai/DeepSeek-V4.1-Flash'));
+assert.equal(runcrateDefault.supportsTools.value, true);
+assert.equal(runcrateDefault.supportsTools.source, 'catalog');
+assert.equal(runcrateDefault.contextWindowTokens.value, 1_048_576);
+assert.ok(listVisionModels('runcrate').includes('moonshotai/Kimi-K3'));
+assert.equal(resolveModelCapabilities(identity('runcrate', 'unknown-custom-model')).supportsTools.value, false,
+  'unknown Runcrate models keep the conservative fallback');
+
 console.log('model-capabilities.verify: snapshot prefix matching passed');

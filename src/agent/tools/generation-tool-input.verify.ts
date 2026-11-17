@@ -99,6 +99,29 @@ assert.equal(byteplusVideo.refImages, undefined, 'blank reference defaults are r
 assert.equal(byteplusVideo.promptOptimizer, undefined, 'BytePlus must not receive MiniMax controls');
 assert.equal(byteplusVideo.mode, undefined, 'BytePlus must not receive Kling mode');
 
+const ofoxVideo = buildSubmitVideoArgs({
+  model: 'ofox', prompt: 'paper airplane', durationSeconds: 20, ratio: '9:16',
+  refImages: ['asset-a'], generateAudio: false, seed: 7,
+});
+assert.equal(ofoxVideo.model, 'ofox', 'OFox must never fall back to a different paid provider');
+assert.equal(ofoxVideo.durationSeconds, 20);
+assert.equal(ofoxVideo.ratio, '9:16');
+assert.deepEqual(ofoxVideo.refImages, ['asset-a']);
+assert.equal(ofoxVideo.generateAudio, false);
+assert.equal(ofoxVideo.seed, 7);
+
+const geminiOmniVideo = buildSubmitVideoArgs({
+  model: 'gemini-omni', prompt: 'marble track', durationSeconds: 8, ratio: '9:16',
+  firstFrame: 'asset-still', refImages: ['asset-ref'],
+});
+assert.equal(geminiOmniVideo.model, 'gemini-omni');
+assert.equal(geminiOmniVideo.ratio, '9:16');
+assert.equal(geminiOmniVideo.firstFrame, 'asset-still');
+assert.deepEqual(geminiOmniVideo.refImages, ['asset-ref']);
+assert.equal(geminiOmniVideo.mode, undefined, 'gemini-omni must not receive Kling mode');
+
+assert.equal(buildSubmitVideoArgs({ prompt: 'legacy default' }).model, 'seedance2');
+
 const minimaxMusic = buildSubmitMusicArgs({
   provider: 'minimax', mode: 't2m', prompt: 'ambient', isInstrumental: true,
   count: 2, stream: false, styles: ['ambient'], referenceAssetId: '', coverFeatureId: '',
@@ -233,4 +256,32 @@ for (const expected of genericExpectations) {
   assert.equal(voice.pitch, undefined, `${expected.provider} must not receive Doubao/MiniMax controls`);
 }
 
+const falImage = buildSubmitImageArgs({ model: 'fal', falModel: 'nano-banana-2', prompt: 'cat', name: 'cat', count: 1 });
+assert.equal(falImage.model, 'fal');
+assert.equal(falImage.falModel, 'nano-banana-2');
+assert.equal(falImage.imageSize, undefined, 'preserve model defaults');
+assert.throws(() => buildSubmitImageArgs({ model: 'fal', quality: 'high' }), /quality/);
+const falVideo = buildSubmitVideoArgs({ model: 'fal', falModel: 'seedance-2.5', prompt: 'cat', refImages: ['asset-1'] });
+assert.equal(falVideo.falModel, 'seedance-2.5');
+assert.deepEqual(falVideo.refImages, ['asset-1']);
+assert.equal(falVideo.durationSeconds, undefined, 'preserve model defaults');
+assert.throws(() => buildSubmitVideoArgs({ model: 'fal', mode: 'pro' }), /mode/);
+
+const agnesImage = buildSubmitImageArgs({
+  model: 'agnes-image', prompt: 'poster', name: 'poster', quality: 'high', imageSize: '2K', referenceAssetIds: ['img-1'],
+});
+assert.equal(agnesImage.model, 'agnes-image');
+assert.equal(agnesImage.quality, undefined, 'Agnes must not receive GPT quality');
+assert.equal(agnesImage.imageSize, '2K');
+assert.deepEqual(agnesImage.referenceAssetIds, ['img-1']);
+const agnesVideoInput = buildSubmitVideoArgs({
+  model: 'agnes-video', prompt: 'walk', durationSeconds: 6, ratio: '9:16', seed: 3,
+  refImages: ['img-1'], refAudios: ['aud-1'], refVideos: ['vid-1'], generateAudio: true,
+});
+assert.equal(agnesVideoInput.model, 'agnes-video');
+assert.equal(agnesVideoInput.seed, 3);
+assert.deepEqual(agnesVideoInput.refImages, ['img-1']);
+assert.deepEqual(agnesVideoInput.refAudios, ['aud-1']);
+assert.equal(agnesVideoInput.refVideos, undefined, 'Agnes video drops unsupported video references');
+assert.equal(agnesVideoInput.generateAudio, undefined, 'Agnes video drops Seedance audio controls');
 console.log('generation-tool-input.verify: ok');

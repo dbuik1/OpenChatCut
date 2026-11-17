@@ -1,4 +1,4 @@
-import type { TimelineState } from '../editor/types';
+import type { ProjectDoc, TimelineState } from '../editor/types';
 import { useT } from '../i18n/locale';
 import { ExportDestinationBar } from './ExportDestinationBar';
 import { ExportFooter } from './ExportDialogFooter';
@@ -112,7 +112,7 @@ function MarkedRangeCallout({ state, model }: { state: TimelineState; model: Exp
   );
 }
 
-export function ExportDialogMain({ state, model }: { state: TimelineState; model: ExportDialogModel }) {
+export function ExportDialogMain({ state, project, model }: { state: TimelineState; project: ProjectDoc; model: ExportDialogModel }) {
   const { workflow } = model;
   return (
     <main className="cc-export-main">
@@ -121,7 +121,7 @@ export function ExportDialogMain({ state, model }: { state: TimelineState; model
       <div className="cc-export-content" role="tabpanel" id={`cc-export-content-${model.tab}`}
         aria-labelledby={`cc-export-tab-${model.tab}`}>
         <ExportTabContent
-          tab={model.tab} state={state} video={model.video} loudness={model.loudness} subtitles={model.subtitles}
+          tab={model.tab} state={state} project={project} video={model.video} loudness={model.loudness} subtitles={model.subtitles}
           busy={!!workflow.busy} enabled={workflow.autoQaEnabled} qa={workflow.qa}
           qualityMode={model.qualityMode} setQualityMode={model.setQualityMode}
           onToggle={workflow.toggleAutoQa} nleFormat={model.nleFormat}

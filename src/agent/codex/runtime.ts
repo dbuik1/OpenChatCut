@@ -106,7 +106,9 @@ async function prepareToolBoundary(
       kind: 'validation_failed', summary: validation.issues.join('; ').slice(0, 1_000),
     });
   }
-  state.invocationArgs = effectiveToolInvocationArgs(schema.name, args);
+  // validation.args is the normalized form that passed the schema; recording and executing
+  // it keeps the ledger consistent with what the tool actually ran.
+  state.invocationArgs = effectiveToolInvocationArgs(schema.name, validation.args);
   state.policy = policyForTool(schema.name, state.invocationArgs);
   state.argsDigest = execution.runRecorder
     ? (await execution.runRecorder.recordToolRequested({
@@ -235,7 +237,8 @@ export async function executeOpenChatCutTool(
     state.before = snapshotTimeline(execution.ctx.getState());
     state.started = true;
     const result = await (execution.executeTool ?? executeEditorTool)(
-      schema.name, state.invocationArgs, execution.ctx, execution.toolCatalog, execution.harness,
+      schema.name, state.invocationArgs, execution.ctx, execution.toolCatalog,
+      { ...execution.harness, signal: execution.signal ?? execution.harness?.signal },
     );
     throwIfToolAborted(execution.signal, state);
     return await settleToolResult(schema, state.invocationArgs, result, execution, state);

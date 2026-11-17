@@ -42,6 +42,8 @@ export interface ServerRunDraftToolBody {
   readonly result?: unknown;
   readonly error?: string;
   readonly actions: readonly AnyAction[];
+  /** Auto-apply: this call's timeline edits already landed in the live project. */
+  readonly landed?: boolean;
 }
 
 export interface ServerRunDraft {
@@ -103,6 +105,7 @@ function parseTool(value: unknown): ServerRunDraftToolBody | null {
     args: item.args as Record<string, unknown>,
     ...(item.error === undefined ? { result: item.result } : { error: item.error }),
     actions: item.actions,
+    ...(item.landed === true ? { landed: true } : {}),
   };
 }
 
@@ -177,12 +180,19 @@ export function saveServerRunDraftTool(
   });
 }
 export async function clearServerRunDraft(projectId: string, runId: string): Promise<void> {
+  const capabilityHeader = storedRunCapabilityHeader(projectId, runId);
+  // The terminal path clears the draft while the stored run — and with it the
+  // run capability this request authenticates with — is still readable. Once
+  // that record is gone the request can only be rejected as 403, so a later
+  // duplicate (the abandon hook runs after every terminal) would be pure noise
+  // in the server log. Stale drafts are pruned by retention on the next write.
+  if (!Object.keys(capabilityHeader).length) return;
   try {
     const response = await fetch(`/api/agent-runs/${encodeURIComponent(runId)}/draft/clear`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...storedRunCapabilityHeader(projectId, runId),
+        ...capabilityHeader,
       },
       body: JSON.stringify({ projectId }),
     });

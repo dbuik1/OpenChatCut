@@ -1,4 +1,5 @@
-import type { AgentRuntimeModule, LLMMessage } from './runtime';
+import type * as AgentRuntime from './runtime';
+import type { LLMMessage } from './runtime';
 import type { AgentReference } from './context';
 import { getLocale, localeLanguageName } from '../i18n/locale';
 
@@ -12,7 +13,8 @@ export interface AgentRetry extends AgentRetryOptions {
 }
 
 export interface DisplayMessage {
-  role: 'user' | 'assistant' | 'tool' | 'error' | 'continue';
+  /** `note`: a muted system line (e.g. which tool calls failed in a completed run); never sent to the model. */
+  role: 'user' | 'assistant' | 'tool' | 'error' | 'continue' | 'note';
   text: string;
   thinking?: string;
   retry?: AgentRetry;
@@ -46,10 +48,10 @@ export interface LiveTool {
 }
 // Deliberate lazy boundary: loading the chat shell must not eagerly load the AI SDK/runtime.
 
-const importAgentRuntime = async (): Promise<AgentRuntimeModule> => import('./runtime');
-let agentRuntimePromise: Promise<AgentRuntimeModule> | null = null;
+const importAgentRuntime = async (): Promise<typeof AgentRuntime> => import('./runtime');
+let agentRuntimePromise: Promise<typeof AgentRuntime> | null = null;
 
-export function preloadAgentRuntime(): Promise<AgentRuntimeModule> {
+export function preloadAgentRuntime(): Promise<typeof AgentRuntime> {
   if (!agentRuntimePromise) {
     agentRuntimePromise = importAgentRuntime().catch((error: unknown) => {
       agentRuntimePromise = null;

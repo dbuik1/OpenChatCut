@@ -63,12 +63,26 @@ const begun = await runtime.execute('begin_edit_session', {}, runtimeBinding);
 assert(begun && typeof begun === 'object' && 'editSessionId' in begun);
 await assert.rejects(
   runtime.execute('begin_edit_session', {}, runtimeBinding),
-  (error: unknown) => error instanceof ExternalEditSessionOutcomeError
-    && error.outcome === 'rejected'
-    && error.message === 'An edit session is already active. Resolve it before starting another.'
-    && !error.message.includes(String(begun.editSessionId)),
-  'active-session conflicts do not disclose the live edit session UUID',
+  /list_edit_sessions/,
+  'active-session conflicts remain tool errors and point callers to recovery discovery',
 );
+const adopted = await runtime.execute(
+  'begin_edit_session',
+  { reuseExisting: true },
+  runtimeBinding,
+);
+assert(
+  adopted
+    && typeof adopted === 'object'
+    && 'editSessionId' in adopted
+    && (adopted as Record<string, unknown>).editSessionId === (begun as Record<string, unknown>).editSessionId,
+  'begin_edit_session with reuseExisting: true adopts active session instead of rejecting',
+);
+const listed = await runtime.execute('list_edit_sessions', {}, runtimeBinding);
+assert(Array.isArray(listed) && listed.some((entry) => (
+  entry && typeof entry === 'object' && 'editSessionId' in entry
+  && entry.editSessionId === begun.editSessionId
+)), 'project sessions are discoverable before recovery');
 await assert.rejects(
   runtime.execute('set_aspect_ratio', {
     editSessionId: begun.editSessionId,
@@ -96,6 +110,11 @@ const guarded = await runtime.execute(
   runtimeBinding,
 );
 assert(needsConfirmation(guarded), 'real-project tools ask for exact one-shot confirmation');
+assert.equal(
+  guarded && typeof guarded === 'object' && 'status' in guarded ? guarded.status : undefined,
+  'pending',
+  'real-project confirmation replies expose an explicit pending status',
+);
 const guard = runtime.pendingGuard();
 assert(guard && guard.tool === 'read_export_history', 'pending guard surfaces the requested tool');
 let durableRun = (await loadAgentRuntimeSidecar('runtime-project')).runs

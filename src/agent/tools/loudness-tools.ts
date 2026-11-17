@@ -1,6 +1,7 @@
 export { LOUDNESS_TOOL_SCHEMAS, LOUDNESS_TOOL_NAMES } from './schemas/loudness-tools';
 import type { AgentContext } from '../context';
 import { clipLoudnessRange, gainForTarget, isNoAudioLoudnessError, measureClipLoudness } from '../../audio/loudness';
+import { captureTimelineItemSource, validateTimelineItemSourceResult } from '../../editor/mediaSourceRevision';
 
 // normalize_loudness - Normalize loudness (target default -14 LUFS, streaming platform standard).
 // The naming style is the same as isolate_voice/edit_captions(verb_noun).
@@ -45,7 +46,9 @@ export async function execLoudnessTool(name: string, args: Args, ctx: AgentConte
   const skipped: { itemId: string; note: string; noAudio?: boolean }[] = [];
 
   const fps = ctx.getState().fps;
+  const doc = ctx.getDoc();
   for (const item of items) {
+    const snapshot = captureTimelineItemSource(item, doc.assets);
     const range = clipLoudnessRange(item, fps);
     if (!range) {
       skipped.push({ itemId: item.id, note: 'no src' }); // A clip with no source cannot be measured; skipping is not an error
@@ -53,6 +56,14 @@ export async function execLoudnessTool(name: string, args: Args, ctx: AgentConte
     }
     try {
       const { integratedLufs } = await measureClipLoudness(range);
+      // A relink or timeline switch during the measurement means the number
+      // describes audio that is no longer on this clip.
+      const current = ctx.getState().items.find((candidate) => candidate.id === item.id);
+      if (ctx.getDoc().activeTimelineId !== doc.activeTimelineId
+        || validateTimelineItemSourceResult(snapshot, current, ctx.getDoc().assets, snapshot.sourceRevision).status === 'stale') {
+        skipped.push({ itemId: item.id, note: 'source changed during measurement; retry' });
+        continue;
+      }
       const gain = gainForTarget(integratedLufs, target);
       ctx.commands.setItemVolume(item.id, gain); // Reuse existing commands without adding reducer actions
       normalized.push({ itemId: item.id, measuredLufs: integratedLufs, gain });

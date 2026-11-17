@@ -18,12 +18,16 @@
 </p>
 
 <p align="center">
+  <a href="https://openchatcut.com/zh/pro"><strong>OpenChatCut Pro</strong></a> · 桌面版：装好就能剪
+</p>
+
+<p align="center">
   <a href="#openchatcut-是什么">产品介绍</a> ·
   <a href="#产品导览">产品导览</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#在-codex--claude-code-中使用">Agent / MCP</a> ·
   <a href="#社区">社区</a> ·
-  <a href="#赞助">赞助</a> ·
+  <a href="#赞助商">赞助商</a> ·
   <a href="#更新日志">更新日志</a> ·
   <a href="#star-趋势">Star 趋势</a> ·
   <a href="#贡献">参与贡献</a>
@@ -39,6 +43,7 @@
   <img alt="Remotion" src="https://img.shields.io/badge/Remotion-4-0B84F3?style=flat" />
   <img alt="Electron" src="https://img.shields.io/badge/Electron-43-47848F?style=flat&logo=electron&logoColor=white" />
   <img alt="MCP" src="https://img.shields.io/badge/MCP-Agent_native-7C3AED?style=flat" />
+  <a href="https://atomgit.com/Oxsline/openchatcut"><img alt="AtomGit G-Star" src="https://img.shields.io/badge/AtomGit-G--Star-DA203E?logo=gitcode&logoColor=white" /></a>
 </p>
 
 <p align="center">
@@ -55,6 +60,46 @@
 
 <p align="center">
   <sub>从一句话到真实时间线：Agent、素材、预览、动态图形、转场、特效与多轨音频在同一个工程中协作。</sub>
+</p>
+
+---
+## 赞助商
+
+<p align="center">
+  <a href="https://ofox.ai/?utm_source=github&utm_medium=sponsorship&utm_content=openchatcut"><img src="assets/readme-pic/ofox-logo.svg" width="300" alt="OfoxAI" /></a>
+</p>
+
+**OfoxAI：一个平台，连接文本、图像与视频 AI**
+
+OfoxAI 是统一的 AI API 平台，汇集文本、图像和视频模型，支持 Seedance、MiniMax（海螺）、Wan 等视频模型系列。从 AI 应用与智能体开发，到创意构思、图像生成和视频素材制作，通过一个平台选择适合的模型。
+
+[探索 OfoxAI 模型与 API →](https://ofox.ai/?utm_source=github&utm_medium=sponsorship&utm_content=openchatcut)
+
+<br />
+
+<p align="center">
+  <a href="https://apixo.ai/zh?utm_source=github&utm_medium=sponsorship&utm_campaign=0xsline&utm_content=openchatcut_logo"><img src="assets/readme-pic/apixo-seedream-zh.svg" width="170" alt="APIXO AI" /></a>
+</p>
+
+**[APIXO AI](https://apixo.ai/zh?utm_source=github&utm_medium=sponsorship&utm_campaign=0xsline&utm_content=openchatcut_text_brand)：一站式 AI 图片与视频创作平台**
+
+从封面配图到视频素材，在 **APIXO AI** 一站生成。无需编程，打开网页即可创作；也可通过 API 接入应用与自动化工作流。
+
+**[Seedream 5.5](https://apixo.ai/zh/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=0xsline&utm_content=openchatcut_text_model) 文生图 API 限时官价七折，$0.014/张起**。优惠自动生效，无需优惠码。
+
+[探索 APIXO AI 模型与优惠 →](https://apixo.ai/zh/deals/black-friday?utm_source=github&utm_medium=sponsorship&utm_campaign=0xsline&utm_content=openchatcut_text_deals)
+
+<br />
+
+如果 OpenChatCut 对你有帮助，欢迎通过 Ko-fi 或爱发电支持项目持续开发。
+
+<p align="center">
+  <a href="https://ko-fi.com/Y5N2241IP5">
+    <img alt="通过 Ko-fi 支持项目" src="https://img.shields.io/badge/Support_me_on-Ko--fi-72a4f2?logo=kofi&amp;logoColor=white" />
+  </a>
+  <a href="https://www.ifdian.net/a/sline?utm_source=copylink&amp;utm_medium=link">
+    <img alt="通过爱发电支持 OpenChatCut" src="https://img.shields.io/badge/%E6%94%AF%E6%8C%81%E9%A1%B9%E7%9B%AE-%E7%88%B1%E5%8F%91%E7%94%B5-946CE6" />
+  </a>
 </p>
 
 ---
@@ -91,22 +136,7 @@ OpenChatCut 是 **开源 ChatCut 替代方案**：把 **对话式 Agent** 和 **
 
 <p align="center">
   <br />
-  <img src="assets/readme-pic/wechat-community.png" width="220" alt="OpenChatCut 微信社区二维码" />
-</p>
-
----
-
-## 赞助
-
-如果 OpenChatCut 对你有帮助，欢迎通过 Ko-fi 或爱发电支持项目持续开发。
-
-<p align="center">
-  <a href="https://ko-fi.com/Y5N2241IP5">
-    <img alt="通过 Ko-fi 支持项目" src="https://img.shields.io/badge/Support_me_on-Ko--fi-72a4f2?logo=kofi&amp;logoColor=white" />
-  </a>
-  <a href="https://www.ifdian.net/a/sline?utm_source=copylink&amp;utm_medium=link">
-    <img alt="通过爱发电支持 OpenChatCut" src="https://img.shields.io/badge/%E6%94%AF%E6%8C%81%E9%A1%B9%E7%9B%AE-%E7%88%B1%E5%8F%91%E7%94%B5-946CE6" />
-  </a>
+  <img src="assets/readme-pic/wechat-community.jpg" width="220" alt="OpenChatCut 微信社区二维码" />
 </p>
 
 ---
@@ -186,6 +216,7 @@ OpenChatCut 是 **开源 ChatCut 替代方案**：把 **对话式 Agent** 和 **
 | AI 生成 | 图片、视频、语音、音乐和音效任务，支持进度追踪 |
 | 素材 | 上传、文件夹、在线图片/视频/音频检索、Firecrawl 视觉素材兜底 |
 | 导出 | MP4、音频、字幕、FCPXML、工程导入导出、导出历史、硬件感知的 H.264 加速和资源感知的导出排队 |
+| 发布 | Agent 通过 Upload-Post 把成片发布到 TikTok、Instagram、YouTube、LinkedIn、Facebook、X、Threads、Pinterest、Bluesky，先预览、确认后才上传 |
 | Agent | 内置对话 Agent、技能系统、提案式编辑、外部 Streamable HTTP MCP |
 
 ---
@@ -247,6 +278,8 @@ OpenChatCut 是 **开源 ChatCut 替代方案**：把 **对话式 Agent** 和 **
 
 需要 Node.js 24.x 和 npm。`package.json` 会约束支持的 Node.js 范围，`.nvmrc` 可供 Node 版本管理器直接选择对应主版本。
 
+在 Linux x64 上，`npm install` 还会从 NuGet 下载 ONNX Runtime 可选的 CUDA 组件（数百 MB）。只需 CPU 推理时，可改用 `ONNXRUNTIME_NODE_INSTALL=skip npm install`。
+
 ```bash
 git clone https://github.com/0xsline/OpenChatCut.git
 cd OpenChatCut
@@ -260,6 +293,8 @@ npm run dev
 ```text
 http://localhost:5199
 ```
+
+编辑器需要浏览器的[安全上下文](https://developer.mozilla.org/zh-CN/docs/Web/Security/Defenses/Secure_Contexts)：请在运行 OpenChatCut 的电脑上通过 `http://localhost` 或 `http://127.0.0.1` 访问，或通过 HTTPS 提供服务。从其他设备以普通 HTTP 访问（局域网 IP 或反向代理）时，浏览器会禁用 Web Crypto、WebCodecs 和剪贴板，工程列表仍可打开，但编辑器会显示这一要求而不会进入。
 
 `.env.local` 中只需填写你实际使用的模型或素材服务。没有配置的第三方能力会明确提示缺少对应 Key，不影响本地时间线编辑、内置素材和已配置的其他能力。
 
@@ -278,9 +313,9 @@ http://localhost:5199
 
 ### Agent 本地路径访问（高级）
 
-`import_asset` 和 `import_folder` 只访问用户明确选择的本地目录。首次使用时，桌面端会打开系统文件夹选择器；选中的文件夹会被记住，原导入任务随后自动继续。媒体文件会导入素材库；TXT、Markdown、DOCX、PDF 等文稿请作为对话附件添加。
+桌面端 Agent 默认可以访问操作系统允许读取的任意本地目录，包括外接素材盘。`browse_local_media` 可浏览文件夹，按文件名、相对路径和媒体类型搜索，并分页返回结果，不会自动导入。Agent 选好素材后，可用 `import_assets` 批量导入最多 100 个路径，也可用 `import_asset` 导入单个路径、`import_folder` 导入整个文件夹。导入复用媒体探测和源文件引用流程，保留原文件，并跳过媒体池及同一批次中的重复内容。TXT、Markdown、DOCX、PDF 等文稿请作为对话附件添加。桌面端默认启用这些工具；在浏览器中使用时，只有 `AGENT_IMPORT_ROOTS` 中列出的目录可用，且浏览器需与运行 OpenChatCut 的机器相同（本机访问）。
 
-高级或手动配置仍可在 `.env.local` 中填写英文逗号分隔的绝对路径，例如 `AGENT_IMPORT_ROOTS=/Volumes/Media,D:\Projects`。源码运行会读取仓库根目录的文件；桌面安装包会从 Electron 用户数据目录读取：macOS 为 `~/Library/Application Support/OpenChatCut/`，Windows 为 `%APPDATA%\OpenChatCut\`，Linux 为 `$XDG_CONFIG_HOME/OpenChatCut/`（通常是 `~/.config/OpenChatCut/`）。修改后请重启应用。
+需要限制目录范围时，可在 `.env.local` 中填写英文逗号分隔的绝对路径，例如 `AGENT_IMPORT_ROOTS=/Volumes/Media,D:\Projects`；留空表示桌面端默认放行；浏览器端必须设置该白名单，留空时会拒绝这些工具。手动设置的范围同时适用于浏览和导入。源码运行会读取仓库根目录的文件；桌面安装包会从 Electron 用户数据目录读取：macOS 为 `~/Library/Application Support/OpenChatCut/`，Windows 为 `%APPDATA%\OpenChatCut\`，Linux 为 `$XDG_CONFIG_HOME/OpenChatCut/`（通常是 `~/.config/OpenChatCut/`）。修改后请重启应用。
 
 
 本地 H.264 导出会在 macOS 上优先使用 VideoToolbox，在兼容的 Windows 设备上优先使用 NVENC，失败时自动回退软件编码。可用 `OPENCHATCUT_RENDER_CONCURRENCY` 和 `OPENCHATCUT_MAX_ACTIVE_EXPORTS` 调整渲染并发及重型导出上限，用 `OPENCHATCUT_DISABLE_HARDWARE_ENCODING` 关闭硬件编码，或用 `OPENCHATCUT_H264_ENCODER` 覆盖 FFmpeg 侧的编码器选择；详见 [`.env.example`](.env.example)。
@@ -370,6 +405,48 @@ claude mcp add --transport http openchatcut \
 
 外部 Agent 调用的仍是编辑器内部同一套工具和 `EditorCore` 命令，不存在两套互相漂移的工程格式；外部草稿准备期间不会修改正式时间线。
 
+### Qoder
+
+Qoder 同样支持一键接入：指南里的「连接」按钮会把端点和 Bearer 令牌写进 Qoder
+自己的设置文件，已有的其它设置和 MCP 服务保持不变。
+
+```text
+~/.qoder/settings.json        （国际版）
+~/.qoder-cn/settings.json     （国内版；已安装时一并写入）
+```
+
+```json
+{
+  "mcpServers": {
+    "openchatcut": {
+      "type": "http",
+      "url": "http://localhost:5199/api/external-mcp/mcp",
+      "headers": { "Authorization": "Bearer <令牌>" }
+    }
+  }
+}
+```
+
+写入后重启 Qoder 生效。
+
+### 千问办公
+
+千问办公 的自定义 MCP 保存在应用内部的连接器里，没有可供写入的配置文件，
+因此这一步无法一键完成：在指南中点「千问办公」卡片的「复制配置」，再到
+千问办公 的 连接器 → 自定义 MCP → 添加 中粘贴并保存：
+
+```json
+{
+  "mcpServers": {
+    "openchatcut": {
+      "type": "streamable-http",
+      "url": "http://localhost:5199/api/external-mcp/mcp",
+      "headers": { "Authorization": "Bearer <令牌>" }
+    }
+  }
+}
+```
+
 ### MCP 访问保护
 
 自行暴露 MCP 入口时可配置：
@@ -397,7 +474,7 @@ OPENCHATCUT_EDITOR_URL=https://your-editor.example.com
 |---|---|
 | 前端 | React 19、TypeScript 6、Vite 8 |
 | 编辑核心 | 不可变时间线状态、命令层、提案式应用 |
-| Agent | Vercel AI SDK 7（Anthropic、OpenAI、Gemini、Kimi、Qwen、GLM、DeepSeek、MiniMax、小米 MiMo、Mistral、xAI Grok（API Key 或 SuperGrok/X Premium+ 订阅登录）与兼容接口）、Agent Skills、MCP SDK |
+| Agent | Vercel AI SDK 7（Anthropic、OpenAI、Gemini、Kimi、Qwen、GLM、DeepSeek、MiniMax、小米 MiMo、Mistral、xAI Grok（API Key 或 SuperGrok/X Premium+ 订阅登录）、OpenRouter、OrcaRouter、OFox、Requesty、Cheaper Inference、Runcrate 与兼容接口）、Agent Skills、MCP SDK |
 | 预览与视觉 | Remotion Player、WebGL / GLSL |
 | 服务端 | Vite / Electron 双宿主插件、服务端密钥仓 |
 | 持久化 | `~/.openchatcut` 下的本机共享工程库、IndexedDB 缓存、可配置本地素材目录、可选 Cloudflare R2 |
@@ -443,6 +520,12 @@ OPENCHATCUT_EDITOR_URL=https://your-editor.example.com
 
 ---
 
+### Fal.ai 图像与视频生成
+
+Fal.ai 是可选的生成服务，提供明确的图像与视频模型目录。
+在 **设置 → AI 生成 → 生图或生视频 → Fal.ai** 中配置。
+支持的模型、服务端密钥配置、免费验证和扩展方式见 [Fal.ai 使用指南](FAL.md)。
+
 ## 开发与验证
 
 ```bash
@@ -479,6 +562,8 @@ OpenChatCut 基于以下核心项目与规范构建：
 | [Vercel AI SDK](https://ai-sdk.dev/) | 内置 Agent 的多厂商模型流式响应与工具调用基础。 |
 | [tt-a1i/archify](https://github.com/tt-a1i/archify) | README 运行时架构图的定义、校验与 SVG 生成工具。 |
 
+剪映 / CapCut 草稿导出由 [capcut-cli](https://github.com/renezander030/capcut-cli) 提供支持。
+
 这里列出的是项目的主要技术基础，不替代各依赖、字体和内置二进制随附的许可证。完整 JavaScript 依赖版本见 `package-lock.json`，字体授权见 [`assets/fonts/LICENSES.md`](assets/fonts/LICENSES.md)。
 
 ---
@@ -509,6 +594,21 @@ OpenChatCut 采用 [GNU Affero General Public License v3.0 或更高版本](LICE
 第三方组件与资产仍分别受其自身许可证约束。
 
 ---
+
+## 内置 Agent 的网页检索
+
+`web_search` 和基础 `web_browser` 阅读默认使用 Firecrawl，需要 `FIRECRAWL_API_KEY`。
+如需改用无需账号和 API Key 的
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)，
+在 `.env.local` 中设置 `WEB_SEARCH_PROVIDER=parallel` 并重启。Parallel 搜索返回来源 URL、标题和相关摘录；
+网页阅读返回 Markdown 摘录，不提供完整 HTML 或截图。查询和目标 URL 会发送给选定的服务商。
+匿名服务有配额限制，服务商报错时不会自动切换到其他服务商。
+
+`WEB_SEARCH_PROVIDER` 留空或设为 `firecrawl` 时使用 Firecrawl，设为 `disabled` 会关闭基础搜索与网页阅读。
+工具调用可以显式选择 `provider: "firecrawl"`；只有启用 Parallel 后才能选择 `"parallel"`。
+搜索地区/语言/时间过滤、截图、浏览器动作、结构化提取、完整页面格式、站点映射、爬取和批量抓取
+始终需要 Firecrawl Key。相关搜索与网页阅读共用不透明的会话 ID；清空聊天后生成新 ID，
+不会使用工程 ID 或聊天文本作为会话 ID。
 
 ## 贡献
 

@@ -13,7 +13,8 @@ const llmPage = (preset: (typeof LLM_PROVIDER_PRESETS)[number]): SettingsVendorP
     vendor: preset.id as VendorId,
     title: preset.label,
     note: preset.id === 'anthropic'
-      ? '内置 Agent 需要 Anthropic API Key。Claude Code 订阅用户请通过「外部 Agent 接入 (MCP)」连接；OpenChatCut 不接收 Claude OAuth。'
+      ? '内置 Agent 可使用 Anthropic API Key，也可以在下方「Anthropic · Claude Code」页用 Claude 订阅登录（无需 API Key）。'
+        + '独立运行的 Claude Code 会话也可以通过「外部 Agent 接入 (MCP)」驱动 OpenChatCut。'
       : '每个厂商独立保存地址、密钥与模型。先测试连接，成功后可从接口返回的模型中选择。',
     ...(preset.id === 'anthropic'
       ? { noteAction: { label: '外部 Agent 接入 (MCP)', action: 'open-mcp-guide' } }
@@ -68,6 +69,44 @@ const CODEX_PAGE: SettingsVendorPage = {
   ],
 };
 
+const COPILOT_PAGE: SettingsVendorPage = {
+  key: 'llm/copilot',
+  vendor: 'copilot',
+  title: 'GitHub Copilot',
+  connection: 'copilot',
+  note: '使用 GitHub Copilot 订阅：官方 Copilot CLI 管理登录与凭据（终端运行 copilot login），'
+    + 'OpenChatCut 通过 Copilot SDK 直接驱动编辑工具，不会读取或显示凭据。'
+    + '会话状态隔离在 ~/.openchatcut/copilot，不影响你自己的 ~/.copilot。',
+  fields: [
+    {
+      name: 'COPILOT_MODEL', label: 'Copilot 模型', kind: 'text',
+      defaultLabel: 'Copilot 默认模型', discoverableModel: true,
+      note: '登录后可读取当前订阅可用的模型，也可以手动填写模型 ID。仅支持工具调用的模型可用于编辑。',
+    },
+    {
+      name: 'COPILOT_REASONING_EFFORT', label: '推理强度', kind: 'select',
+      options: [{ value: '', label: '模型默认' }],
+      note: '读取模型后显示当前模型支持的档位；留空使用该模型的默认值。',
+    },
+  ],
+};
+
+const CLAUDE_CODE_PAGE: SettingsVendorPage = {
+  key: 'llm/claude-code',
+  vendor: 'anthropic',
+  title: 'Anthropic · Claude Code',
+  connection: 'claude-code',
+  note: '使用 Claude 订阅登录，由官方 Claude Code CLI 管理凭据、续期与退出，OpenChatCut 不会读取或显示 OAuth 凭据。'
+    + '在终端运行 claude auth login（或 claude setup-token 获取长期令牌）完成登录后，点击“重新检测”。',
+  fields: [
+    {
+      name: 'CLAUDE_CODE_MODEL', label: 'Claude Code 模型', kind: 'text',
+      defaultLabel: 'Claude Code 默认模型', discoverableModel: true,
+      note: '登录后可从可用模型中选择，也可以手动填写别名（如 sonnet / opus / haiku）。',
+    },
+  ],
+};
+
 const XAI_OAUTH_PAGE: SettingsVendorPage = {
   key: 'llm/xai-oauth', vendor: 'xai-oauth', title: 'xAI · Grok (订阅登录)',
   connection: 'xai-oauth',
@@ -80,10 +119,18 @@ const XAI_OAUTH_PAGE: SettingsVendorPage = {
   }],
 };
 
+// Sponsored placement: OFox sits 4th in Agent 大脑 (Anthropic, OpenAI,
+// OpenAI · Codex, OFox), independent of its position in LLM_PROVIDER_PRESETS.
+const OFOX_PRESET = LLM_PROVIDER_PRESETS.find((preset) => preset.id === 'ofox');
 const AGENT_VENDOR_PAGES: readonly SettingsVendorPage[] = LLM_PROVIDER_PRESETS.flatMap((preset) => {
   if (preset.id === 'xai-oauth') return [XAI_OAUTH_PAGE];
+  if (preset.id === 'ofox') return [];
   const page = llmPage(preset);
-  return preset.id === 'openai' ? [page, CODEX_PAGE] : [page];
+  if (preset.id === 'anthropic') return [page, CLAUDE_CODE_PAGE];
+  if (preset.id !== 'openai') return [page];
+  return OFOX_PRESET
+    ? [page, CODEX_PAGE, llmPage(OFOX_PRESET), COPILOT_PAGE]
+    : [page, CODEX_PAGE, COPILOT_PAGE];
 });
 
 const VISION_PAGE: SettingsVendorPage = {

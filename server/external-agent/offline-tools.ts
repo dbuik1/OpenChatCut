@@ -5,8 +5,12 @@ import {
 } from '../../src/agent/external-tool-shape.js';
 import { isExternalServerDirectTool } from '../../src/agent/external-tool-policy.js';
 import { AGENT_RUNTIME_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/agent-runtime-tools.js';
+import { AGENT_PATH_IMPORT_SCHEMAS } from '../../src/agent/tools/agent-path-import-tools.js';
 import { CORE_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/core-tools.js';
 import { CAPTIONS_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/captions-tools.js';
+import { EDIT_ITEM_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/edit-item-tools.js';
+import { EFFECT_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/effect-tools.js';
+import { LIBRARY_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/library-tools.js';
 import { MARKERS_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/markers-tools.js';
 import { READ_PROJECT_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/read-project-tools.js';
 import { SCRIPT_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/script-tools.js';
@@ -14,7 +18,7 @@ import { TIMELINE_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/timeline-to
 import { TRACK_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/track-tools.js';
 import { TRANSCRIPT_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/transcript-tools.js';
 import { WATERMARK_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/watermark-tools.js';
-import { TIMELINE_IMPORT_TOOL_SCHEMAS } from '../../src/agent/tools/timeline-import-tools.js';
+import { TIMELINE_IMPORT_TOOL_SCHEMAS } from '../../src/agent/tools/schemas/timeline-import-tools.js';
 
 const OFFLINE_TOOL_DESCRIPTIONS: Record<string, string> = {
   begin_edit_session: 'Start an offline server draft. approvalMode must be auto; open the editor URL for manual approval.',
@@ -22,9 +26,20 @@ const OFFLINE_TOOL_DESCRIPTIONS: Record<string, string> = {
   edit_captions: 'Edit built-in caption template, style, layout, text, source, and language data. preset_* actions require the browser editor.',
 };
 
+const OFFLINE_SESSION_TOOL_NAMES = new Set([
+  'begin_edit_session',
+  'get_edit_session',
+  'review_edit_session',
+  'discard_edit_session',
+]);
+
 const OFFLINE_SCHEMA_GROUPS = [
   AGENT_RUNTIME_TOOL_SCHEMAS,
+  AGENT_PATH_IMPORT_SCHEMAS,
   CORE_TOOL_SCHEMAS,
+  EDIT_ITEM_TOOL_SCHEMAS,
+  EFFECT_TOOL_SCHEMAS,
+  LIBRARY_TOOL_SCHEMAS,
   TIMELINE_TOOL_SCHEMAS,
   TRACK_TOOL_SCHEMAS,
   SCRIPT_TOOL_SCHEMAS,
@@ -48,7 +63,8 @@ function serverDirectSchemas(): ExternalRegisteredTool[] {
 
 /** Lifecycle controls plus the reviewed, dependency-closed pure-data editor subset. */
 export function offlineExternalToolSchemas(): ExternalRegisteredTool[] {
-  return [...EXTERNAL_SESSION_TOOLS, ...serverDirectSchemas()].map((tool) => (
+  const sessionTools = EXTERNAL_SESSION_TOOLS.filter((tool) => OFFLINE_SESSION_TOOL_NAMES.has(tool.name));
+  return [...sessionTools, ...serverDirectSchemas()].map((tool) => (
     OFFLINE_TOOL_DESCRIPTIONS[tool.name]
       ? { ...tool, description: OFFLINE_TOOL_DESCRIPTIONS[tool.name] }
       : tool

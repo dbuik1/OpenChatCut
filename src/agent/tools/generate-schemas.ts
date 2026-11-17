@@ -1,3 +1,4 @@
+import { FAL_IMAGE_MODELS, FAL_VIDEO_MODELS, falModelSummary } from '../../../shared/fal-models';
 import type { AgentToolSchema } from '../tool-schema';
 import { MINIMAX_LANGUAGE_BOOSTS } from '../../../shared/media-provider-params';
 
@@ -5,22 +6,23 @@ import { MINIMAX_LANGUAGE_BOOSTS } from '../../../shared/media-provider-params';
 export const GENERATE_TOOL_SCHEMAS: AgentToolSchema[] = [
   {
     name: 'submit_image',
-    description: 'Generate one or more AI images (gpt-image-2, nano-banana, MiniMax image-01, WaveSpeed, BytePlus Seedream, or xAI Grok Imagine), save them to the project media pool, and optionally propose adding them to the active timeline. Call only when the user explicitly requested the generation.',
+    description: 'Generate one or more AI images (Fal catalog, gpt-image-2, nano-banana, MiniMax image-01, WaveSpeed, BytePlus Seedream, xAI Grok Imagine, or Agnes Image), save them to the project media pool, and optionally propose adding them to the active timeline. Call only when the user explicitly requested the generation.',
     input_schema: {
       type: 'object',
       properties: {
-        model: { type: 'string', enum: ['gpt-image-2', 'nano-banana', 'image-01', 'wavespeed', 'byteplus', 'grok-imagine'], description: 'gpt-image-2 is the default; nano-banana is best for reference-heavy work; image-01 is MiniMax (at most 9 outputs; one subject reference when R2 is configured); wavespeed is WaveSpeed AI (fast generic image models, no references); byteplus is BytePlus ModelArk Seedream (no references yet); grok-imagine is xAI Grok Imagine (text-to-image only, no references, at most 4 outputs, 1K/2K).' },
+        model: { type: 'string', enum: ['gpt-image-2', 'nano-banana', 'image-01', 'wavespeed', 'byteplus', 'grok-imagine', 'agnes-image', 'fal'], description: 'Use the model named in capabilities. gpt-image-2 only when that vendor is the configured default; nano-banana is best for reference-heavy work; image-01 is MiniMax (at most 9 outputs; one subject reference when R2 is configured); wavespeed is WaveSpeed AI (fast generic image models, no references); byteplus is BytePlus ModelArk Seedream (no references yet); grok-imagine is xAI Grok Imagine (text-to-image only, no references, at most 4 outputs, 1K/2K); agnes-image is Agnes Image (text or up to 8 reference images, 1K/2K/3K/4K, at most 4 outputs, no custom width/height or GPT options).' },
+        falModel: { type: 'string', enum: FAL_IMAGE_MODELS.map((model) => model.id), description: `With model=fal, select a curated Fal image model; omitted uses the saved Fal image default. ${FAL_IMAGE_MODELS.map((model) => `${model.id}: ${falModelSummary(model)}`).join('; ')}. Model-specific limits are validated before submission.` },
         prompt: { type: 'string', description: 'Detailed description of the image to generate.' },
         name: { type: 'string', description: 'Short descriptive asset name shown in the media pool.' },
         addToTimeline: { type: 'boolean', description: 'Defaults to true. Set false when the user asks to keep the result in the media pool/library only or says not to modify the timeline.' },
-        aspectRatio: { type: 'string', enum: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9'], description: 'Defaults to 16:9. Do not send width/height with aspectRatio.' },
-        imageSize: { type: 'string', enum: ['512px', '1K', '2K', '4K'], description: 'Defaults to 1K. 512px is Gemini-only; use 2K/4K only when explicitly requested. Ignored when custom width/height are set.' },
+        aspectRatio: { type: 'string', enum: [...new Set(['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9', ...FAL_IMAGE_MODELS.flatMap((model) => model.constraints.aspectRatios)])], description: 'Native providers default to 16:9; Fal uses its selected model default. Fal-only ratios require a supporting model. Do not send width/height with aspectRatio.' },
+        imageSize: { type: 'string', enum: [...new Set(['512px', '1K', '2K', '4K', ...FAL_IMAGE_MODELS.flatMap((model) => model.constraints.resolutions)])], description: 'Native providers default to 1K; Fal uses model defaults and validates its supported sizes. For Fal, 512px is an alias for 0.5K. Use 2K/4K only when explicitly requested. Ignored when custom width/height are set.' },
         width: { type: 'integer', minimum: 512, maximum: 3840, description: 'Send only when the user explicitly requests custom pixel dimensions. Requires height and omission of aspectRatio. MiniMax max 2048.' },
         height: { type: 'integer', minimum: 512, maximum: 3840, description: 'Send only when the user explicitly requests custom pixel dimensions. Requires width and omission of aspectRatio. MiniMax max 2048.' },
         quality: { type: 'string', enum: ['low', 'medium', 'high', 'auto'], description: 'gpt-image-2 only; defaults to high.' },
-        referenceAssetIds: { type: 'array', items: { type: 'string' }, maxItems: 16, description: 'Project image asset IDs. Limits: GPT 16, Gemini 14, MiniMax 1 subject reference (MiniMax needs configured R2).' },
+        referenceAssetIds: { type: 'array', items: { type: 'string' }, maxItems: 16, description: 'Project image asset IDs. Limits: GPT 16, Gemini 14, MiniMax 1 subject reference (MiniMax needs configured R2), Agnes 8.' },
         maskAssetId: { type: 'string', description: 'gpt-image-2 edits only. Project image mask; transparent pixels are replaced.' },
-        count: { type: 'integer', minimum: 1, maximum: 10, description: 'Number of images; defaults to 1. image-01 max 9.' },
+        count: { type: 'integer', minimum: 1, maximum: 10, description: 'Number of images; defaults to 1. image-01 max 9. agnes-image and grok-imagine max 4.' },
         background: { type: 'string', enum: ['transparent', 'opaque', 'auto'], description: 'gpt-image-2 only. Output background.' },
         moderation: { type: 'string', enum: ['low', 'auto'], description: 'gpt-image-2 only. Moderation strictness.' },
         inputFidelity: { type: 'string', enum: ['low', 'high'], description: 'gpt-image-2 edits only. Reference-image fidelity.' },
@@ -40,7 +42,7 @@ export const GENERATE_TOOL_SCHEMAS: AgentToolSchema[] = [
       properties: {
         provider: { type: 'string', enum: ['elevenlabs', 'doubao', 'minimax', 'inworld', 'fishaudio', 'speechify', 'openai', 'gemini', 'mistral', 'cartesia'], description: 'Required opt-in provider. Use only a provider listed as configured in capabilities. Voice IDs and catalogs are never interchangeable.' },
         text: { type: 'string', minLength: 1, description: 'Text to synthesize.' },
-        voiceId: { type: 'string', description: 'Concrete provider-specific voice ID confirmed by the user. Required except MiniMax timbreWeights mixing, where it must be empty. Do not invent a preset or reuse an ID from another provider.' },
+        voiceId: { type: 'string', description: 'Concrete provider-specific voice ID confirmed by the user. Required except MiniMax timbreWeights mixing and Doubao when a default speaker ID is saved in Settings. For Doubao, pass the exact Volcengine speaker ID verbatim (for example S_5wulnA7i2 or zh_female_vv_uranus_bigtts); it is sent unchanged as references[].speaker. Do not invent a preset or reuse an ID from another provider.' },
         modelId: { type: 'string', description: 'ElevenLabs, Inworld, Fish Audio, Speechify, OpenAI, Gemini, Mistral, or Cartesia only. Omit to use the configured model.' },
         stability: { type: 'number', minimum: 0, maximum: 1, description: 'ElevenLabs only. Defaults to 0.5.' },
         speed: { type: 'number', minimum: 0.5, maximum: 2, description: 'ElevenLabs (0.7–1.2), MiniMax (0.5–2), OpenAI, or Cartesia only. Defaults to 1; provider/model support is validated server-side.' },
@@ -61,13 +63,10 @@ export const GENERATE_TOOL_SCHEMAS: AgentToolSchema[] = [
         previousRequestIds: { type: 'array', items: { type: 'string' }, description: 'ElevenLabs prior request IDs for continuity.' },
         nextRequestIds: { type: 'array', items: { type: 'string' }, description: 'ElevenLabs next request IDs for continuity.' },
         speedRatio: { type: 'number', minimum: 0.5, maximum: 2, description: 'Doubao only. Defaults to 1.' },
-        emotion: { type: 'string', description: 'Doubao or MiniMax emotion label. MiniMax accepts: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper.' }, // minimax: shared with doubao
-        emotionScale: { type: 'number', minimum: 1, maximum: 5, description: 'Doubao only. Requires emotion.' },
+        emotion: { type: 'string', description: 'MiniMax only. One of: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper.' },
         loudnessRatio: { type: 'number', minimum: 0.5, maximum: 2, description: 'Doubao only. Defaults to 1.' },
-        pitch: { type: 'number', minimum: -12, maximum: 12, description: 'Doubao: post-process semitones. MiniMax: native voice_setting.pitch (-12–12).' },
+        pitch: { type: 'number', minimum: -12, maximum: 12, description: 'Doubao: native audio_config.pitch_rate (-12–12). MiniMax: native voice_setting.pitch (-12–12).' },
         volume: { type: 'number', exclusiveMinimum: 0, maximum: 10, description: 'MiniMax only. voice_setting.vol (>0–10). Defaults to 1.' },
-        performancePrompt: { type: 'string', maxLength: 200, description: 'Doubao only. Natural-language performance direction.' },
-        explicitDialect: { type: 'string', enum: ['dongbei', 'shaanxi', 'sichuan'], description: 'Doubao only; supported by the Vivi preset.' },
         // ponytail: Numeric enum will be rejected by Gemini native API (Schema.enum only accepts TYPE_STRING) - write in
         // description, the provider API side will still verify illegal values.
         sampleRate: { type: 'integer', description: 'MiniMax audio_setting.sample_rate. One of 8000/16000/22050/24000/32000/44100.' },
@@ -146,27 +145,28 @@ export const GENERATE_TOOL_SCHEMAS: AgentToolSchema[] = [
   },
   {
     name: 'submit_video',
-    description: 'Submit a Seedance 2.0, Kling, MiniMax Hailuo, BytePlus Seedance, or xAI Grok Imagine video generation job and create one video asset in the project media pool. Does not place the video on the timeline. Keep image, video, and audio references in their matching arrays.',
+    description: 'Submit a Fal catalog, Seedance 2.0, Kling, MiniMax Hailuo, BytePlus Seedance, xAI Grok Imagine, Google Gemini Omni, OFox, or Agnes Video generation job and create one video asset in the project media pool. Does not place the video on the timeline. Keep image, video, and audio references in their matching arrays.',
     input_schema: {
       type: 'object',
       properties: {
-        model: { type: 'string', enum: ['seedance2', 'kling', 'hailuo', 'byteplus', 'grok-imagine-video'], description: 'hailuo is MiniMax: 6 or 10s; firstFrame optional; lastFrame allowed with firstFrame; no multi-ref or multi-shot. 1080p is 6s only. byteplus is BytePlus ModelArk Seedance — same request shape/limits as seedance2. grok-imagine-video is xAI Grok Imagine: text-to-video only, 1–15s, audio track included, no references/frames.' }, // minimax: hailuo enum
+        model: { type: 'string', enum: ['seedance2', 'kling', 'hailuo', 'byteplus', 'grok-imagine-video', 'ofox', 'agnes-video', 'fal', 'gemini-omni'], description: 'Use the model named in capabilities. hailuo is MiniMax: 6 or 10s; firstFrame optional; lastFrame allowed with firstFrame; no multi-ref or multi-shot. 1080p is 6s only. byteplus is BytePlus ModelArk Seedance — same request shape/limits as seedance2. grok-imagine-video is xAI Grok Imagine: text-to-video only, 1–15s, audio track included, no references/frames. ofox is the OFox multi-model gateway (Seedance/Wan and more behind one key): 2–30s with per-model limits enforced by the API; supports firstFrame (and optional lastFrame), or up to 9 refImages (frames and refImages are mutually exclusive); no refVideos/refAudios yet. agnes-video is Agnes Video 2.5 Flash: 4–12s (default 5), 720p only; text, first and/or last frame, or up to 5 refImages plus 3 refAudios. Frames and references are mutually exclusive. No refVideos. gemini-omni is Google Gemini Omni Flash (GEMINI_API_KEY): text, firstFrame, firstFrame+lastFrame, or up to 6 refImages (frames and refImages are mutually exclusive); 16:9 or 9:16; 360p/720p/1080p/4k; 3–15s, 3–10s with firstFrame+lastFrame.' }, // minimax: hailuo enum
+        falModel: { type: 'string', enum: FAL_VIDEO_MODELS.map((model) => model.id), description: `With model=fal, select a curated Fal video model; omitted uses the saved Fal video default. ${FAL_VIDEO_MODELS.map((model) => `${model.id}: ${falModelSummary(model)}`).join('; ')}. Omit duration/resolution to use model defaults.` },
         prompt: { type: 'string', description: 'Required for normal generation and Kling intelligence; omit for Kling customize.' },
         name: { type: 'string' },
-        durationSeconds: { anyOf: [{ type: 'number' }, { type: 'string' }], description: 'Integer seconds, 2–15 for Seedance, 3–15 for Kling, exactly 6 or 10 for Hailuo (Hailuo 1080p → 6 only), 1–15 for grok-imagine-video.' }, // minimax: hailuo durations
-        ratio: { type: 'string', description: 'Seedance: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive. Kling: 16:9, 9:16, 1:1. grok-imagine-video: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3. Do not send for hailuo.' },
-        resolution: { type: 'string', enum: ['480p', '512p', '720p', '1080p', '4k'], description: 'Seedance: 480p/720p(default)/1080p/4k. Hailuo: 512p (Hailuo-02), 720p→API 768P, 1080p (6s only). Kling: pair with mode std/pro. grok-imagine-video: 480p(default)/720p/1080p.' },
+        durationSeconds: { anyOf: [{ type: 'number' }, { type: 'string' }], description: 'For Fal, see falModel limits and omit to use model default. Native providers: integer seconds, 2–15 for Seedance, 3–15 for Kling, exactly 6 or 10 for Hailuo (Hailuo 1080p → 6 only), 1–15 for grok-imagine-video, 2–30 for ofox (per-model limits enforced by the API), 4–12 for agnes-video (default 5), 3–15 for gemini-omni (3–10 with firstFrame+lastFrame; omit for the 10s default).' }, // minimax: hailuo durations
+        ratio: { type: 'string', description: 'Seedance: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive. Kling: 16:9, 9:16, 1:1. grok-imagine-video: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3. ofox: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9, 9:21. agnes-video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9. gemini-omni: 16:9, 9:16. Do not send for hailuo.' },
+        resolution: { type: 'string', enum: [...new Set(['360p', '480p', '512p', '720p', '1080p', '4k', ...FAL_VIDEO_MODELS.flatMap((model) => model.constraints.resolutions)])], description: 'Seedance: 480p/720p(default)/1080p/4k. Hailuo: 512p (Hailuo-02), 720p→API 768P, 1080p (6s only). Kling: pair with mode std/pro. grok-imagine-video: 480p(default)/720p/1080p. ofox: 480p/720p(default)/1080p, per-model support enforced by the API. agnes-video: 720p only; omit otherwise. gemini-omni: 360p/720p(default)/1080p/4k.' },
         mode: { type: 'string', enum: ['std', 'pro'], description: 'Kling only; std=720p, pro=1080p.' },
         firstFrame: { type: 'string', description: 'Project image asset ID, asset:// ID, short unique ID prefix, or same-project asset path.' },
-        lastFrame: { type: 'string', description: 'Project image asset reference; requires firstFrame. Supported on seedance2, kling, and hailuo (not with multi-ref on seedance2).' },
+        lastFrame: { type: 'string', description: 'Project image asset reference; requires firstFrame. Supported on seedance2, kling, hailuo, ofox, and gemini-omni (not with multi-ref on seedance2/ofox/gemini-omni).' },
         refImages: { type: 'array', items: { type: 'string' } },
         refVideos: { type: 'array', items: { type: 'string' } },
         refAudios: { type: 'array', items: { type: 'string' } },
         refVideoMode: { type: 'string', enum: ['feature', 'base'], description: 'Kling only with refVideos. feature (default)=motion/camera/style guide; base=edit that source clip (keep_original_sound).' },
         promptOptimizer: { type: 'boolean', description: 'Hailuo only. MiniMax prompt_optimizer; default true. Set false for more literal prompts.' },
         fastPretreatment: { type: 'boolean', description: 'Hailuo only. MiniMax fast_pretreatment when promptOptimizer is true; default false.' },
-        generateAudio: { type: 'boolean', description: 'Seedance/BytePlus only. Generate synchronized audio; official default true.' },
-        seed: { type: 'integer', description: 'Seedance/BytePlus only. Deterministic random seed.' },
+        generateAudio: { type: 'boolean', description: 'Seedance/BytePlus/OFox. Generate synchronized audio; default true for models that support audio.' },
+        seed: { type: 'integer', description: 'Seedance/BytePlus/OFox. Random seed; determinism depends on the model.' },
         cameraFixed: { type: 'boolean', description: 'Seedance/BytePlus only. Lock camera motion; default false.' },
         watermark: { type: 'boolean', description: 'Seedance/BytePlus only. Add provider watermark; default false.' },
         returnLastFrame: { type: 'boolean', description: 'Seedance/BytePlus only. Save the returned last frame as an additional image asset.' },

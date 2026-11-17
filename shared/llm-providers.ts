@@ -1,3 +1,5 @@
+import type { SharedV4ProviderOptions } from '@ai-sdk/provider';
+
 /** wire protocol the SERVER proxy speaks upstream: auth header + path family.
  * 'google' = Gemini native API (x-goog-api-key, /models/{id}:generateContent). */
 export type LlmProtocol = 'anthropic' | 'openai' | 'google' | 'openai-compatible';
@@ -122,6 +124,41 @@ export const LLM_PROVIDER_PRESETS = [
     defaultModel: 'openrouter/auto',
   },
   {
+    id: 'ofox',
+    label: 'OFox',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://api.ofox.ai/v1',
+    defaultModel: 'deepseek/deepseek-v3.2',
+  },
+  {
+    id: 'orcarouter',
+    label: 'OrcaRouter',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://api.orcarouter.ai/v1',
+    defaultModel: 'orcarouter/auto',
+  },
+  {
+    id: 'requesty',
+    label: 'Requesty',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://router.requesty.ai/v1',
+    defaultModel: 'claude-sonnet-5',
+  },
+  {
+    id: 'cheaperinference',
+    label: 'Cheaper Inference',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://api.cheaperinference.com/v1',
+    defaultModel: 'gpt-5.4-mini',
+  },
+  {
+    id: 'runcrate',
+    label: 'Runcrate',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://api.runcrate.ai/v1',
+    defaultModel: 'deepseek-ai/DeepSeek-V4.1-Flash',
+  },
+  {
     id: 'ollama',
     label: 'Ollama (Local)',
     protocol: 'openai-compatible',
@@ -134,6 +171,13 @@ export const LLM_PROVIDER_PRESETS = [
     protocol: 'openai-compatible',
     baseUrl: 'http://localhost:1234/v1',
     defaultModel: 'qwen2.5-coder-7b-instruct',
+  },
+  {
+    id: 'agnes',
+    label: 'Agnes AI',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://apihub.agnes-ai.com/v1',
+    defaultModel: 'agnes-3.0-flash',
   },
 ] as const satisfies readonly LlmProviderPreset[];
 
@@ -155,6 +199,14 @@ const PRESETS = new Map<string, (typeof LLM_PROVIDER_PRESETS)[number]>(
 export function normalizeLlmProvider(value: unknown): LlmProvider {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   return PRESETS.has(normalized) ? normalized as LlmProvider : DEFAULT_LLM_PROVIDER;
+}
+/** Request boundaries must not silently route an unsupported vendor to the default. */
+export function requireLlmProvider(value: unknown): LlmProvider {
+  if (value === undefined || value === null || value === '') return DEFAULT_LLM_PROVIDER;
+  if (typeof value !== 'string') throw new Error('Unsupported LLM provider');
+  const normalized = value.trim().toLowerCase();
+  if (normalized && !PRESETS.has(normalized)) throw new Error('Unsupported LLM provider');
+  return normalizeLlmProvider(normalized);
 }
 
 export function isLocalLlmProvider(provider: unknown): boolean {
@@ -190,15 +242,50 @@ export function normalizeOpenAiApiMode(value: unknown): OpenAiApiMode {
   return value === 'chat' ? 'chat' : DEFAULT_OPENAI_API_MODE;
 }
 
+/** Provider request rules shared by browser and server model adapters. */
+export function resolveModelRequestPolicy(
+  provider: unknown,
+  openAiApiMode: unknown = DEFAULT_OPENAI_API_MODE,
+  cacheMode: 'short' | 'long' = 'short',
+): {
+  protocol: LlmProtocol;
+  apiMode: OpenAiApiMode;
+  providerOptions: SharedV4ProviderOptions | undefined;
+  cacheTtlMs: number | undefined;
+} {
+  const normalized = normalizeLlmProvider(provider);
+  const protocol = protocolForProvider(normalized);
+  // Subscription sessions only speak Responses, regardless of the global toggle.
+  const apiMode = normalized === 'xai-oauth' ? 'responses' : normalizeOpenAiApiMode(openAiApiMode);
+  let providerOptions: SharedV4ProviderOptions | undefined;
+  if (normalized === 'anthropic') {
+    providerOptions = { anthropic: { cacheControl: cacheMode === 'long'
+      ? { type: 'ephemeral', ttl: '1h' }
+      : { type: 'ephemeral' } } };
+  } else if (normalized === 'minimax') {
+    providerOptions = { minimax: { reasoning_split: true } };
+  } else if (normalized !== 'xai-oauth' && protocol === 'openai' && apiMode === 'responses') {
+    providerOptions = { openai: { store: false } };
+  }
+  return {
+    protocol,
+    apiMode,
+    providerOptions,
+    cacheTtlMs: normalized === 'anthropic'
+      ? (cacheMode === 'long' ? 60 : 5) * 60 * 1000
+      : undefined,
+  };
+}
+
 export function providerApiPath(
   provider: unknown,
   openAiApiMode: unknown = DEFAULT_OPENAI_API_MODE,
 ): string {
-  const protocol = protocolForProvider(provider);
+  const { protocol, apiMode } = resolveModelRequestPolicy(provider, openAiApiMode);
   if (protocol === 'anthropic') return '/messages';
   if (protocol === 'google') return '/models'; // Native API path according to model:/models/{id}:generateContent
   if (protocol === 'openai') {
-    return normalizeOpenAiApiMode(openAiApiMode) === 'chat'
+    return apiMode === 'chat'
       ? '/chat/completions'
       : '/responses';
   }

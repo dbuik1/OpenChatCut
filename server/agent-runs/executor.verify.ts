@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { APICallError, streamText, type ModelMessage } from 'ai';
+import { MockLanguageModelV4, convertArrayToReadableStream } from 'ai/test';
 import { ASK_MODE_TOOL_SCHEMAS } from '../../src/agent/ask-mode-tools';
 import { TOOL_SCHEMAS } from '../../src/agent/tools';
 import { buildServerRunPrompt, SERVER_RUN_AI_TIMEOUT } from './context.ts';
@@ -6,6 +9,9 @@ import { resolveServerRunToolCatalog } from './tool-policy.ts';
 import { serverToolCatalogForGeneration } from './tool-catalog-generation.ts';
 import { serverProviderOptions } from './model.ts';
 import { validateCreateInput } from './request.ts';
+import { resolveRunExecution } from './execution-input.ts';
+import { LLM_PROVIDER_PRESETS, normalizeLlmProvider } from '../../shared/llm-providers.ts';
+import { answerUnexecutedToolCalls } from './unexecuted-tool-calls.ts';
 import {
   collectServerText,
   executeBrowserTool,
@@ -18,7 +24,7 @@ import {
 import { ToolActivation } from '../../src/agent/tool-activation.ts';
 import { ToolFailureTracker } from '../../src/agent/toolFailure.ts';
 import { MODEL_CAPABILITY_OVERRIDES_KEY } from '../../shared/model-capabilities';
-import { seedKeystore } from '../keystore';
+import { getKey, seedKeystore } from '../keystore';
 import {
   createRun,
   claimToolRequest,
@@ -107,6 +113,21 @@ const validRequest = {
   externalSessionId: '  browser-session-1  ',
 };
 const validatedRequest = validateCreateInput(validRequest);
+const configuredProvider = normalizeLlmProvider(getKey('LLM_PROVIDER'));
+for (const provider of ['retired-provider', 42, false, {}]) {
+  assert.throws(() => resolveRunExecution({ provider }, validatedRequest, 'http://localhost:5199', false),
+    /Unsupported LLM provider/, 'invalid API providers must fail before a run can start');
+}
+for (const provider of [undefined, null, '', '  ']) {
+  assert.equal(resolveRunExecution({ provider }, validatedRequest, 'http://localhost:5199', false).provider,
+    configuredProvider, 'omitted and empty providers preserve the configured default');
+}
+for (const preset of LLM_PROVIDER_PRESETS) {
+  assert.equal(resolveRunExecution({ provider: preset.id }, validatedRequest, 'http://localhost:5199', false).provider,
+    preset.id);
+}
+assert.equal(resolveRunExecution({ backend: 'codex', provider: 'retired-provider' }, validatedRequest,
+  'http://localhost:5199', false).provider, 'openai', 'Codex keeps its own provider attribution');
 assert.equal(validatedRequest.runId, validRequest.runId);
 assert.equal(validatedRequest.capability, validRequest.capability);
 assert.equal(validatedRequest.cacheMode, 'long');
@@ -272,6 +293,49 @@ assert(
   ),
   'Unicode and JSON escaping cannot push a maximum text chunk past 64 KiB',
 );
+// A provider failure arrives as an `error` part on `fullStream`, not as a
+// thrown iterator error. It must reach the caller unchanged so the retry
+// classifier can see the status code, and the text streamed before it must
+// still be flushed and closed with `text-end`.
+resetServerRunStoreForTest();
+const streamErrorRun = createRun({
+  projectId: 'server-stream-error',
+  sessionGeneration: 'legacy',
+  provider: 'deepseek',
+  model: 'test-model',
+});
+const providerFailure = new APICallError({
+  message: 'DeepSeek 认证失败。请在“设置 → Agent 模型”中检查 API Key。',
+  url: 'https://example.invalid/v1/chat',
+  requestBodyValues: {},
+  statusCode: 401,
+  responseBody: '{"error":{"message":"unauthorized"}}',
+  isRetryable: false,
+});
+async function* failingChunks(): AsyncGenerator<
+  | { type: 'text-delta'; id: number; text: string }
+  | { type: 'error'; error: unknown }
+> {
+  yield { type: 'text-delta', id: nextPart(), text: 'partial answer' };
+  yield { type: 'error', error: providerFailure };
+  yield { type: 'text-delta', id: nextPart(), text: 'never reached' };
+}
+await assert.rejects(
+  () => collectServerText(streamErrorRun, failingChunks()),
+  (error: unknown) => error === providerFailure,
+  'the provider error reaches the caller instead of being swallowed',
+);
+await flushRunPersistence(streamErrorRun);
+const streamErrorText = streamErrorRun.events
+  .filter((event) => event.type === 'text-delta')
+  .map((event) => String(record(event.data).text ?? ''))
+  .join('');
+assert.equal(streamErrorText, 'partial answer', 'text streamed before the error is kept');
+assert(
+  streamErrorRun.events.some((event) => event.type === 'text-end'),
+  'the failing turn still closes its text stream',
+);
+
 const largeToolRequestRun = createRun({
   projectId: 'server-large-tool-request',
   sessionGeneration: 'legacy',
@@ -299,16 +363,91 @@ console.log('server agent executor message verification passed');
 // instead of feeding truncated text back into the next turn.
 assert.equal(turnDisposition(false, true), 'continue');
 assert.equal(turnDisposition(false, false), 'completed');
-assert.equal(turnDisposition(false, true, true), 'continue',
-  'an unresolved tool failure may continue only while the model is retrying');
-assert.equal(turnDisposition(false, false, true), 'failed',
-  'completion is rejected while a tool failure remains unresolved');
-assert.equal(turnDisposition(true, true, true), 'failed',
-  'a token cutoff cannot turn an unresolved tool failure into completion');
 assert.equal(turnDisposition(true, true), 'max-tokens', 'output cutoff wins over pending tool calls');
 assert.equal(turnDisposition(true, false), 'max-tokens');
+// An unresolved tool failure is not a disposition input: the model already saw the
+// failed result and replied to it, and that reply is the run's outcome. Failing the run
+// here put the tracker's English template under a Chinese reply (a probe_media that
+// could not run, then a complete answer, then "I couldn't complete the requested
+// operation"), and made the documented probe→finalize fallback impossible to complete.
+assert.equal(turnDisposition.length, 2, 'the disposition takes no failure flag');
+const executorSource = readFileSync(new URL('./executor.ts', import.meta.url), 'utf8');
+assert.doesNotMatch(executorSource, /toolFailures\.report\(\)/, 'the executor never surfaces the failure-report template');
+// What the user gets instead: a tool-failures event ahead of finish, so the chat shows a
+// quiet note and the inspector lists the calls, while the run still completes.
+assert.match(
+  executorSource,
+  /toolFailures\.hasUnresolved\)\s*\{[^}]*pushRunEvent\(run, 'tool-failures', \{ failures: plan\.activation\.toolFailures\.snapshot\(\) \}\);[\s\S]{0,200}pushRunEvent\(run, 'finish'/,
+  'unresolved tool failures are pushed as a tool-failures event right before finish',
+);
 
 console.log('server executor turn-disposition checks passed');
+
+// The AI SDK leaves a step's tool calls unexecuted after a `length`, `content-filter` or
+// `error` finish. Carried into the next turn unanswered, they fail that request with
+// MissingToolResultsError before it reaches the provider; each one gets an error result.
+{
+  const call = (toolCallId: string, providerExecuted = false) => ({
+    type: 'tool-call' as const,
+    toolCallId,
+    toolName: 'probe',
+    input: {},
+    ...(providerExecuted ? { providerExecuted } : {}),
+  });
+  const response: ModelMessage[] = [
+    { role: 'assistant', content: [{ type: 'text', text: 'working' }, call('ran'), call('cut'), call('hosted', true)] },
+    {
+      role: 'tool',
+      content: [{ type: 'tool-result', toolCallId: 'ran', toolName: 'probe', output: { type: 'text', value: 'ok' } }],
+    },
+  ];
+  const answered = answerUnexecutedToolCalls(response, 'length');
+  assert.deepEqual(answered, [...response, {
+    role: 'tool',
+    content: [{
+      type: 'tool-result',
+      toolCallId: 'cut',
+      toolName: 'probe',
+      output: {
+        type: 'error-text',
+        value: 'Not run: the response ended with finish reason "length" before this tool could execute.',
+      },
+    }],
+  }], 'only the unexecuted client tool call is answered; provider-executed calls are left alone');
+  assert.deepEqual(answerUnexecutedToolCalls(answered, 'tool-calls'), answered, 'answered calls are not answered twice');
+
+  const nextRequest = async (history: ModelMessage[]): Promise<string> => {
+    const model = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: convertArrayToReadableStream([
+          { type: 'stream-start', warnings: [] },
+          {
+            type: 'finish',
+            finishReason: { unified: 'stop', raw: 'stop' },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+              outputTokens: { total: 1, text: 1, reasoning: 0 },
+            },
+          },
+        ]),
+      }),
+    });
+    const result = streamText({
+      model,
+      messages: [{ role: 'user', content: 'go' }, ...history],
+      maxRetries: 0,
+      onError: () => undefined,
+    });
+    for await (const part of result.fullStream) {
+      if (part.type === 'error') return part.error instanceof Error ? part.error.name : String(part.error);
+    }
+    return 'ok';
+  };
+  assert.equal(await nextRequest(response), 'AI_MissingToolResultsError', 'the unanswered call alone breaks the next request');
+  assert.equal(await nextRequest(answered), 'ok', 'the answered history is a valid next request');
+}
+
+console.log('server executor unexecuted-tool-call checks passed');
 
 resetServerRunStoreForTest();
 const cacheCatalog = canonicalServerRunToolCatalog(false);

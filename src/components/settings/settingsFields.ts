@@ -23,14 +23,17 @@ export interface SettingsVendorPage {
   readonly title: string;
   readonly note?: string;
   readonly icon?: IconName;
-  readonly connection?: 'codex' | 'xai-oauth';
+  readonly connection?: 'codex' | 'xai-oauth' | 'copilot' | 'claude-code';
   readonly kind?: 'provider' | 'settings' | 'local-models';
   readonly fields: readonly SettingsField[];
-  /** Renders as a button under the note, dispatching a global action. The note
+  /** Renders as a button under the note, dispatching a global action or opening
+   *  another settings page (`route`, a vendor key as for initialVendor). The note
    *  under Anthropic tells Claude Code subscribers where to go (the external
    *  MCP panel) without giving them any way to get there; naming a destination
-   *  the reader cannot reach is what made the only entry path undiscoverable. */
-  readonly noteAction?: { readonly label: string; readonly action: string };
+   *  the reader cannot reach is what made the only entry path undiscoverable.
+   *  The local Whisper page did the same with its model list (#126). */
+  readonly noteAction?: { readonly label: string }
+    & ({ readonly action: string } | { readonly route: string });
 }
 
 export interface SettingsGroup {
@@ -74,7 +77,11 @@ export const modelText = (
 ): SettingsField => ({ name, label, kind: 'text', defaultLabel, note, discoverableModel });
 export const directory = (name: string, label: string, defaultLabel: string, note?: string): SettingsField =>
   ({ name, label, kind: 'directory', defaultLabel, note });
-export const modelSelect = (
+/** Vendor model id: free text with the known ids as autocomplete suggestions.
+ *  A plain <select> could only hold one of its own options, so a model the
+ *  vendor shipped after this list was written was unreachable until we
+ *  released a new build. */
+export const modelPicker = (
   name: string,
   label: string,
   defaultLabel: string,
@@ -82,8 +89,9 @@ export const modelSelect = (
 ): SettingsField => ({
   name,
   label,
-  kind: 'select',
+  kind: 'text',
   defaultLabel,
+  note: '也可以手动填写厂商的其它模型 ID，建议列表仅为常用模型。',
   options: values.map((value) => ({ value, label: value })),
 });
 

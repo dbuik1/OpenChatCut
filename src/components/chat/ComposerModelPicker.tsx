@@ -5,12 +5,24 @@ import { Icon } from '../icons';
 import { ComposerPopover } from './ComposerPopover';
 import type { ComposerModelView } from './useComposerModelView';
 import codexPng from '../../../assets/vendor-icons/codex-color.png';
+import copilotSvg from '../../../assets/vendor-icons/copilot.svg?raw';
+import claudeSvg from '../../../assets/vendor-icons/claude-color.svg';
 
-function ChoiceLogo({ backend }: { backend: 'api' | 'codex' }) {
-  if (backend !== 'codex') return null;
+function ChoiceLogo({ backend }: { backend: 'api' | 'codex' | 'copilot' | 'claude-code' }) {
+  if (backend === 'copilot') {
+    return (
+      <span
+        aria-hidden
+        // Static codebase asset, non-user input — inlined so it inherits currentColor.
+        dangerouslySetInnerHTML={{ __html: copilotSvg }}
+        style={{ width: 18, height: 18, borderRadius: 5, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: theme.panel, border: `0.5px solid ${theme.borderLight}`, color: theme.text, fontSize: 12 }}
+      />
+    );
+  }
+  if (backend !== 'codex' && backend !== 'claude-code') return null;
   return (
     <img
-      src={codexPng}
+      src={backend === 'codex' ? codexPng : claudeSvg}
       alt=""
       aria-hidden
       style={{ width: 18, height: 18, borderRadius: 5, objectFit: 'contain', flex: '0 0 auto', background: theme.panel, border: `0.5px solid ${theme.borderLight}` }}

@@ -7,9 +7,9 @@ import {
 import type { AgentContext } from '../context';
 import type { DirectoryImportedFile } from '../../../shared/directory-import';
 
-// ── Schema surface: two tools, both require a string path ──
+// Single-path tools remain compatible alongside browse and batch import.
 const byName = new Map(AGENT_PATH_IMPORT_SCHEMAS.map((schema) => [schema.name, schema]));
-assert.equal(AGENT_PATH_IMPORT_SCHEMAS.length, 2, 'exactly import_asset and import_folder');
+assert.equal(AGENT_PATH_IMPORT_SCHEMAS.length, 4);
 for (const name of ['import_asset', 'import_folder']) {
   const schema = byName.get(name);
   assert.ok(schema, `${name} schema exists`);
@@ -21,15 +21,13 @@ for (const name of ['import_asset', 'import_folder']) {
   assert.match(schema!.description ?? '', /AGENT_IMPORT_ROOTS/, `${name} documents the whitelist`);
 }
 
-// ── Browser (window exists, no desktop bridge): clear desktop-only error ──
-(globalThis as unknown as { window?: unknown }).window = {};
-try {
-  const browserResult = await execAgentPathImportTool('import_asset', { path: '/Volumes/素材盘/A.mp4' }, {} as AgentContext);
-  assert.match(String(browserResult.error), /desktop app only/, 'browser gets the desktop-only error');
-  assert.equal('ok' in browserResult, false, 'browser path never reports success');
-} finally {
-  delete (globalThis as unknown as { window?: unknown }).window;
-}
+// ── No host at all (Node, no window and no bridge): a clear error ──
+// A browser tab resolves the server routes instead; that path is covered below.
+const hostless = await execAgentPathImportTool('import_asset', { path: '/Volumes/素材盘/A.mp4' }, {} as AgentContext);
+assert.match(String(hostless.error), /not available on this host/, 'a hostless runtime gets a clear error');
+assert.equal('ok' in hostless, false, 'a hostless runtime never reports success');
+const hostlessBrowse = await execAgentPathImportTool('browse_local_media', { path: '/media' }, {} as AgentContext);
+assert.match(String(hostlessBrowse.error), /not available on this host/, 'browsing is refused the same way');
 
 // ── Missing path: rejected before any bridge call ──
 const desktopBridge = {
@@ -151,4 +149,136 @@ try {
   delete (globalThis as unknown as { window?: unknown }).window;
 }
 
-console.log('agent-path-import-tools.verify: schema, browser gate, and pool landing passed');
+console.log('agent-path-import-tools.verify: schema, host resolution, and pool landing passed');
+
+const localCalls: unknown[] = [];
+(globalThis as unknown as { window?: unknown }).window = {
+  openChatCutDesktop: {
+    async browseLocalMedia(request: unknown) {
+      localCalls.push(request);
+      return { path: '/media', entries: [{ path: '/media/take.mp4', name: 'take.mp4', kind: 'video' }], nextOffset: null, truncated: false, errors: [] };
+    },
+    async importAgentPaths(request: unknown) {
+      localCalls.push(request);
+      return { imported: [importedFile], errors: [], unsupportedFiles: [], duplicateCount: 1 };
+    },
+  },
+};
+try {
+  const search = await execAgentPathImportTool('browse_local_media', { path: '/media', kind: 'video' }, {} as AgentContext);
+  assert.equal(search.ok, true, 'browsing does not require a project or mutate the pool');
+  assert.deepEqual(localCalls[0], { path: '/media', kind: 'video' });
+  const batch = await execAgentPathImportTool('import_assets', { paths: ['/media/take.mp4', '/media/duplicate.mp4'] }, projectCtx);
+  assert.equal(batch.ok, true);
+  assert.equal(batch.duplicateCount, 1);
+  assert.equal(addedAssets.length, 2, 'batch import publishes its imported asset');
+  assert.deepEqual(localCalls[1], { paths: ['/media/take.mp4', '/media/duplicate.mp4'], projectId: 'project-84', knownHashes: [] });
+  for (const paths of [[], [''], [123], Array(101).fill('/media/take.mp4')]) {
+    assert.ok((await execAgentPathImportTool('import_assets', { paths }, projectCtx)).error);
+  }
+  assert.equal(localCalls.length, 2, 'invalid batches never reach the bridge');
+  assert.ok((await execAgentPathImportTool('browse_local_media', { limit: 0 }, projectCtx)).error);
+  assert.ok((await execAgentPathImportTool('unknown', {}, projectCtx)).error);
+  let reads = 0;
+  const switchedContext = { ...projectCtx, getProjectId: () => ++reads === 1 ? 'project-84' : 'another-project' } as AgentContext;
+  const switched = await execAgentPathImportTool('import_assets', { paths: ['/media/take.mp4'] }, switchedContext);
+  assert.match(String(switched.error), /project changed/);
+  assert.equal(addedAssets.length, 2, 'switching projects cannot publish imported assets into another pool');
+} finally {
+  delete (globalThis as unknown as { window?: unknown }).window;
+}
+console.log('agent-path-import-tools.verify: discovery and batch import passed');
+
+// ── Browser without the desktop bridge: the same-origin server routes (#185) ──
+const httpCalls: Array<{ url: string; body: unknown }> = [];
+const originalFetch = globalThis.fetch;
+(globalThis as unknown as { window?: unknown }).window = {};
+globalThis.fetch = async (input, init) => {
+  const url = String(input);
+  const body: unknown = JSON.parse(String(init?.body ?? '{}'));
+  httpCalls.push({ url, body });
+  if (url.endsWith('/browse')) {
+    return Response.json({
+      path: '/media',
+      entries: [{ path: '/media/take.mp4', name: 'take.mp4', kind: 'video' }],
+      nextOffset: null,
+      truncated: false,
+      errors: [],
+    });
+  }
+  if ((body as { knownHashes?: readonly string[] }).knownHashes?.length) {
+    return Response.json({ imported: [], errors: [], unsupportedFiles: [], duplicateCount: 1 });
+  }
+  return Response.json({ imported: [importedFile], errors: [], unsupportedFiles: [], duplicateCount: 0 });
+};
+try {
+  const listed = await execAgentPathImportTool('browse_local_media', { path: '/media', kind: 'video' }, {} as AgentContext);
+  assert.equal(listed.ok, true, 'a browser tab browses through the server route');
+  assert.equal(httpCalls[0]?.url, '/api/local-media/browse');
+  assert.deepEqual(httpCalls[0]?.body, { path: '/media', kind: 'video' });
+
+  const before = addedAssets.length;
+  const imported = await execAgentPathImportTool('import_asset', { path: '/media/take.mp4' }, projectCtx);
+  assert.equal(imported.ok, true, 'a browser tab imports through the server route');
+  assert.equal(httpCalls[1]?.url, '/api/local-media/import');
+  assert.deepEqual(httpCalls[1]?.body, { paths: ['/media/take.mp4'], projectId: 'project-84', knownHashes: [] });
+  assert.equal(addedAssets.length, before + 1, 'the server import lands in the pool');
+
+  const dedupeCtx = {
+    ...projectCtx,
+    getDoc: () => ({ assets: [{ sourceContentHash: 'b'.repeat(64) }] }),
+  } as unknown as AgentContext;
+  const skipped = await execAgentPathImportTool('import_asset', { path: '/media/take.mp4' }, dedupeCtx);
+  assert.deepEqual(
+    httpCalls[2]?.body,
+    { paths: ['/media/take.mp4'], projectId: 'project-84', knownHashes: ['b'.repeat(64)] },
+    'the pool content hashes ride along for server-side dedupe',
+  );
+  assert.equal(skipped.ok, true);
+  assert.equal(skipped.duplicateCount, 1, 'the server duplicate count is surfaced');
+  assert.equal(skipped.skippedDuplicates, true, 'an all-duplicate batch is labelled');
+  assert.equal(addedAssets.length, before + 1, 'a duplicate adds nothing to the pool');
+} finally {
+  globalThis.fetch = originalFetch;
+  delete (globalThis as unknown as { window?: unknown }).window;
+}
+
+// ── A server refusal keeps its actionable code ──
+const codeFetch = globalThis.fetch;
+(globalThis as unknown as { window?: unknown }).window = {};
+globalThis.fetch = async () => Response.json(
+  { error: 'set AGENT_IMPORT_ROOTS', code: 'IMPORT_ROOTS_NOT_CONFIGURED' },
+  { status: 403 },
+);
+try {
+  const blocked = await execAgentPathImportTool('import_folder', { path: '/Volumes/素材盘' }, projectCtx);
+  assert.equal(blocked.code, 'IMPORT_ROOTS_NOT_CONFIGURED', 'the server code survives the tool envelope');
+  assert.equal('ok' in blocked, false, 'a refusal is not a successful tool result');
+  const blockedBrowse = await execAgentPathImportTool('browse_local_media', { path: '/Volumes/素材盘' }, projectCtx);
+  assert.equal(blockedBrowse.code, 'IMPORT_ROOTS_NOT_CONFIGURED');
+} finally {
+  globalThis.fetch = codeFetch;
+  delete (globalThis as unknown as { window?: unknown }).window;
+}
+
+// ── When the desktop bridge exists, the server routes are never used ──
+const bridgeFetch = globalThis.fetch;
+let bridgeCalls = 0;
+(globalThis as unknown as { window?: unknown }).window = {
+  openChatCutDesktop: {
+    async browseLocalMedia() {
+      bridgeCalls += 1;
+      return { path: '/media', entries: [], nextOffset: null, truncated: false, errors: [] };
+    },
+  },
+};
+globalThis.fetch = async () => { throw new Error('the HTTP fallback must not run in the desktop app'); };
+try {
+  const bridged = await execAgentPathImportTool('browse_local_media', { path: '/media' }, {} as AgentContext);
+  assert.equal(bridged.ok, true, 'the desktop bridge still serves the tool');
+  assert.equal(bridgeCalls, 1, 'the Electron bridge is preferred over the server routes');
+} finally {
+  globalThis.fetch = bridgeFetch;
+  delete (globalThis as unknown as { window?: unknown }).window;
+}
+console.log('agent-path-import-tools.verify: browser HTTP fallback and error codes passed');

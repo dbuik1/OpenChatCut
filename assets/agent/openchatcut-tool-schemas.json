@@ -203,7 +203,7 @@
     },
     {
       "name": "split_item",
-      "description": "Split a clip into two at the given absolute frame.",
+      "description": "Split a clip into two at the given absolute frame. A motion graphic splits into two windows of the SAME animation — the second piece continues from the frame at the cut instead of restarting — so to separate one MG into several clips, split it at the beat frames; never regenerate the pieces.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -679,7 +679,7 @@
     },
     {
       "name": "manage_transcript",
-      "description": "Correct source transcripts and manage translation variants; most actions leave word timing and clip duration unchanged. Eight actions:\n- fix: correct the source transcript. For a word, pass wordIndex or find with the incorrect source text plus text with the correction; only word.text changes. To rename or merge a speaker, pass from with an existing label such as \"A\" plus to with the new display name; passing another existing label merges them. Only word.speaker changes.\n- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel \"Restore all\"). Retimes the clip to the full transcript duration.\n- set_play_order: reorder spoken playback via playOrder word-index array (same as dragging speech blocks in the Transcript panel). Pass playOrder:null or clearPlayOrder:true to restore chronological order. Retimes the clip.\n- retry_transcription: force ASR to rerun for the clip and replace its transcript when transcription is stuck, failed, or needs refreshing.\n- translation_create: translate the full transcript to lang and create or replace a word-level translation variant sharing the source timeline.\n- translation_ensure: idempotently reuse an existing variant for lang or create it otherwise. Prefer this for ordinary translation requests.\n- translation_list: list the source transcript and all translation variants with id/lang/word count.\n- translation_read: read words from a translation variant selected by lang or targetLanguage.\nTranslation variants contain translated text only. To display a language in captions, use edit_captions language_mode.",
+      "description": "Correct source transcripts and manage translation variants; most actions leave word timing and clip duration unchanged. Eight actions:\n- fix: correct the source transcript. For a word, pass wordIndex or find with the incorrect source text plus text with the correction; only word.text changes. To rename or merge a speaker, pass from with an existing label such as \"A\" plus to with the new display name; passing another existing label merges them. Only word.speaker changes.\n- clear_edits: restore the clip to the raw transcript by clearing deleted words, silence caps, gap overrides, and play-order overrides (same as the Transcript panel \"Restore all\"). Retimes the clip to the full transcript duration.\n- set_play_order: reorder spoken playback via playOrder word-index array (same as dragging speech blocks in the Transcript panel). Pass playOrder:null or clearPlayOrder:true to restore chronological order. Retimes the clip.\n- retry_transcription: force ASR to rerun for the clip and replace its transcript when transcription is stuck, failed, or needs refreshing. Accepts the same optional provider override as transcribe_track.\n- translation_create: translate the full transcript to lang and create or replace a word-level translation variant sharing the source timeline.\n- translation_ensure: idempotently reuse an existing variant for lang or create it otherwise. Prefer this for ordinary translation requests.\n- translation_list: list the source transcript and all translation variants with id/lang/word count.\n- translation_read: read words from a translation variant selected by lang or targetLanguage.\nTranslation variants contain translated text only. To display a language in captions, use edit_captions language_mode.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -704,6 +704,20 @@
           "track": {
             "type": "string",
             "description": "When itemId is omitted, locate by track alias or stable id; default A1."
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "assemblyai",
+              "local",
+              "openai",
+              "mistral",
+              "deepgram",
+              "groq",
+              "elevenlabs",
+              "cartesia"
+            ],
+            "description": "retry_transcription: optional configured provider override, same values as transcribe_track. Omit to use the provider selected in Settings."
           },
           "wordIndex": {
             "type": "number",
@@ -1162,7 +1176,7 @@
     },
     {
       "name": "submit_image",
-      "description": "Generate one or more AI images (gpt-image-2, nano-banana, MiniMax image-01, WaveSpeed, BytePlus Seedream, or xAI Grok Imagine), save them to the project media pool, and optionally propose adding them to the active timeline. Call only when the user explicitly requested the generation.",
+      "description": "Generate one or more AI images (Fal catalog, gpt-image-2, nano-banana, MiniMax image-01, WaveSpeed, BytePlus Seedream, xAI Grok Imagine, or Agnes Image), save them to the project media pool, and optionally propose adding them to the active timeline. Call only when the user explicitly requested the generation.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1174,9 +1188,26 @@
               "image-01",
               "wavespeed",
               "byteplus",
-              "grok-imagine"
+              "grok-imagine",
+              "agnes-image",
+              "fal"
             ],
-            "description": "gpt-image-2 is the default; nano-banana is best for reference-heavy work; image-01 is MiniMax (at most 9 outputs; one subject reference when R2 is configured); wavespeed is WaveSpeed AI (fast generic image models, no references); byteplus is BytePlus ModelArk Seedream (no references yet); grok-imagine is xAI Grok Imagine (text-to-image only, no references, at most 4 outputs, 1K/2K)."
+            "description": "Use the model named in capabilities. gpt-image-2 only when that vendor is the configured default; nano-banana is best for reference-heavy work; image-01 is MiniMax (at most 9 outputs; one subject reference when R2 is configured); wavespeed is WaveSpeed AI (fast generic image models, no references); byteplus is BytePlus ModelArk Seedream (no references yet); grok-imagine is xAI Grok Imagine (text-to-image only, no references, at most 4 outputs, 1K/2K); agnes-image is Agnes Image (text or up to 8 reference images, 1K/2K/3K/4K, at most 4 outputs, no custom width/height or GPT options)."
+          },
+          "falModel": {
+            "type": "string",
+            "enum": [
+              "nano-banana-2",
+              "nano-banana-pro",
+              "gpt-image-2",
+              "flux-2",
+              "flux-2-pro",
+              "seedream-5-pro",
+              "ideogram-4",
+              "qwen-image-3",
+              "recraft-v3"
+            ],
+            "description": "With model=fal, select a curated Fal image model; omitted uses the saved Fal image default. nano-banana-2: Nano Banana 2 — count 1–4, resolutions 0.5K/1K/2K/4K, up to 14 image refs, image editing, default 1K/auto; nano-banana-pro: Nano Banana Pro — count 1–4, resolutions 1K/2K/4K, up to 14 image refs, image editing, default 1K/auto; gpt-image-2: GPT Image 2 — count 1–4, resolutions 1K, up to 16 image refs, image editing, default 1K/4:3; flux-2: FLUX.2 — count 1–4, resolutions 1K, default 1K/4:3; flux-2-pro: FLUX.2 Pro — count 1–1, resolutions 1K, up to 4 image refs, image editing, default 1K/4:3; seedream-5-pro: Seedream 5.0 Pro — count 1–1, resolutions 1K/2K, up to 10 image refs, image editing, default 2K/auto; ideogram-4: Ideogram 4 — count 1–4, resolutions 1K, default 1K/1:1; qwen-image-3: Qwen Image 3 — count 1–4, resolutions 1K, default 1K/1:1; recraft-v3: Recraft V3 — count 1–1, resolutions 1K, up to 1 image refs, image editing, default 1K/1:1. Model-specific limits are validated before submission."
           },
           "prompt": {
             "type": "string",
@@ -1202,9 +1233,14 @@
               "2:3",
               "4:5",
               "5:4",
-              "21:9"
+              "21:9",
+              "auto",
+              "4:1",
+              "1:4",
+              "8:1",
+              "1:8"
             ],
-            "description": "Defaults to 16:9. Do not send width/height with aspectRatio."
+            "description": "Native providers default to 16:9; Fal uses its selected model default. Fal-only ratios require a supporting model. Do not send width/height with aspectRatio."
           },
           "imageSize": {
             "type": "string",
@@ -1212,9 +1248,10 @@
               "512px",
               "1K",
               "2K",
-              "4K"
+              "4K",
+              "0.5K"
             ],
-            "description": "Defaults to 1K. 512px is Gemini-only; use 2K/4K only when explicitly requested. Ignored when custom width/height are set."
+            "description": "Native providers default to 1K; Fal uses model defaults and validates its supported sizes. For Fal, 512px is an alias for 0.5K. Use 2K/4K only when explicitly requested. Ignored when custom width/height are set."
           },
           "width": {
             "type": "integer",
@@ -1244,7 +1281,7 @@
               "type": "string"
             },
             "maxItems": 16,
-            "description": "Project image asset IDs. Limits: GPT 16, Gemini 14, MiniMax 1 subject reference (MiniMax needs configured R2)."
+            "description": "Project image asset IDs. Limits: GPT 16, Gemini 14, MiniMax 1 subject reference (MiniMax needs configured R2), Agnes 8."
           },
           "maskAssetId": {
             "type": "string",
@@ -1254,7 +1291,7 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 10,
-            "description": "Number of images; defaults to 1. image-01 max 9."
+            "description": "Number of images; defaults to 1. image-01 max 9. agnes-image and grok-imagine max 4."
           },
           "background": {
             "type": "string",
@@ -1340,7 +1377,7 @@
           },
           "voiceId": {
             "type": "string",
-            "description": "Concrete provider-specific voice ID confirmed by the user. Required except MiniMax timbreWeights mixing, where it must be empty. Do not invent a preset or reuse an ID from another provider."
+            "description": "Concrete provider-specific voice ID confirmed by the user. Required except MiniMax timbreWeights mixing and Doubao when a default speaker ID is saved in Settings. For Doubao, pass the exact Volcengine speaker ID verbatim (for example S_5wulnA7i2 or zh_female_vv_uranus_bigtts); it is sent unchanged as references[].speaker. Do not invent a preset or reuse an ID from another provider."
           },
           "modelId": {
             "type": "string",
@@ -1465,13 +1502,7 @@
           },
           "emotion": {
             "type": "string",
-            "description": "Doubao or MiniMax emotion label. MiniMax accepts: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper."
-          },
-          "emotionScale": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "Doubao only. Requires emotion."
+            "description": "MiniMax only. One of: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper."
           },
           "loudnessRatio": {
             "type": "number",
@@ -1483,27 +1514,13 @@
             "type": "number",
             "minimum": -12,
             "maximum": 12,
-            "description": "Doubao: post-process semitones. MiniMax: native voice_setting.pitch (-12–12)."
+            "description": "Doubao: native audio_config.pitch_rate (-12–12). MiniMax: native voice_setting.pitch (-12–12)."
           },
           "volume": {
             "type": "number",
             "exclusiveMinimum": 0,
             "maximum": 10,
             "description": "MiniMax only. voice_setting.vol (>0–10). Defaults to 1."
-          },
-          "performancePrompt": {
-            "type": "string",
-            "maxLength": 200,
-            "description": "Doubao only. Natural-language performance direction."
-          },
-          "explicitDialect": {
-            "type": "string",
-            "enum": [
-              "dongbei",
-              "shaanxi",
-              "sichuan"
-            ],
-            "description": "Doubao only; supported by the Vivi preset."
           },
           "sampleRate": {
             "type": "integer",
@@ -1925,7 +1942,7 @@
     },
     {
       "name": "submit_video",
-      "description": "Submit a Seedance 2.0, Kling, MiniMax Hailuo, BytePlus Seedance, or xAI Grok Imagine video generation job and create one video asset in the project media pool. Does not place the video on the timeline. Keep image, video, and audio references in their matching arrays.",
+      "description": "Submit a Fal catalog, Seedance 2.0, Kling, MiniMax Hailuo, BytePlus Seedance, xAI Grok Imagine, Google Gemini Omni, OFox, or Agnes Video generation job and create one video asset in the project media pool. Does not place the video on the timeline. Keep image, video, and audio references in their matching arrays.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1936,9 +1953,30 @@
               "kling",
               "hailuo",
               "byteplus",
-              "grok-imagine-video"
+              "grok-imagine-video",
+              "ofox",
+              "agnes-video",
+              "fal",
+              "gemini-omni"
             ],
-            "description": "hailuo is MiniMax: 6 or 10s; firstFrame optional; lastFrame allowed with firstFrame; no multi-ref or multi-shot. 1080p is 6s only. byteplus is BytePlus ModelArk Seedance — same request shape/limits as seedance2. grok-imagine-video is xAI Grok Imagine: text-to-video only, 1–15s, audio track included, no references/frames."
+            "description": "Use the model named in capabilities. hailuo is MiniMax: 6 or 10s; firstFrame optional; lastFrame allowed with firstFrame; no multi-ref or multi-shot. 1080p is 6s only. byteplus is BytePlus ModelArk Seedance — same request shape/limits as seedance2. grok-imagine-video is xAI Grok Imagine: text-to-video only, 1–15s, audio track included, no references/frames. ofox is the OFox multi-model gateway (Seedance/Wan and more behind one key): 2–30s with per-model limits enforced by the API; supports firstFrame (and optional lastFrame), or up to 9 refImages (frames and refImages are mutually exclusive); no refVideos/refAudios yet. agnes-video is Agnes Video 2.5 Flash: 4–12s (default 5), 720p only; text, first and/or last frame, or up to 5 refImages plus 3 refAudios. Frames and references are mutually exclusive. No refVideos. gemini-omni is Google Gemini Omni Flash (GEMINI_API_KEY): text, firstFrame, firstFrame+lastFrame, or up to 6 refImages (frames and refImages are mutually exclusive); 16:9 or 9:16; 360p/720p/1080p/4k; 3–15s, 3–10s with firstFrame+lastFrame."
+          },
+          "falModel": {
+            "type": "string",
+            "enum": [
+              "seedance-2.5",
+              "seedance-2.0",
+              "kling-v3-standard",
+              "kling-v3-pro",
+              "kling-o3-standard",
+              "kling-o3-pro",
+              "veo-3.1",
+              "veo-3.1-fast",
+              "wan-3.0",
+              "minimax-h3-max",
+              "pixverse-v6"
+            ],
+            "description": "With model=fal, select a curated Fal video model; omitted uses the saved Fal video default. seedance-2.5: Seedance 2.5 — audio toggle supported, resolutions 480p/720p, durations 4–30s, up to 30 image refs, up to 10 video refs, up to 10 audio refs, first frame/last frame/reference mode, default 720p/5s/auto; seedance-2.0: Seedance 2.0 — audio toggle supported, resolutions 480p/720p/1080p/4k, durations 4–15s, up to 9 image refs, up to 3 video refs, up to 3 audio refs, first frame/last frame/reference mode, default 720p/5s/auto; kling-v3-standard: Kling 3.0 Standard — audio toggle supported, resolutions 720p, durations 3–15s, first frame/last frame, default 720p/5s/16:9; kling-v3-pro: Kling 3.0 Pro — audio toggle supported, resolutions 1080p, durations 3–15s, first frame/last frame, default 1080p/5s/16:9; kling-o3-standard: Kling O3 Standard — audio toggle supported, resolutions 720p, durations 3–15s, up to 4 image refs, reference mode, default 720p/5s/16:9; kling-o3-pro: Kling O3 Pro — audio toggle supported, resolutions 1080p, durations 3–15s, up to 4 image refs, reference mode, default 1080p/5s/16:9; veo-3.1: Veo 3.1 — audio toggle supported, resolutions 720p/1080p/4k, durations 4/6/8s, first frame, default 720p/8s/16:9; veo-3.1-fast: Veo 3.1 Fast — audio toggle supported, resolutions 720p/1080p/4k, durations 4/6/8s, first frame, default 720p/8s/16:9; wan-3.0: Wan 3.0 — audio toggle supported, resolutions 480p/720p/1080p, durations 5/10s, first frame/last frame, default 1080p/5s/adaptive; minimax-h3-max: MiniMax H3 Max — no audio toggle, resolutions 480p/768p/1080p, durations 5–15s, up to 9 image refs, up to 3 video refs, up to 3 audio refs, reference mode, default 768p/5s/16:9; pixverse-v6: PixVerse V6 — audio toggle supported, resolutions 360p/540p/720p/1080p, durations 1–15s, first frame, default 720p/5s/16:9. Omit duration/resolution to use model defaults."
           },
           "prompt": {
             "type": "string",
@@ -1956,22 +1994,25 @@
                 "type": "string"
               }
             ],
-            "description": "Integer seconds, 2–15 for Seedance, 3–15 for Kling, exactly 6 or 10 for Hailuo (Hailuo 1080p → 6 only), 1–15 for grok-imagine-video."
+            "description": "For Fal, see falModel limits and omit to use model default. Native providers: integer seconds, 2–15 for Seedance, 3–15 for Kling, exactly 6 or 10 for Hailuo (Hailuo 1080p → 6 only), 1–15 for grok-imagine-video, 2–30 for ofox (per-model limits enforced by the API), 4–12 for agnes-video (default 5), 3–15 for gemini-omni (3–10 with firstFrame+lastFrame; omit for the 10s default)."
           },
           "ratio": {
             "type": "string",
-            "description": "Seedance: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive. Kling: 16:9, 9:16, 1:1. grok-imagine-video: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3. Do not send for hailuo."
+            "description": "Seedance: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive. Kling: 16:9, 9:16, 1:1. grok-imagine-video: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3. ofox: 16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3, 21:9, 9:21. agnes-video: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9. gemini-omni: 16:9, 9:16. Do not send for hailuo."
           },
           "resolution": {
             "type": "string",
             "enum": [
+              "360p",
               "480p",
               "512p",
               "720p",
               "1080p",
-              "4k"
+              "4k",
+              "768p",
+              "540p"
             ],
-            "description": "Seedance: 480p/720p(default)/1080p/4k. Hailuo: 512p (Hailuo-02), 720p→API 768P, 1080p (6s only). Kling: pair with mode std/pro. grok-imagine-video: 480p(default)/720p/1080p."
+            "description": "Seedance: 480p/720p(default)/1080p/4k. Hailuo: 512p (Hailuo-02), 720p→API 768P, 1080p (6s only). Kling: pair with mode std/pro. grok-imagine-video: 480p(default)/720p/1080p. ofox: 480p/720p(default)/1080p, per-model support enforced by the API. agnes-video: 720p only; omit otherwise. gemini-omni: 360p/720p(default)/1080p/4k."
           },
           "mode": {
             "type": "string",
@@ -1987,7 +2028,7 @@
           },
           "lastFrame": {
             "type": "string",
-            "description": "Project image asset reference; requires firstFrame. Supported on seedance2, kling, and hailuo (not with multi-ref on seedance2)."
+            "description": "Project image asset reference; requires firstFrame. Supported on seedance2, kling, hailuo, ofox, and gemini-omni (not with multi-ref on seedance2/ofox/gemini-omni)."
           },
           "refImages": {
             "type": "array",
@@ -2025,11 +2066,11 @@
           },
           "generateAudio": {
             "type": "boolean",
-            "description": "Seedance/BytePlus only. Generate synchronized audio; official default true."
+            "description": "Seedance/BytePlus/OFox. Generate synchronized audio; default true for models that support audio."
           },
           "seed": {
             "type": "integer",
-            "description": "Seedance/BytePlus only. Deterministic random seed."
+            "description": "Seedance/BytePlus/OFox. Random seed; determinism depends on the model."
           },
           "cameraFixed": {
             "type": "boolean",
@@ -2463,7 +2504,7 @@
     },
     {
       "name": "download_media",
-      "description": "Download a media file from a public URL into the project media pool. Accepts a single url or array of urls. Type inferred from extension / Content-Type; pass type to override. Local-dev: server fetches bytes into /media/uploads (S3 stand-in). Returns { failed, succeeded, results } like push_asset.",
+      "description": "Download a media file from a public URL into the project media pool. Accepts a single url or array of urls. Type inferred from extension / Content-Type; pass type to override. Local-dev: server fetches bytes into /media/uploads (S3 stand-in). Returns { failed, succeeded, results } like push_asset. Serial: URLs download one at a time and each gets its own row. An unreachable host is a failed row, never a remote fallback. Each successful row carries probe (duration, dimensions, fps, audio/video tracks, codecs, qualityRisks) measured by the local ffprobe at import time — do not call probe_media for a file you just downloaded. Bytes that are not readable media fail as not_media and never enter the pool.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3075,6 +3116,116 @@
       }
     },
     {
+      "name": "publish_to_social",
+      "description": "Publish a finished video render to social platforms (TikTok, Instagram Reels, YouTube, LinkedIn, Facebook, X, Threads, Pinterest, Bluesky) through Upload-Post. Two steps, always: (1) call WITHOUT confirm — nothing is uploaded; it returns needsConfirm, a requestId, and the file, profile, platforms, missingPlatforms (not connected on the profile, would be skipped), title and privacy. Show that preview to the user. (2) Only after the user explicitly approves it in this conversation, call again with the SAME arguments plus confirm:true and previewId set to that requestId. If the Upload-Post account, the profile, the file or any field changed since the preview, the confirm is refused with preview_mismatch: preview again and ask again. Pinterest needs pinterestBoardId. A confirm returns phase admitted immediately and the upload continues in the background; poll track_social_publish with the requestId. Publishing is public and cannot be undone; re-sending an approved publish resumes it instead of posting twice. source is the downloadUrl from a completed track_export (/media/uploads/...). Requires the Upload-Post key and profile in Settings.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "downloadUrl of a completed video render (/media/uploads/<file>.mp4)."
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tiktok",
+                "instagram",
+                "youtube",
+                "linkedin",
+                "facebook",
+                "x",
+                "threads",
+                "pinterest",
+                "bluesky"
+              ]
+            },
+            "minItems": 1,
+            "description": "Where to publish. TikTok, Instagram Reels and YouTube Shorts expect a vertical 9:16 render."
+          },
+          "title": {
+            "type": "string",
+            "description": "Caption / title used on every platform. YouTube allows at most 100 characters."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional longer text for YouTube, LinkedIn, Facebook and Pinterest."
+          },
+          "youtubePrivacy": {
+            "type": "string",
+            "enum": [
+              "private",
+              "unlisted",
+              "public"
+            ],
+            "description": "Defaults to private."
+          },
+          "tiktokPrivacy": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_TO_EVERYONE",
+              "MUTUAL_FOLLOW_FRIENDS",
+              "FOLLOWER_OF_CREATOR",
+              "SELF_ONLY"
+            ],
+            "description": "Omit to keep the TikTok account default."
+          },
+          "pinterestBoardId": {
+            "type": "string",
+            "description": "Required when platforms includes pinterest: the ID of the Pinterest board to pin the video to. Ask the user for it."
+          },
+          "aiGenerated": {
+            "type": "boolean",
+            "description": "Disclose AI-generated content (TikTok, Instagram, YouTube and X labels). Ask the user when the video uses generated visuals or voice."
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Omit on the first call (preview). true only after the user approved the preview in chat."
+          },
+          "previewId": {
+            "type": "string",
+            "description": "Required with confirm:true: the requestId returned by the preview the user approved."
+          }
+        },
+        "required": [
+          "source",
+          "platforms",
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "track_social_publish",
+      "description": "Check a publish started by publish_to_social. action=status returns the current state; action=wait polls until it settles or timeoutSeconds elapses, then returns the last known state with waitExpired (use one bounded wait, then report). status is uploading while the video is still being sent, then per-platform results: completed (url or postId), failed (error), retryable, or skipped (no account on the profile). status unknown means Upload-Post never confirmed the upload: it is not re-sent. Read-only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "requestId returned by publish_to_social."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "status",
+              "wait"
+            ],
+            "description": "Defaults to status."
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 25,
+            "description": "For action=wait. Defaults to 20."
+          }
+        },
+        "required": [
+          "requestId"
+        ]
+      }
+    },
+    {
       "name": "manage_template",
       "description": "A project template packages motion graphics and a design style for reuse across projects. action: get | list_assets | apply | copy_assets | save. get without templateId lists saved templates with id/name/asset count; get with templateId returns motion graphics, design-style summary, and asset count. list_assets with templateId lists bundled media assets by id/name/kind so you can choose reuse versus regeneration; call it before apply. apply with templateId applies the template to the current project. placement accepts append/replace or exact startFrame, durationInFrames, and targetTrackId. omitAssetIds skips bundled assets and clips that directly reference them. copy_assets with templateId copies only bundled assets into the current project and returns new project-local asset ids without placing the template timeline. save with name packages the current project as a template and replaces a template with the same name.",
       "input_schema": {
@@ -3598,10 +3749,18 @@
     },
     {
       "name": "web_browser",
-      "description": "Scrape a single web page via Firecrawl (web_browser → Firecrawl /scrape). formats: markdown (default), html, rawHtml, images, links, branding, summary, screenshot, videos. branding = native brand kit (colors/fonts/logo); summary = native page summary. screenshot is auto-saved to media pool as screenshotAssetId when possible. For many known URLs use web_batch_scrape; site discovery use web_map; multi-page crawl use web_crawl; search use web_search.",
+      "description": "Read a web page through Firecrawl (requires its key), or as Parallel excerpts when the user enabled WEB_SEARCH_PROVIDER=parallel. Parallel supports markdown excerpts and an optional query; advanced formats/actions require provider=firecrawl. formats: markdown (default), html, rawHtml, images, links, branding, summary, screenshot, videos. branding = native brand kit (colors/fonts/logo); summary = native page summary. screenshot is auto-saved to media pool as screenshotAssetId when possible. For many known URLs use web_batch_scrape; site discovery use web_map; multi-page crawl use web_crawl; search use web_search.",
       "input_schema": {
         "type": "object",
         "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "parallel",
+              "firecrawl"
+            ],
+            "description": "Optional. \"parallel\" works only when the user enabled WEB_SEARCH_PROVIDER=parallel; \"firecrawl\" requires a configured key."
+          },
           "url": {
             "type": "string",
             "description": "Page URL (http/https)."
@@ -3646,7 +3805,7 @@
           },
           "query": {
             "type": "string",
-            "description": "NL structured-extraction prompt."
+            "description": "Focus for Parallel excerpts; structured-extraction prompt for Firecrawl."
           },
           "schema": {
             "description": "JSON schema for structured extraction."
@@ -3668,10 +3827,18 @@
     },
     {
       "name": "web_search",
-      "description": "Search the web via Firecrawl /search (official API). Returns titles, URLs, descriptions; by default also scrapes markdown for each hit (scrapeMarkdown=true). Use site: / filetype: operators in query when helpful. Prefer this to inventing URLs. Then web_browser a specific URL for deep scrape/screenshot.",
+      "description": "Search the web through Firecrawl (requires its key), or anonymous Parallel Search MCP when the user enabled WEB_SEARCH_PROVIDER=parallel. Returns titles, URLs and descriptions; Firecrawl can also scrape markdown per hit, Parallel returns source excerpts. Use provider to override; country/lang/tbs filters require Firecrawl. Use site: / filetype: operators in query when helpful. Prefer this to inventing URLs. Then web_browser a specific URL for deep scrape/screenshot.",
       "input_schema": {
         "type": "object",
         "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "parallel",
+              "firecrawl"
+            ],
+            "description": "Optional. \"parallel\" works only when the user enabled WEB_SEARCH_PROVIDER=parallel; \"firecrawl\" requires a configured key."
+          },
           "query": {
             "type": "string",
             "description": "Search query (supports operators like site:example.com)."
@@ -3694,7 +3861,7 @@
           },
           "scrapeMarkdown": {
             "type": "boolean",
-            "description": "If true (default), include markdown for each result via scrapeOptions."
+            "description": "Firecrawl only: include scraped markdown for each result (default true). Parallel returns excerpts."
           }
         },
         "required": [
@@ -4365,7 +4532,7 @@
     },
     {
       "name": "load_skill",
-      "description": "Load one bundled or selected custom skill under the active model round input budget. Omit selectors for SKILL.md; if it is paged, follow nextOffset until null before support files. Use files=[...] for whole omitted files; page one file with file, offset, and limit. Bundled skills: ai-cinematic-short-film, asset-import, create-motion-graphics, explainer-video, export, gameplay-peaks, image-gen, known-errors, learn-my-fillers, livestream-to-clips, long-video-to-shorts, motion-graphic-placement, multi-clips-to-reels, music, music-intelligence, news-rough-cut, openchatcut-plugin-basics, product-ad-video-script, product-help, shader-gen, skill-creator, storyboard-shot-breakdown, talking-head-guide, transcription, verification, video-gen, video-thumbnail-generator, voice, widget-forms.",
+      "description": "Load one bundled or selected custom skill under the active model round input budget. Omit selectors for SKILL.md; if it is paged, follow nextOffset until null before support files. Exactly one selector per call: either files=[...] to load whole omitted files, or file with offset and limit to page a single file. Never send file and files in the same call. Bundled skills: ai-cinematic-short-film, asset-import, batch-montage-variants, beat-sync-montage, create-motion-graphics, ecommerce-product-montage, explainer-video, export, gameplay-peaks, image-gen, known-errors, learn-my-fillers, livestream-to-clips, long-video-to-shorts, motion-graphic-placement, multi-clips-to-reels, music, music-intelligence, news-rough-cut, openchatcut-plugin-basics, product-ad-video-script, product-help, shader-gen, skill-creator, storyboard-shot-breakdown, talking-head-guide, transcription, verification, video-gen, video-thumbnail-generator, voice, widget-forms.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4375,11 +4542,11 @@
           },
           "file": {
             "type": "string",
-            "description": "One safe relative file path to page; use returned nextOffset for the next call."
+            "description": "One safe relative file path to page; use returned nextOffset for the next call. Omit the key entirely when sending files; never pass an empty string."
           },
           "files": {
             "type": "array",
-            "description": "Optional safe relative paths from omittedFiles. When present, only these whole files are returned.",
+            "description": "Optional safe relative paths from omittedFiles. When present, only these whole files are returned. Omit the key entirely when paging with file; never pass an empty array.",
             "items": {
               "type": "string"
             },
@@ -4496,7 +4663,7 @@
     },
     {
       "name": "probe_media",
-      "description": "Probe a media file with ffprobe in an isolated sandbox. Returns measured duration, dimensions, average fps, stream presence/codecs, plus explicit qualityRisks (low resolution, mono, very short, variable/low frame rate). Accepts a media-pool assetId/prefix, local /media/… path, or public https URL. Use before finalize_uploaded_asset to pass hasAudioTrack and measured fps/duration. The call can fail when the source is unreachable or the e2b sandbox is unavailable; finalize may proceed without it, using ingest defaults.",
+      "description": "Probe a media file with the ffprobe bundled in the app (no sandbox or API key needed). Returns measured duration, dimensions, average fps, stream presence/codecs, plus explicit qualityRisks (low resolution, mono, very short, variable/low frame rate). Accepts a media-pool assetId/prefix, local /media/… path, or public https URL. Use before finalize_uploaded_asset to pass hasAudioTrack and measured fps/duration. download_media/push_asset results already include the same measurements as `probe`, so do not re-probe a file you just imported. It fails only when the source cannot be read; finalize may then proceed with ingest defaults.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5175,8 +5342,73 @@
       }
     },
     {
+      "name": "browse_local_media",
+      "description": "Browse local directories or search local media filenames before importing into the media pool. Desktop access is enabled by default and an explicit AGENT_IMPORT_ROOTS setting restricts it; a browser session requires that allowlist. Defaults to the home directory; pass an absolute path to browse a specific folder or drive. Returns directories and supported media paths, sizes, and modification times without importing. Use recursive with query/kind to find candidates, then import_assets for selected files. Follow nextOffset for more results. If truncated, browse narrower subdirectories; symlinks are not followed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute directory path; omitted means the user home directory."
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Case-insensitive substring of the relative file or directory path."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio",
+              "image",
+              "gif",
+              "svg"
+            ]
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "Search subdirectories, up to 12 levels and 10000 entries. Default false."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Page size; default 100."
+          }
+        }
+      }
+    },
+    {
+      "name": "import_assets",
+      "description": "Import selected local media paths into the media pool in one batch. Desktop access is enabled by default; a browser session requires an explicit AGENT_IMPORT_ROOTS allowlist. Reuses normal media probing and skips duplicate content. Use browse_local_media to find paths first.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Absolute paths of selected media files."
+          }
+        },
+        "required": [
+          "paths"
+        ]
+      }
+    },
+    {
       "name": "import_asset",
-      "description": "Import ONE local media file (video/audio/image) by its absolute disk path into the media pool. Desktop app only; the path must be inside an allowed AGENT_IMPORT_ROOTS directory. Returns the imported pool asset(s); duplicates already in the pool are skipped.",
+      "description": "Import ONE local media file (video/audio/image) by its absolute disk path into the media pool. Desktop access is enabled by default; a browser session requires an explicit AGENT_IMPORT_ROOTS allowlist. Returns the imported pool asset(s); duplicates already in the pool are skipped.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5192,7 +5424,7 @@
     },
     {
       "name": "import_folder",
-      "description": "Import every supported media file inside a local directory (recursive, bounded) into the media pool. Desktop app only; the directory must be inside an allowed AGENT_IMPORT_ROOTS directory. Returns imported assets, duplicate counts, unsupported file names, and per-file errors. Documents (txt/md/docx/pdf) are reported as unsupported here and should be attached to chat instead.",
+      "description": "Import every supported media file inside a local directory (recursive, bounded) into the media pool. Desktop access is enabled by default; a browser session requires an explicit AGENT_IMPORT_ROOTS allowlist. Returns imported assets, duplicate counts, unsupported file names, and per-file errors. Documents (txt/md/docx/pdf) are reported as unsupported here and should be attached to chat instead.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5208,7 +5440,7 @@
     },
     {
       "name": "import_timeline",
-      "description": "Import FCPXML 1.x asset-clip timelines or CMX 3600 EDL text into a new editable OpenChatCut timeline. Referenced files must already exist in the current media pool; matching uses asset id, original path, source path, source filename, and asset name. The import preserves track/lane placement, timeline start and duration, source in-point, and file-backed audio clips. Unresolved or ambiguous media aborts the import without changing the project.",
+      "description": "Import a Final Cut Pro / DaVinci Resolve FCPXML 1.x project or a CMX 3600 EDL into a new editable OpenChatCut timeline. The new timeline runs at the project frame rate; a sequence or list at another rate is converted, rounding cut points to the nearest frame. FCPXML times are converted to the new timeline through the sequence tcStart and every enclosing clip, gap, connected clip or storyline (lanes), compound clip (ref-clip), sync-clip, multicam clip (active angle) and audition (active pick), including rate conform and retime speed; source in-points are measured from each file's own start timecode. EDL events are placed from the list's record start: the hour boundary (e.g. 01:00:00:00) when the first record-in is within a minute of it, otherwise the first record-in, or startTimecode when given. EDLs do not record their frame rate: fps defaults to the current timeline's (29.97/59.94 for drop-frame lists). Referenced files must already exist in the current media pool; matching uses asset id, original path, source path, source filename, and asset name. Unresolved or ambiguous media aborts the import without changing the project. Titles, generators, captions, transitions, effects, disabled clips, and audio of a video file that its video clip cannot carry are not imported; the result lists every skipped element with its reason and warns about approximations.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5231,6 +5463,17 @@
           "activate": {
             "type": "boolean",
             "description": "Open the imported timeline after success; default true."
+          },
+          "fps": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 240,
+            "description": "EDL only: frame rate the list was written at, e.g. 25 or 29.97. Default: the current timeline fps."
+          },
+          "startTimecode": {
+            "type": "string",
+            "pattern": "^\\d{1,2}[:;]\\d{2}[:;]\\d{2}[:;.,]\\d{2}$",
+            "description": "EDL only: record timecode that becomes frame 0, e.g. \"01:00:00:00\" or \"00:59:50:00\"."
           }
         },
         "required": [
@@ -5794,7 +6037,7 @@
     },
     {
       "name": "load_skill",
-      "description": "Load one bundled or selected custom skill under the active model round input budget. Omit selectors for SKILL.md; if it is paged, follow nextOffset until null before support files. Use files=[...] for whole omitted files; page one file with file, offset, and limit. Bundled skills: ai-cinematic-short-film, asset-import, create-motion-graphics, explainer-video, export, gameplay-peaks, image-gen, known-errors, learn-my-fillers, livestream-to-clips, long-video-to-shorts, motion-graphic-placement, multi-clips-to-reels, music, music-intelligence, news-rough-cut, openchatcut-plugin-basics, product-ad-video-script, product-help, shader-gen, skill-creator, storyboard-shot-breakdown, talking-head-guide, transcription, verification, video-gen, video-thumbnail-generator, voice, widget-forms.",
+      "description": "Load one bundled or selected custom skill under the active model round input budget. Omit selectors for SKILL.md; if it is paged, follow nextOffset until null before support files. Exactly one selector per call: either files=[...] to load whole omitted files, or file with offset and limit to page a single file. Never send file and files in the same call. Bundled skills: ai-cinematic-short-film, asset-import, batch-montage-variants, beat-sync-montage, create-motion-graphics, ecommerce-product-montage, explainer-video, export, gameplay-peaks, image-gen, known-errors, learn-my-fillers, livestream-to-clips, long-video-to-shorts, motion-graphic-placement, multi-clips-to-reels, music, music-intelligence, news-rough-cut, openchatcut-plugin-basics, product-ad-video-script, product-help, shader-gen, skill-creator, storyboard-shot-breakdown, talking-head-guide, transcription, verification, video-gen, video-thumbnail-generator, voice, widget-forms.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5804,11 +6047,11 @@
           },
           "file": {
             "type": "string",
-            "description": "One safe relative file path to page; use returned nextOffset for the next call."
+            "description": "One safe relative file path to page; use returned nextOffset for the next call. Omit the key entirely when sending files; never pass an empty string."
           },
           "files": {
             "type": "array",
-            "description": "Optional safe relative paths from omittedFiles. When present, only these whole files are returned.",
+            "description": "Optional safe relative paths from omittedFiles. When present, only these whole files are returned. Omit the key entirely when paging with file; never pass an empty array.",
             "items": {
               "type": "string"
             },
@@ -5996,6 +6239,49 @@
           "timing",
           "density"
         ]
+      }
+    },
+    {
+      "name": "browse_local_media",
+      "description": "Browse local directories or search local media filenames before importing into the media pool. Desktop access is enabled by default and an explicit AGENT_IMPORT_ROOTS setting restricts it; a browser session requires that allowlist. Defaults to the home directory; pass an absolute path to browse a specific folder or drive. Returns directories and supported media paths, sizes, and modification times without importing. Use recursive with query/kind to find candidates, then import_assets for selected files. Follow nextOffset for more results. If truncated, browse narrower subdirectories; symlinks are not followed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute directory path; omitted means the user home directory."
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Case-insensitive substring of the relative file or directory path."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio",
+              "image",
+              "gif",
+              "svg"
+            ]
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "Search subdirectories, up to 12 levels and 10000 entries. Default false."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Page size; default 100."
+          }
+        }
       }
     },
     {

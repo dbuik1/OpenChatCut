@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { isolateVerifyHome } from '../../shared/verify-home.ts';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -54,12 +55,13 @@ function sessionId(result: CallToolResult): string {
 }
 
 const root = await mkdtemp(join(tmpdir(), 'occ-offline-mcp-'));
-const previousHome = process.env.HOME;
-process.env.HOME = root;
+const restoreHome = isolateVerifyHome(root);
 
-// The store captures HOME at module evaluation; delay these known modules so this
-// verification can never touch the user's real project data.
+// The store captures the profile home at module evaluation; delay these known
+// modules so this verification can never touch the user's real project data.
 const { getStoredEntry, setStoredEntry } = await import('../plugins/project-store.ts');
+const { resetSqliteStoreForTests } = await import('../storage/sqlite-store.ts');
+const { resetSearchForTests } = await import('../storage/fulltext-search.ts');
 const {
   registerEditor,
   resetExternalAgentBrokerForTest,
@@ -117,6 +119,13 @@ try {
     arguments: { editSessionId, ratio: '9:16', fit: 'contain' },
   });
   assert.notEqual(edit.isError, true);
+  // Catalog-driven tools must work over the real MCP transport too: the offline
+  // session's context carries the bundled template registry.
+  const templates = await client.callTool({ name: 'list_templates', arguments: { editSessionId } });
+  assert.notEqual(templates.isError, true);
+  const total = resultField(templates, 'total');
+  assert.equal(typeof total, 'number');
+  assert.ok(total > 100, `expected the bundled template catalog, got ${String(total)}`);
   const review = await client.callTool({
     name: 'review_edit_session',
     arguments: { editSessionId, summary: 'Vertical edit' },
@@ -173,8 +182,11 @@ try {
   resetExternalAgentBrokerForTest();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await getStoredEntry('projects');
-  if (previousHome === undefined) delete process.env.HOME;
-  else process.env.HOME = previousHome;
+  // The store and its search index each keep the SQLite fixture files open;
+  // Windows cannot remove the directory until both close.
+  resetSqliteStoreForTests();
+  resetSearchForTests();
+  restoreHome();
   await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 10 });
 }
 

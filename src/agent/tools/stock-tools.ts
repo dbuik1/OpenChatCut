@@ -3,6 +3,7 @@ import type { AgentContext } from '../context';
 import type { MediaAsset } from '../../editor/types';
 import { safeSourceFilename } from '../../media/sourceFilename';
 import { fallbackDuration, isHttpUrl, nameFromUrl, probeUrl, sniffKind, type PoolKind } from './stock-url-utils';
+import type { ProbeResult } from '../../../shared/media-probe';
 
 // Stock and URL ingest tools:
 // - download_media — url | url[] → local uploads + media pool
@@ -60,12 +61,28 @@ interface ImportUrlResponse {
   contentType?: string;
   filename?: string;
   error?: string;
+  code?: string;
+  /** Measured by the server's ffprobe at import time; absent for files ffprobe does not judge (svg, …). */
+  probe?: ProbeResult;
 }
 
-/** Server-side fetch → /media/uploads; falls back to remote URL on any failure. */
-async function materializeUrl(
-  url: string,
-): Promise<{ src: string; filename?: string; local: boolean; note?: string }> {
+type Materialized = {
+  src: string;
+  filename?: string;
+  local: boolean;
+  note?: string;
+  /** The URL can never become a playable asset: unreachable host, 4xx/5xx, or bytes that are not media. */
+  failed?: boolean;
+  probe?: ProbeResult;
+};
+
+/**
+ * Server-side fetch → /media/uploads; falls back to the remote URL when the file could
+ * not be cached but may still stream (a size limit, a disk error), because Chromium may
+ * still play it. An unreachable host or an origin that answered 4xx/5xx is a failure:
+ * the preview could not load it either, and export would fail on a missing source.
+ */
+async function materializeUrl(url: string): Promise<Materialized> {
   try {
     const res = await fetch('/api/import-url', {
       method: 'POST',
@@ -74,9 +91,15 @@ async function materializeUrl(
     });
     const body = (await res.json().catch(() => ({}))) as ImportUrlResponse;
     if (body.ok && typeof body.path === 'string' && body.path.startsWith('/media/')) {
-      return { src: body.path, filename: body.filename, local: true };
+      return { src: body.path, filename: body.filename, local: true, probe: body.probe };
     }
     const err = body.error ?? `import-url status ${res.status}`;
+    if (body.code === 'upstream_unreachable' || body.code === 'not_media') {
+      return { src: url, local: false, note: err, failed: true };
+    }
+    if (body.code === 'upstream_http') {
+      return { src: url, local: false, note: `该地址不可下载（${err}），请换一个可直接访问的素材地址`, failed: true };
+    }
     return { src: url, local: false, note: `remote src (import-url: ${err})` };
   } catch (e) {
     return {
@@ -88,13 +111,32 @@ async function materializeUrl(
 }
 
 type BatchRow =
-  | { success: true; assetId: string; name: string; type: string; src: string; local: boolean; note?: string }
+  | {
+    success: true; assetId: string; name: string; type: string; src: string; local: boolean; note?: string;
+    /** Measured by the local ffprobe at import time — the agent does not need a probe_media call for this file. */
+    probe?: ProbeResult;
+  }
   | { success: false; error: string; url?: string };
 
 function batchEnvelope(results: BatchRow[]) {
   const succeeded = results.filter((r) => r.success).length;
   const failed = results.length - succeeded;
   return { failed, succeeded, results };
+}
+
+/**
+ * Batches run their URLs one at a time and every URL gets a row. There is no batch time
+ * window: tool execution only counts against the run's step and tool timeouts (the AI SDK
+ * stops its chunk watchdog once the model response ends), and each URL is bounded on its
+ * own by the connect and response-header limits of /api/import-url.
+ */
+export async function serialBatch(
+  urls: readonly string[],
+  task: (url: string) => Promise<BatchRow>,
+): Promise<BatchRow[]> {
+  const results: BatchRow[] = [];
+  for (const url of urls) results.push(await task(url));
+  return results;
 }
 
 async function registerMediaUrl(
@@ -131,13 +173,20 @@ async function registerMediaUrl(
   let local = false;
   let note: string | undefined;
   let filename: string | undefined;
+  let probe: ProbeResult | undefined;
 
   if (kind !== 'motion-graphic' && !opts.forceRemote) {
     const mat = await materializeUrl(url);
+    if (mat.failed) return { success: false, error: mat.note ?? `无法连接到 ${url}`, url };
     src = mat.src;
     local = mat.local;
     note = mat.note;
     filename = mat.filename;
+    probe = mat.probe;
+  }
+  if (probe) {
+    if (opts.width == null && probe.width) opts.width = probe.width;
+    if (opts.height == null && probe.height) opts.height = probe.height;
   }
 
   let durationInFrames: number;
@@ -147,6 +196,10 @@ async function registerMediaUrl(
     durationInFrames = Math.max(1, Math.round(opts.duration * fps));
   } else if (kind === 'motion-graphic') {
     durationInFrames = Math.round(5 * fps);
+  } else if (probe?.durationSeconds) {
+    durationInFrames = Math.max(1, Math.round(probe.durationSeconds * fps));
+  } else if (probe && kind === 'image') {
+    durationInFrames = fallbackDuration(kind, fps);
   } else {
     try {
       const meta = await probeUrl(src, kind, fps);
@@ -192,6 +245,7 @@ async function registerMediaUrl(
     src: asset.src,
     local,
     note,
+    probe,
   };
 }
 
@@ -202,11 +256,7 @@ async function execDownloadMedia(args: Args, ctx: AgentContext): Promise<unknown
   const batchName = urls.length === 1 && typeof args.name === 'string' ? args.name : undefined;
   const type = typeof args.type === 'string' ? args.type : undefined;
 
-  const results: BatchRow[] = [];
-  for (const url of urls) {
-    results.push(await registerMediaUrl(url, { name: batchName, type }, ctx));
-  }
-  return batchEnvelope(results);
+  return batchEnvelope(await serialBatch(urls, (url) => registerMediaUrl(url, { name: batchName, type }, ctx)));
 }
 
 async function execPushAsset(args: Args, ctx: AgentContext): Promise<unknown> {
@@ -221,19 +271,15 @@ async function execPushAsset(args: Args, ctx: AgentContext): Promise<unknown> {
   const height = typeof args.height === 'number' ? args.height : undefined;
   const properties = Array.isArray(args.properties) ? args.properties : undefined;
 
-  const results: BatchRow[] = [];
-  for (const url of urls) {
-    results.push(await registerMediaUrl(url, {
-      name: batchName,
-      type,
-      duration,
-      durationInFrames,
-      width,
-      height,
-      properties,
-    }, ctx));
-  }
-  return batchEnvelope(results);
+  return batchEnvelope(await serialBatch(urls, (url) => registerMediaUrl(url, {
+    name: batchName,
+    type,
+    duration,
+    durationInFrames,
+    width,
+    height,
+    properties,
+  }, ctx)));
 }
 
 async function execImportUrlAsset(args: Args, ctx: AgentContext): Promise<unknown> {
